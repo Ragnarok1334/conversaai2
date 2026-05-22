@@ -9,6 +9,7 @@ import {
   Sparkles,
   Send,
 } from "lucide-react";
+import Link from "next/link";
 
 import { TypeAnimation } from "react-type-animation";
 import { ParticlesBackground } from "@/components/ParticlesBackground";
@@ -65,13 +66,12 @@ export function Hero() {
 
             {/* Buttons */}
             <div className="flex flex-wrap items-center gap-4 mt-2">
-              <button className="px-8 py-4 rounded-2xl text-white font-semibold text-lg bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(124,58,237,0.45)] flex items-center gap-2">
+              <Link href="/register" className="gradient-btn px-8 py-4 rounded-xl text-white font-semibold text-lg hover:scale-105 transition-transform glow-violet flex items-center gap-2">
                 Probar ConversaAI
-              </button>
-
-              <button className="px-8 py-4 rounded-2xl bg-white/[0.06] backdrop-blur-xl border border-white/10 text-white font-semibold text-lg hover:bg-white/10 transition-all duration-300">
+              </Link>
+              <Link href="/#funciones" className="px-8 py-4 rounded-xl bg-card-bg border border-card-border text-text-main font-semibold text-lg hover:bg-white/10 transition-colors">
                 Ver funciones
-              </button>
+              </Link>
             </div>
 
             {/* Small Info */}

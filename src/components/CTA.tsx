@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import { Sparkles, ArrowRight, Zap } from "lucide-react";
+import Link from "next/link";
 
 export function CTA() {
   return (
@@ -56,8 +57,8 @@ export function CTA() {
 
             {/* Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
-              <a
-                href="#precios"
+              <Link
+                href="/register"
                 className="group inline-flex items-center gap-3 px-10 py-5 rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white font-bold text-lg hover:scale-105 transition-all duration-300 shadow-[0_0_50px_rgba(124,58,237,0.45)]"
               >
                 <Sparkles className="w-5 h-5" />
@@ -65,7 +66,7 @@ export function CTA() {
                 Crear mi asistente IA
 
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
-              </a>
+              </Link>
 
               <a
                 href="#funciones"

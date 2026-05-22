@@ -2,6 +2,7 @@
 
 import { Check, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
+import Link from "next/link";
 
 export function Pricing() {
   const plans = [
@@ -133,15 +134,16 @@ export function Pricing() {
                 </ul>
               </div>
 
-              <button
-                className={`relative z-10 w-full mt-auto py-4 rounded-2xl font-semibold transition-all duration-300 ${
+              <Link
+                href={`/register?plan=${plan.name.toLowerCase()}`}
+                className={`relative z-10 w-full mt-auto py-4 rounded-2xl font-semibold transition-all duration-300 text-center inline-block ${
                   plan.popular
                     ? "bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white shadow-[0_0_40px_rgba(124,58,237,0.45)] hover:scale-105"
                     : "bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 hover:scale-105"
                 }`}
               >
-                {plan.name === "Empresarial" ? "Contratar empresarial" : plan.name === "Pro" ? "Contratar Pro" : "Contratar basico"}
-              </button>
+                {plan.name === "Empresarial" ? "Contratar plan" : plan.name === "Pro" ? "Contratar plan" : "Contratar plan"}
+              </Link>
             </motion.div>
           ))}
         </div>
