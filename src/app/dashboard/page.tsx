@@ -1,110 +1,186 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { signOut } from '@/app/auth/actions'
-import { LogOut, Plus, MessageSquare, Users, Bot } from 'lucide-react'
 import Link from 'next/link'
+import { Bot, MessageSquare, Users, Wifi, Plus, ArrowRight, TrendingUp, Clock } from 'lucide-react'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-
   const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (error || !user) {
-    redirect('/login')
-  }
+  if (error || !user) redirect('/login')
 
   const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'Usuario'
 
+  // Fetch real data
+  const [{ count: assistantCount }, { count: convCount }, { count: leadCount }] = await Promise.all([
+    supabase.from('assistants').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
+  ])
+
+  const { data: recentAssistants } = await supabase
+    .from('assistants')
+    .select('id, assistant_name, business_name, channel, status, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  const metrics = [
+    { label: 'Asistentes', value: assistantCount ?? 0, icon: Bot, color: 'violet', trend: '+1 este mes' },
+    { label: 'Conversaciones', value: convCount ?? 0, icon: MessageSquare, color: 'cyan', trend: 'Total acumulado' },
+    { label: 'Leads captados', value: leadCount ?? 0, icon: Users, color: 'pink', trend: 'Total acumulado' },
+    { label: 'Canales activos', value: 0, icon: Wifi, color: 'blue', trend: 'Próximamente' },
+  ]
+
+  const colorMap: Record<string, string> = {
+    violet: 'from-brand-violet/20 to-transparent border-brand-violet/20 text-brand-violet bg-brand-violet/10',
+    cyan:   'from-brand-cyan/20 to-transparent border-brand-cyan/20 text-brand-cyan bg-brand-cyan/10',
+    pink:   'from-brand-pink/20 to-transparent border-brand-pink/20 text-brand-pink bg-brand-pink/10',
+    blue:   'from-brand-blue/20 to-transparent border-brand-blue/20 text-brand-blue bg-brand-blue/10',
+  }
+
+  const channelLabel: Record<string, string> = {
+    webchat: 'Web Chat',
+    telegram: 'Telegram',
+    whatsapp: 'WhatsApp',
+  }
+
+  const now = new Date()
+  const hour = now.getHours()
+  const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches'
+
   return (
-    <div className="min-h-screen bg-dark-bg text-text-main flex flex-col">
-      {/* Dashboard Header */}
-      <header className="border-b border-card-border bg-dark-secondary/50 backdrop-blur-md sticky top-0 z-10">
-        <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-            <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center font-bold text-white">
-              C
-            </div>
-            <span className="text-xl font-bold tracking-tight">ConversaAI</span>
-          </Link>
-          
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-text-secondary hidden md:block">Hola, {userName}</span>
-            <form action={signOut}>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card-bg border border-card-border hover:bg-white/10 transition-colors text-sm font-medium">
-                <LogOut className="w-4 h-4" />
-                Cerrar sesión
-              </button>
-            </form>
-          </div>
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* Welcome */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-text-soft text-sm mb-1">{greeting} 👋</p>
+          <h1 className="text-3xl font-bold tracking-tight">{userName}</h1>
+          <p className="text-text-soft mt-1">Aquí tienes el resumen de tu actividad hoy.</p>
         </div>
-      </header>
+        <Link
+          href="/dashboard/create-assistant"
+          className="gradient-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold hover:scale-105 hover:opacity-90 transition-all glow-violet w-fit"
+        >
+          <Plus className="w-5 h-5" />
+          Crear asistente
+        </Link>
+      </div>
 
-      {/* Dashboard Content */}
-      <main className="flex-1 container mx-auto px-4 md:px-6 py-8 relative">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-brand-violet/10 rounded-full blur-[120px] pointer-events-none" />
-        
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Panel de Control</h1>
-            <p className="text-text-soft">Gestiona tus asistentes y analiza tu rendimiento.</p>
-          </div>
-          <button className="gradient-btn px-6 py-3 rounded-xl text-white font-semibold flex items-center gap-2 glow-violet hover:scale-105 transition-transform w-fit">
-            <Plus className="w-5 h-5" />
-            Crear asistente
-          </button>
-        </div>
-
-        {/* Metrics Cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6 glow-violet relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-brand-violet/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-text-secondary font-medium">Asistentes creados</h3>
-              <div className="w-10 h-10 rounded-full bg-brand-violet/20 flex items-center justify-center text-brand-violet">
-                <Bot className="w-5 h-5" />
+      {/* Metrics Grid */}
+      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        {metrics.map((m) => {
+          const classes = colorMap[m.color]
+          const [fromClass, , borderClass, textClass, bgClass] = classes.split(' ')
+          return (
+            <div
+              key={m.label}
+              className={`relative overflow-hidden rounded-2xl p-6 bg-card-bg/80 backdrop-blur-2xl border ${borderClass} group hover:-translate-y-1 transition-transform`}
+            >
+              <div className={`absolute inset-0 bg-gradient-to-br ${fromClass} to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
+              <div className="relative z-10">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-medium text-text-soft">{m.label}</span>
+                  <div className={`w-10 h-10 rounded-xl ${bgClass} flex items-center justify-center`}>
+                    <m.icon className={`w-5 h-5 ${textClass}`} />
+                  </div>
+                </div>
+                <p className="text-4xl font-bold mb-1">{m.value.toLocaleString()}</p>
+                <p className="text-xs text-text-soft flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-brand-success" />
+                  {m.trend}
+                </p>
               </div>
             </div>
-            <p className="text-4xl font-bold">1</p>
-            <p className="text-sm text-brand-success mt-2">+1 este mes</p>
+          )
+        })}
+      </div>
+
+      {/* Two columns */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Recent assistants */}
+        <div className="lg:col-span-2 bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-semibold">Asistentes recientes</h2>
+            <Link href="/dashboard/assistants" className="text-sm text-brand-cyan hover:underline flex items-center gap-1">
+              Ver todos <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
 
-          <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6 glow-cyan relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-brand-cyan/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-text-secondary font-medium">Conversaciones</h3>
-              <div className="w-10 h-10 rounded-full bg-brand-cyan/20 flex items-center justify-center text-brand-cyan">
-                <MessageSquare className="w-5 h-5" />
-              </div>
+          {recentAssistants && recentAssistants.length > 0 ? (
+            <div className="space-y-3">
+              {recentAssistants.map((a) => (
+                <Link
+                  key={a.id}
+                  href={`/dashboard/assistants/${a.id}`}
+                  className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.04] transition-colors group"
+                >
+                  <div className="w-10 h-10 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    {a.assistant_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{a.assistant_name}</p>
+                    <p className="text-xs text-text-soft truncate">{a.business_name}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs px-2 py-1 rounded-full bg-white/[0.06] border border-white/10 text-text-soft">
+                      {channelLabel[a.channel] || a.channel}
+                    </span>
+                    <span className={`w-2 h-2 rounded-full ${a.status === 'active' ? 'bg-brand-success' : 'bg-text-soft'}`} />
+                  </div>
+                </Link>
+              ))}
             </div>
-            <p className="text-4xl font-bold">1,248</p>
-            <p className="text-sm text-brand-success mt-2">+12% vs mes anterior</p>
-          </div>
-
-          <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6 glow-violet relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-br from-brand-pink/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-text-secondary font-medium">Leads generados</h3>
-              <div className="w-10 h-10 rounded-full bg-brand-pink/20 flex items-center justify-center text-brand-pink">
-                <Users className="w-5 h-5" />
+          ) : (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 rounded-2xl gradient-btn/20 border border-brand-violet/20 flex items-center justify-center mx-auto mb-4">
+                <Bot className="w-8 h-8 text-brand-violet/60" />
               </div>
+              <p className="font-semibold mb-1">Aún no tienes asistentes</p>
+              <p className="text-sm text-text-soft mb-4">Crea tu primer asistente de IA en minutos</p>
+              <Link
+                href="/dashboard/create-assistant"
+                className="gradient-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-opacity"
+              >
+                <Plus className="w-4 h-4" />
+                Crear asistente
+              </Link>
             </div>
-            <p className="text-4xl font-bold">342</p>
-            <p className="text-sm text-brand-success mt-2">+18% vs mes anterior</p>
-          </div>
+          )}
         </div>
 
-        {/* Empty State / Activity */}
-        <div className="bg-dark-secondary border border-card-border rounded-2xl p-8 text-center">
-          <Bot className="w-16 h-16 text-text-soft mx-auto mb-4 opacity-50" />
-          <h3 className="text-xl font-bold mb-2">Tu asistente está funcionando</h3>
-          <p className="text-text-secondary max-w-md mx-auto mb-6">
-            Actualmente tu asistente "Soporte Ventas" está activo en 2 canales (Web, WhatsApp) y respondiendo a tus clientes.
-          </p>
-          <button className="px-6 py-2.5 rounded-xl bg-card-bg border border-card-border text-text-main hover:bg-white/10 transition-colors">
-            Ver configuración del asistente
-          </button>
+        {/* Quick actions */}
+        <div className="space-y-4">
+          <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6">
+            <h2 className="text-lg font-semibold mb-4">Acciones rápidas</h2>
+            <div className="space-y-3">
+              <Link href="/dashboard/create-assistant" className="flex items-center gap-3 p-3 rounded-xl bg-brand-violet/10 border border-brand-violet/20 hover:bg-brand-violet/20 transition-colors group">
+                <Plus className="w-5 h-5 text-brand-violet" />
+                <span className="text-sm font-medium">Crear asistente</span>
+                <ArrowRight className="w-4 h-4 ml-auto text-brand-violet/60 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link href="/dashboard/assistants" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.04] transition-colors group">
+                <Bot className="w-5 h-5 text-text-soft" />
+                <span className="text-sm font-medium text-text-soft">Mis asistentes</span>
+                <ArrowRight className="w-4 h-4 ml-auto text-text-soft/40 group-hover:translate-x-1 transition-transform" />
+              </Link>
+              <Link href="/dashboard/leads" className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/[0.04] transition-colors group">
+                <Users className="w-5 h-5 text-text-soft" />
+                <span className="text-sm font-medium text-text-soft">Ver leads</span>
+                <ArrowRight className="w-4 h-4 ml-auto text-text-soft/40 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-brand-violet/20 via-brand-blue/10 to-brand-cyan/10 border border-brand-violet/20 rounded-2xl p-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="w-5 h-5 text-brand-cyan" />
+              <span className="font-semibold text-sm">Próximamente</span>
+            </div>
+            <p className="text-xs text-text-soft">Integración con Telegram, WhatsApp Business y Web Chat Widget disponible en la próxima actualización.</p>
+          </div>
         </div>
-      </main>
+      </div>
     </div>
   )
 }
