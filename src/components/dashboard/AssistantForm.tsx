@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Loader2, CheckCircle2, ChevronDown } from 'lucide-react'
+import { Loader2, CheckCircle2, ChevronDown, MessageCircle, Clock } from 'lucide-react'
 import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
+import { KnowledgeSection } from '@/components/dashboard/KnowledgeSection'
 import { type AssistantConfig } from '@/lib/openai'
 
 const TONES = ['profesional', 'amable', 'vendedor', 'breve', 'elegante']
@@ -228,23 +229,28 @@ export function AssistantForm() {
           </FormField>
         </div>
 
-        {/* Section 3 */}
+        {/* Section 3 — Premium Knowledge */}
+        <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6">
+          <KnowledgeSection
+            value={form.instructions}
+            onChange={set('instructions')}
+          />
+        </div>
+
+        {/* Section 4 — Additional config */}
         <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6 space-y-5">
-          <h2 className="font-semibold text-lg border-b border-white/[0.06] pb-3">Conocimiento del asistente</h2>
-          <FormField label="Instrucciones del asistente" hint="Describe cómo debe comportarse y qué puede/no puede decir.">
-            <TextAreaInput value={form.instructions} onChange={set('instructions')} placeholder="Este asistente debe ayudar a los clientes a agendar citas..." rows={4} />
-          </FormField>
-          <FormField label="Productos o servicios" hint="Lista tus productos, precios y características principales.">
-            <TextAreaInput value={form.services} onChange={set('services')} placeholder="- Plan Básico: $29/mes — 1 asistente..." rows={3} />
-          </FormField>
-          <FormField label="Preguntas frecuentes" hint="Formato: P: pregunta / R: respuesta">
-            <TextAreaInput value={form.faqs} onChange={set('faqs')} placeholder="P: ¿Tienen prueba gratis? R: Sí, 14 días..." rows={3} />
-          </FormField>
-          <FormField label="Horario de atención">
+          <div className="flex items-center gap-2 border-b border-white/[0.06] pb-3">
+            <Clock className="w-4 h-4 text-brand-cyan" />
+            <h2 className="font-semibold text-lg">Configuración adicional</h2>
+          </div>
+          <FormField label="Horario de atención" hint="Ej: Lunes a viernes 9am - 6pm (GMT-5). Domingos cerrado.">
             <TextInput value={form.schedule} onChange={set('schedule')} placeholder="Lunes a Viernes 9am - 6pm (GMT-5)" />
           </FormField>
-          <FormField label="Mensaje cuando no sabe la respuesta">
-            <TextAreaInput value={form.fallback_message} onChange={set('fallback_message')} rows={2} />
+          <FormField label="Mensaje de respaldo" hint="Qué responde cuando no tiene la información.">
+            <div className="relative">
+              <MessageCircle className="absolute left-3 top-3.5 w-4 h-4 text-text-soft pointer-events-none" />
+              <TextAreaInput value={form.fallback_message} onChange={set('fallback_message')} rows={2} placeholder="Lo siento, no tengo esa información. ¿Puedo contactarte con un asesor?" />
+            </div>
           </FormField>
         </div>
 
