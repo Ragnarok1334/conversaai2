@@ -83,14 +83,14 @@ function TextInput({ value, onChange, placeholder, type, required, id }: {
   )
 }
 
-function TextAreaInput({ value, onChange, placeholder, rows = 3 }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
+function TextAreaInput({ value, onChange, placeholder, rows = 3, className = '' }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; className?: string }) {
   return (
     <textarea
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-3 text-sm text-text-main placeholder:text-text-soft/40 focus:outline-none focus:border-brand-violet/40 focus:ring-1 focus:ring-brand-violet/20 transition-all resize-y"
+      className={`w-full bg-white/[0.04] border border-white/[0.1] rounded-xl px-4 py-3 text-sm text-text-main placeholder:text-text-soft/40 focus:outline-none focus:border-brand-violet/40 focus:ring-1 focus:ring-brand-violet/20 transition-all resize-y ${className}`}
     />
   )
 }
@@ -248,8 +248,8 @@ export function AssistantForm() {
           </FormField>
           <FormField label="Mensaje de respaldo" hint="Qué responde cuando no tiene la información.">
             <div className="relative">
-              <MessageCircle className="absolute left-3 top-3.5 w-4 h-4 text-text-soft pointer-events-none" />
-              <TextAreaInput value={form.fallback_message} onChange={set('fallback_message')} rows={2} placeholder="Lo siento, no tengo esa información. ¿Puedo contactarte con un asesor?" />
+              <MessageCircle className="absolute left-4 top-3.5 w-4 h-4 text-text-soft pointer-events-none" />
+              <TextAreaInput className="pl-11" value={form.fallback_message} onChange={set('fallback_message')} rows={2} placeholder="Lo siento, no tengo esa información. ¿Puedo contactarte con un asesor?" />
             </div>
           </FormField>
         </div>

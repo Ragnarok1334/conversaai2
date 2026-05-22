@@ -278,13 +278,15 @@ export function KnowledgeSection({ value, onChange }: KnowledgeSectionProps) {
       </div>
 
       {/* ── What to include ── */}
-      <div className="bg-card-bg/60 backdrop-blur border border-white/[0.08] rounded-2xl p-5 space-y-4">
+      <div className="bg-card-bg/60 backdrop-blur border border-white/[0.08] rounded-2xl p-6 space-y-4">
         <p className="text-sm font-semibold text-text-secondary">¿Qué debes incluir?</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
           {WHAT_TO_INCLUDE.map((item) => (
-            <div key={item.label} className="flex items-center gap-2 text-xs text-text-soft px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-              <span className="text-brand-cyan opacity-70">{item.icon}</span>
-              {item.label}
+            <div key={item.label} className="flex items-center gap-3 text-xs text-text-soft p-3 rounded-xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.05] hover:border-brand-violet/30 transition-all group">
+              <div className="w-8 h-8 rounded-lg bg-white/[0.04] group-hover:bg-brand-cyan/10 flex items-center justify-center shrink-0 transition-colors">
+                <span className="text-brand-cyan opacity-80 group-hover:opacity-100 transition-opacity">{item.icon}</span>
+              </div>
+              <span className="font-medium leading-snug">{item.label}</span>
             </div>
           ))}
         </div>
@@ -378,14 +380,14 @@ export function KnowledgeSection({ value, onChange }: KnowledgeSectionProps) {
       </div>
 
       {/* ── Quick tips ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
         {QUICK_TIPS.map((tip) => (
           <div
             key={tip.text}
-            className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] text-xs text-text-soft"
+            className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs text-text-soft hover:bg-white/[0.05] transition-colors"
           >
-            <span className={tip.color}>{tip.icon}</span>
-            {tip.text}
+            <span className={`shrink-0 ${tip.color}`}>{tip.icon}</span>
+            <span className="leading-snug">{tip.text}</span>
           </div>
         ))}
       </div>
