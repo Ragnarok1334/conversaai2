@@ -66,7 +66,7 @@ export function Hero() {
             <BlurFade delay={0.2}>
               {/* Title */}
               <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight tracking-[-0.04em]">
-                Convierte mensajes en clientes con{" "}
+                Convierte cada mensaje en una oportunidad de venta{" "}
                 <AnimatedGradientText>
                   inteligencia artificial
                 </AnimatedGradientText>
@@ -76,7 +76,7 @@ export function Hero() {
             <BlurFade delay={0.3}>
               {/* Description */}
               <p className="text-lg text-[#CBD5E1] max-w-xl leading-relaxed">
-                Automatiza respuestas, capta leads y atiende clientes 24/7 desde Web Chat, Telegram y WhatsApp con asistentes de IA personalizados para tu negocio.
+                Atiende consultas, captura datos de clientes y responde al instante desde Web Chat, Telegram y WhatsApp, incluso fuera de horario.
               </p>
             </BlurFade>
 
