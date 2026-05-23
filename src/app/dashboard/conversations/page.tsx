@@ -1,17 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
-import { MessageSquare, Globe, Send, MessageCircle, Clock, Bot, AlertCircle } from 'lucide-react'
+import { MessageSquare, Globe, Send, MessageCircle, Clock, Bot, Plus, Settings } from 'lucide-react'
+import Link from 'next/link'
 
 const channelIcon: Record<string, React.ReactNode> = {
   webchat:  <Globe className="w-4 h-4" />,
   telegram: <Send className="w-4 h-4" />,
   whatsapp: <MessageCircle className="w-4 h-4" />,
 }
-
-const MOCK_CONVERSATIONS = [
-  { id: 'm1', channel: 'webchat', last_message: '¿Cuáles son sus horarios de atención?', created_at: new Date().toISOString(), assistant: { assistant_name: 'Asistente Demo', business_name: 'Mi Negocio' } },
-  { id: 'm2', channel: 'whatsapp', last_message: 'Me interesa el Plan Pro, ¿pueden llamarme?', created_at: new Date(Date.now() - 3600000).toISOString(), assistant: { assistant_name: 'Asistente Demo', business_name: 'Mi Negocio' } },
-  { id: 'm3', channel: 'telegram', last_message: 'Quiero agendar una cita para mañana.', created_at: new Date(Date.now() - 86400000).toISOString(), assistant: { assistant_name: 'Asistente Demo', business_name: 'Mi Negocio' } },
-]
 
 export default async function ConversationsPage() {
   const supabase = await createClient()
@@ -23,8 +18,7 @@ export default async function ConversationsPage() {
     .eq('user_id', user!.id)
     .order('created_at', { ascending: false })
 
-  const conversations = (dbConvs && dbConvs.length > 0) ? dbConvs : MOCK_CONVERSATIONS
-  const isDemo = !dbConvs || dbConvs.length === 0
+  const conversations = dbConvs || []
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
@@ -32,63 +26,78 @@ export default async function ConversationsPage() {
         <h1 className="text-3xl font-bold tracking-tight">Conversaciones</h1>
         <p className="text-text-soft mt-1">
           Historial de interacciones con tus asistentes.
-          {isDemo && <span className="ml-2 text-brand-cyan text-xs font-medium px-2 py-0.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/20">Vista demo</span>}
         </p>
       </div>
 
-      {/* Summary bar */}
-      <div className="flex items-center gap-4 text-sm">
-        <span className="flex items-center gap-1.5 text-text-soft">
-          <MessageSquare className="w-4 h-4 text-brand-violet" />
-          {conversations.length} conversacion{conversations.length !== 1 ? 'es' : ''}
-        </span>
-        {isDemo && (
-          <div className="flex items-center gap-1.5 text-brand-cyan text-xs">
-            <AlertCircle className="w-3.5 h-3.5" />
-            Datos de ejemplo — activa tu asistente para ver conversaciones reales
+      {conversations.length > 0 ? (
+        <>
+          {/* Summary bar */}
+          <div className="flex items-center gap-4 text-sm">
+            <span className="flex items-center gap-1.5 text-text-soft">
+              <MessageSquare className="w-4 h-4 text-brand-violet" />
+              {conversations.length} conversacion{conversations.length !== 1 ? 'es' : ''}
+            </span>
           </div>
-        )}
-      </div>
 
-      {/* List */}
-      <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl overflow-hidden divide-y divide-white/[0.05]">
-        {conversations.map((conv) => {
-          const icon = channelIcon[conv.channel || 'webchat'] || channelIcon.webchat
-          const timeAgo = getTimeAgo(conv.created_at)
-          const assistantObj = conv.assistant as { assistant_name?: string; business_name?: string } | null
+          {/* List */}
+          <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl overflow-hidden divide-y divide-white/[0.05]">
+            {conversations.map((conv) => {
+              const icon = channelIcon[conv.channel || 'webchat'] || channelIcon.webchat
+              const timeAgo = getTimeAgo(conv.created_at)
+              const assistantObj = conv.assistant as { assistant_name?: string; business_name?: string } | null
 
-          return (
-            <div key={conv.id} className="flex gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors group">
-              {/* Channel icon */}
-              <div className="w-11 h-11 rounded-xl gradient-btn flex items-center justify-center flex-shrink-0 shadow-[0_0_20px_rgba(124,58,237,0.2)]">
-                <span className="text-white">{icon}</span>
-              </div>
+              return (
+                <div key={conv.id} className="flex gap-4 px-6 py-4 hover:bg-white/[0.02] transition-colors group">
+                  {/* Channel icon */}
+                  <div className="w-11 h-11 rounded-xl gradient-btn flex items-center justify-center flex-shrink-0 shadow-[0_0_20px_rgba(124,58,237,0.2)]">
+                    <span className="text-white">{icon}</span>
+                  </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium">{assistantObj?.assistant_name || 'Asistente'}</span>
-                  <span className="text-xs text-text-soft">·</span>
-                  <span className="text-xs text-text-soft capitalize">{conv.channel || 'webchat'}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium">{assistantObj?.assistant_name || 'Asistente'}</span>
+                      <span className="text-xs text-text-soft">·</span>
+                      <span className="text-xs text-text-soft capitalize">{conv.channel || 'webchat'}</span>
+                    </div>
+                    <p className="text-sm text-text-soft truncate">{conv.last_message || 'Sin mensajes'}</p>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 text-xs text-text-soft flex-shrink-0">
+                    <Clock className="w-3.5 h-3.5" />
+                    {timeAgo}
+                  </div>
                 </div>
-                <p className="text-sm text-text-soft truncate">{conv.last_message || 'Sin mensajes'}</p>
-              </div>
-
-              <div className="flex items-center gap-1.5 text-xs text-text-soft flex-shrink-0">
-                <Clock className="w-3.5 h-3.5" />
-                {timeAgo}
-              </div>
-            </div>
-          )
-        })}
-
-        {conversations.length === 0 && (
-          <div className="text-center py-20">
-            <Bot className="w-12 h-12 text-text-soft/30 mx-auto mb-4" />
-            <p className="font-semibold">No hay conversaciones aún</p>
-            <p className="text-sm text-text-soft">Las conversaciones aparecerán aquí cuando tu asistente empiece a responder clientes.</p>
+              )
+            })}
           </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-12 text-center max-w-2xl mx-auto mt-12 shadow-[0_0_50px_rgba(124,58,237,0.05)]">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-violet/20 to-brand-cyan/20 border border-brand-violet/30 flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(124,58,237,0.2)]">
+            <MessageSquare className="w-10 h-10 text-brand-violet" />
+          </div>
+          <h2 className="text-2xl font-bold mb-3">Aún no tienes conversaciones</h2>
+          <p className="text-text-secondary mb-8">
+            Las conversaciones aparecerán aquí cuando tus asistentes empiecen a responder clientes.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link 
+              href="/dashboard/create-assistant"
+              className="w-full sm:w-auto gradient-btn px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Crear asistente
+            </Link>
+            <Link 
+              href="/dashboard/settings"
+              className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/[0.04] border border-white/[0.1] hover:bg-white/[0.08] transition-colors text-text-main font-semibold flex items-center justify-center gap-2"
+            >
+              <Settings className="w-4 h-4 text-text-soft" />
+              Configurar Web Chat
+            </Link>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

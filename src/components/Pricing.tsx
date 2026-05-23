@@ -123,10 +123,11 @@ export function Pricing() {
                 )}
                 {plan.key === 'enterprise' && (
                   <Link
-                    href="mailto:ventas@conversaai.com"
+                    href="https://wa.me/5215512345678?text=Hola,%20me%20interesa%20el%20plan%20Enterprise"
+                    target="_blank"
                     className="w-full py-3.5 rounded-xl font-semibold transition-all duration-300 text-center inline-block bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 hover:scale-[1.02]"
                   >
-                    Contactar ventas
+                    Contactar por WhatsApp
                   </Link>
                 )}
               </div>

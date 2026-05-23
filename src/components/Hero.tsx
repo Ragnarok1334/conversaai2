@@ -10,11 +10,22 @@ import {
   Send,
 } from "lucide-react";
 import Link from "next/link";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 
 import { TypeAnimation } from "react-type-animation";
 import { ParticlesBackground } from "@/components/ParticlesBackground";
 
 export function Hero() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data }) => {
+      setIsLoggedIn(!!data.session);
+    });
+  }, []);
+
   return (
     <section className="relative min-h-screen pt-32 pb-24 flex items-center overflow-hidden bg-[#050816]">
 
@@ -66,7 +77,7 @@ export function Hero() {
 
             {/* Buttons */}
             <div className="flex flex-wrap items-center gap-4 mt-2">
-              <Link href="/register" className="gradient-btn px-8 py-4 rounded-xl text-white font-semibold text-lg hover:scale-105 transition-transform glow-violet flex items-center gap-2">
+              <Link href={isLoggedIn ? "/dashboard/create-assistant" : "/register"} className="gradient-btn px-8 py-4 rounded-xl text-white font-semibold text-lg hover:scale-105 transition-transform glow-violet flex items-center gap-2">
                 Probar ConversaAI
               </Link>
               <Link href="/#funciones" className="px-8 py-4 rounded-xl bg-card-bg border border-card-border text-text-main font-semibold text-lg hover:bg-white/10 transition-colors">

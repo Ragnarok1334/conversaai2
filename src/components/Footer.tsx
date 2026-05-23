@@ -1,13 +1,10 @@
 "use client";
 
 import {
-  MessageCircle,
-  Camera,
-  Briefcase,
-  Code,
   Sparkles,
   ArrowUpRight,
 } from "lucide-react";
+import Link from "next/link";
 
 export function Footer() {
   const productLinks = [
@@ -15,36 +12,6 @@ export function Footer() {
     { name: "Precios", href: "#precios" },
     { name: "Casos de uso", href: "#casos" },
     { name: "FAQ", href: "#faq" },
-  ];
-
-  const companyLinks = [
-    { name: "Sobre nosotros", href: "#" },
-    { name: "Contacto", href: "#" },
-    { name: "Partners", href: "#" },
-    { name: "Soporte", href: "#" },
-  ];
-
-  const socialLinks = [
-    {
-      icon: <MessageCircle className="w-5 h-5" />,
-      href: "#",
-      label: "WhatsApp",
-    },
-    {
-      icon: <Camera className="w-5 h-5" />,
-      href: "#",
-      label: "Instagram",
-    },
-    {
-      icon: <Briefcase className="w-5 h-5" />,
-      href: "#",
-      label: "LinkedIn",
-    },
-    {
-      icon: <Code className="w-5 h-5" />,
-      href: "#",
-      label: "Desarrolladores",
-    },
   ];
 
   return (
@@ -59,8 +26,8 @@ export function Footer() {
         <div className="rounded-[2rem] bg-white/[0.04] backdrop-blur-2xl border border-white/10 p-8 md:p-10 shadow-[0_0_60px_rgba(124,58,237,0.08)] mb-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
             {/* Brand */}
-            <div className="col-span-1 md:col-span-2">
-              <a href="#" className="flex items-center gap-3 mb-6 group w-fit">
+            <div className="col-span-1 md:col-span-3">
+              <Link href="/" className="flex items-center gap-3 mb-6 group w-fit">
                 <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] flex items-center justify-center font-bold text-white shadow-[0_0_30px_rgba(124,58,237,0.45)] group-hover:scale-105 transition-transform duration-300">
                   C
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#06B6D4] blur-xl opacity-40 -z-10" />
@@ -69,7 +36,7 @@ export function Footer() {
                 <span className="text-2xl font-bold text-white tracking-tight">
                   Conversa<span className="text-[#06B6D4]">AI</span>
                 </span>
-              </a>
+              </Link>
 
               <p className="text-[#94A3B8] max-w-md mb-8 leading-relaxed">
                 Automatiza tus conversaciones con inteligencia artificial.
@@ -81,19 +48,6 @@ export function Footer() {
                 <Sparkles className="w-4 h-4 text-[#06B6D4]" />
                 IA para ventas, soporte y automatización
               </div>
-
-              <div className="flex items-center gap-4">
-                {socialLinks.map((item) => (
-                  <a
-                    key={item.label}
-                    href={item.href}
-                    aria-label={item.label}
-                    className="w-11 h-11 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white hover:border-[#06B6D4]/50 hover:bg-white/[0.08] hover:-translate-y-1 transition-all duration-300"
-                  >
-                    {item.icon}
-                  </a>
-                ))}
-              </div>
             </div>
 
             {/* Product */}
@@ -102,25 +56,6 @@ export function Footer() {
 
               <ul className="space-y-4">
                 {productLinks.map((link) => (
-                  <li key={link.name}>
-                    <a
-                      href={link.href}
-                      className="group inline-flex items-center gap-2 text-[#94A3B8] hover:text-[#06B6D4] transition-colors"
-                    >
-                      {link.name}
-                      <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Company */}
-            <div>
-              <h4 className="font-semibold text-white mb-6">Compañía</h4>
-
-              <ul className="space-y-4">
-                {companyLinks.map((link) => (
                   <li key={link.name}>
                     <a
                       href={link.href}
@@ -144,19 +79,19 @@ export function Footer() {
           </p>
 
           <div className="flex items-center gap-6">
-            <a
-              href="#"
+            <Link
+              href="/privacy"
               className="text-[#94A3B8] hover:text-white transition-colors"
             >
               Privacidad
-            </a>
+            </Link>
 
-            <a
-              href="#"
+            <Link
+              href="/terms"
               className="text-[#94A3B8] hover:text-white transition-colors"
             >
               Términos
-            </a>
+            </Link>
           </div>
         </div>
       </div>
