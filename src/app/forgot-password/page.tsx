@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Mail, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { resetPassword } from '@/app/auth/actions'
 
 export default function ForgotPasswordPage() {
@@ -56,10 +57,8 @@ export default function ForgotPasswordPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md"
       >
-        <Link href="/" className="flex items-center gap-2 mb-8 justify-center hover:opacity-80 transition-opacity">
-          <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center font-bold text-white shadow-[0_0_15px_rgba(124,58,237,0.5)]">
-            C
-          </div>
+        <Link href="/" className="flex items-center gap-2.5 mb-8 justify-center hover:opacity-80 transition-opacity">
+          <Image src="/logo.png" alt="ConversaAI logo" width={38} height={38} className="rounded-lg shadow-[0_0_15px_rgba(124,58,237,0.5)]" priority />
           <span className="text-2xl font-bold text-text-main tracking-tight">
             ConversaAI
           </span>

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Menu, X, LogOut, LayoutDashboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { signOut } from "@/app/auth/actions";
 import { User } from "@supabase/supabase-js";
@@ -54,10 +55,8 @@ export function Header() {
       }`}
     >
       <div className="container mx-auto px-4 md:px-6 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-          <div className="w-8 h-8 rounded-lg gradient-btn flex items-center justify-center font-bold text-white shadow-[0_0_15px_rgba(124,58,237,0.5)]">
-            C
-          </div>
+        <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+          <Image src="/logo.png" alt="ConversaAI logo" width={34} height={34} className="rounded-lg" priority />
           <span className="text-xl font-bold text-text-main tracking-tight">
             ConversaAI
           </span>

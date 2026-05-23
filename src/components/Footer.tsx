@@ -8,6 +8,7 @@ import {
   Mail,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { CONTACT_INFO } from "@/lib/contact";
 
 export function Footer() {
@@ -51,8 +52,8 @@ export function Footer() {
             {/* Brand */}
             <div className="col-span-1 md:col-span-3">
               <Link href="/" className="flex items-center gap-3 mb-6 group w-fit">
-                <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] flex items-center justify-center font-bold text-white shadow-[0_0_30px_rgba(124,58,237,0.45)] group-hover:scale-105 transition-transform duration-300">
-                  C
+                <div className="relative w-11 h-11 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.45)] group-hover:scale-105 transition-transform duration-300">
+                  <Image src="/logo.png" alt="ConversaAI logo" width={44} height={44} className="rounded-2xl" />
                   <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#06B6D4] blur-xl opacity-40 -z-10" />
                 </div>
 

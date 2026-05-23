@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
@@ -33,9 +34,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-6 py-6 border-b border-white/[0.06]">
         <Link href="/" className="flex items-center gap-3 group">
-          <div className="w-9 h-9 rounded-xl gradient-btn flex items-center justify-center font-bold text-white text-sm shadow-[0_0_20px_rgba(124,58,237,0.4)]">
-            C
-          </div>
+          <Image src="/logo.png" alt="ConversaAI logo" width={36} height={36} className="rounded-xl shadow-[0_0_20px_rgba(124,58,237,0.4)]" />
           <span className="text-lg font-bold tracking-tight">ConversaAI</span>
         </Link>
       </div>
