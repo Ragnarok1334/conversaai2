@@ -5,6 +5,7 @@ import {
   plansMessage,
   contactMessage,
   demoMessage,
+  commandsMessage,
   fallbackMessage,
 } from "@/lib/telegram/messages";
 import {
@@ -12,10 +13,11 @@ import {
   contactKeyboard,
   plansKeyboard,
   demoKeyboard,
+  commandsKeyboard,
 } from "@/lib/telegram/keyboards";
 import { generateConversaBotReply } from "@/lib/telegram/openai-bot";
 
-// ─── Lead Saving (best-effort, non-blocking) ─────────────────────────────────
+// ─── Lead Saving (best-effort, non-blocking) ──────────────────────────────────
 async function saveTelegramLead(
   telegramUserId: string,
   username: string | undefined,
@@ -24,10 +26,8 @@ async function saveTelegramLead(
   message: string
 ) {
   try {
-    // Dynamic import to avoid build-time issues if supabase server is unavailable
     const { createClient } = await import("@/lib/supabase/server");
     const supabase = await createClient();
-
     await supabase.from("telegram_bot_leads").insert({
       telegram_user_id: telegramUserId,
       username: username ?? null,
@@ -36,13 +36,12 @@ async function saveTelegramLead(
       message,
       source: "telegram_official_bot",
     });
-  } catch (err) {
-    // Non-blocking — bot continues regardless of DB errors
-    console.warn("[ConversaBot] Could not save lead:", err);
+  } catch (err: any) {
+    console.warn("[ConversaBot] Could not save lead:", err?.message ?? err);
   }
 }
 
-// ─── Bot Factory ─────────────────────────────────────────────────────────────
+// ─── Bot Factory ──────────────────────────────────────────────────────────────
 export function createConversaBot(): Bot {
   const token = process.env.TELEGRAM_BOT_TOKEN;
 
@@ -54,17 +53,17 @@ export function createConversaBot(): Bot {
 
   const bot = new Bot(token);
 
-  // ── /start ──────────────────────────────────────────────────────────────────
+  // ── /start ────────────────────────────────────────────────────────────────────
   bot.command("start", async (ctx) => {
     const user = ctx.from;
     if (user) {
-      await saveTelegramLead(
+      saveTelegramLead(
         String(user.id),
         user.username,
         user.first_name,
         user.last_name,
         "/start"
-      );
+      ).catch(() => {}); // fire-and-forget
     }
 
     await ctx.reply(welcomeMessage, {
@@ -73,7 +72,7 @@ export function createConversaBot(): Bot {
     });
   });
 
-  // ── /help ───────────────────────────────────────────────────────────────────
+  // ── /help ─────────────────────────────────────────────────────────────────────
   bot.command("help", async (ctx) => {
     await ctx.reply(helpMessage, {
       parse_mode: "Markdown",
@@ -81,17 +80,17 @@ export function createConversaBot(): Bot {
     });
   });
 
-  // ── /plans ──────────────────────────────────────────────────────────────────
+  // ── /plans ────────────────────────────────────────────────────────────────────
   bot.command("plans", async (ctx) => {
     const user = ctx.from;
     if (user) {
-      await saveTelegramLead(
+      saveTelegramLead(
         String(user.id),
         user.username,
         user.first_name,
         user.last_name,
         "/plans"
-      );
+      ).catch(() => {});
     }
 
     await ctx.reply(plansMessage, {
@@ -100,15 +99,28 @@ export function createConversaBot(): Bot {
     });
   });
 
-  // ── /contact ─────────────────────────────────────────────────────────────────
+  // ── /contact ──────────────────────────────────────────────────────────────────
   bot.command("contact", async (ctx) => {
-    await ctx.reply(contactMessage, {
-      parse_mode: "Markdown",
-      reply_markup: contactKeyboard(),
-    });
+    try {
+      await ctx.reply(contactMessage, {
+        parse_mode: "Markdown",
+        reply_markup: contactKeyboard(),
+      });
+    } catch (err: any) {
+      console.error("[ConversaBot] /contact error:", err?.message ?? err);
+      // Fallback: send plain text without parse_mode if Markdown fails
+      try {
+        await ctx.reply(
+          "Puedes contactarnos por:\n\n• WhatsApp\n• Email: contacto@conversaai.store\n• Web: conversaai.store/contact",
+          { reply_markup: contactKeyboard() }
+        );
+      } catch (fallbackErr: any) {
+        console.error("[ConversaBot] /contact fallback error:", fallbackErr?.message);
+      }
+    }
   });
 
-  // ── /demo ─────────────────────────────────────────────────────────────────
+  // ── /demo ─────────────────────────────────────────────────────────────────────
   bot.command("demo", async (ctx) => {
     await ctx.reply(demoMessage, {
       parse_mode: "Markdown",
@@ -116,22 +128,29 @@ export function createConversaBot(): Bot {
     });
   });
 
-  // ── Free-text messages → OpenAI ─────────────────────────────────────────────
+  // ── /commands ─────────────────────────────────────────────────────────────────
+  bot.command("commands", async (ctx) => {
+    await ctx.reply(commandsMessage, {
+      parse_mode: "Markdown",
+      reply_markup: commandsKeyboard(),
+    });
+  });
+
+  // ── Free-text → OpenAI ────────────────────────────────────────────────────────
   bot.on("message:text", async (ctx) => {
     const user = ctx.from;
     const userMessage = ctx.message.text;
 
     if (user) {
-      await saveTelegramLead(
+      saveTelegramLead(
         String(user.id),
         user.username,
         user.first_name,
         user.last_name,
         userMessage
-      );
+      ).catch(() => {});
     }
 
-    // Typing indicator
     await ctx.replyWithChatAction("typing");
 
     try {
@@ -139,13 +158,15 @@ export function createConversaBot(): Bot {
       await ctx.reply(reply, {
         reply_markup: mainMenuKeyboard(),
       });
-    } catch (err) {
-      console.error("[ConversaBot] Reply error:", err);
-      await ctx.reply(fallbackMessage);
+    } catch (err: any) {
+      console.error("[ConversaBot] Reply error:", err?.message ?? err);
+      await ctx.reply(fallbackMessage, {
+        reply_markup: contactKeyboard(),
+      });
     }
   });
 
-  // ── Global error handler ─────────────────────────────────────────────────────
+  // ── Global error handler ──────────────────────────────────────────────────────
   bot.catch((err) => {
     console.error("[ConversaBot] Unhandled error:", err.message);
   });
@@ -153,7 +174,7 @@ export function createConversaBot(): Bot {
   return bot;
 }
 
-// ─── Webhook Handler Factory ─────────────────────────────────────────────────
+// ─── Webhook Handler Factory ──────────────────────────────────────────────────
 export function createBotWebhookHandler() {
   const bot = createConversaBot();
   return webhookCallback(bot, "std/http");

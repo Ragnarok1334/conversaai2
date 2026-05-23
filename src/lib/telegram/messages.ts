@@ -1,29 +1,45 @@
 import { CONTACT_INFO } from "@/lib/contact";
 
-// ─── Welcome / Start ────────────────────────────────────────────────────────
-export const welcomeMessage = `👋 *¡Hola! Soy el asistente oficial de ConversaAI.*
+const SITE = "https://conversaai.store";
 
-Te ayudo a automatizar conversaciones, captar leads y responder clientes con inteligencia artificial — las 24 horas, los 7 días de la semana.
+// ─── Welcome / Start ──────────────────────────────────────────────────────────
+export const welcomeMessage = `👋 *¡Hola! Soy el bot oficial de ConversaAI.*
 
-¿En qué puedo ayudarte hoy?`;
+Puedo ayudarte a conocer la plataforma, revisar planes, resolver dudas y guiarte para crear tu primer asistente de IA.
 
-// ─── Help ────────────────────────────────────────────────────────────────────
-export const helpMessage = `🤖 *¿Cómo puedo ayudarte?*
+*Comandos útiles:*
+/plans — Ver planes y precios
+/demo — Cómo crear tu asistente
+/contact — Hablar con soporte
+/commands — Ver todos los comandos
 
-*ConversaAI* es una plataforma SaaS que te permite crear asistentes de IA personalizados para tu negocio y conectarlos a tus canales de atención.
+También puedes escribirme directamente y te responderé con IA. 🤖`;
+
+// ─── Help ─────────────────────────────────────────────────────────────────────
+export const helpMessage = `🤖 *Ayuda — ConversaAI Bot*
+
+*¿Qué es ConversaAI?*
+Una plataforma SaaS para crear asistentes de inteligencia artificial que automatizan conversaciones, captan leads y atienden clientes las 24 horas.
+
+*¿Qué puede hacer este bot?*
+• Responder tus preguntas sobre ConversaAI
+• Mostrarte planes y precios
+• Guiarte para crear tu primer asistente
+• Conectarte con nuestro equipo
 
 *Comandos disponibles:*
-• /start — Menú principal
-• /plans — Ver planes y precios
-• /contact — Información de contacto
-• /demo — Cómo empezar con ConversaAI
+/start — Menú principal
+/plans — Ver planes y precios
+/demo — Cómo empezar paso a paso
+/contact — Contactar soporte
+/commands — Ver todos los comandos
 
-*¿Necesitas soporte humano?*
-Escríbenos directamente por WhatsApp o correo y te atendemos a la brevedad.
+*¿Necesitas ayuda humana?*
+Usa /contact para escribirnos por WhatsApp o correo.
 
-🌐 *conversaai.store*`;
+🌐 ${SITE}`;
 
-// ─── Plans ───────────────────────────────────────────────────────────────────
+// ─── Plans ────────────────────────────────────────────────────────────────────
 export const plansMessage = `💎 *Planes de ConversaAI*
 
 Elige el plan que mejor se adapta a tu negocio:
@@ -35,67 +51,67 @@ Elige el plan que mejor se adapta a tu negocio:
 
 ⚡ *Pro — $19/mes*
 • 5 asistentes
-• 2,000 mensajes/mes
+• 5,000 mensajes/mes
 • Telegram + WhatsApp
 • Captura de leads
 
 🚀 *Business — $49/mes*
-• 15 asistentes
-• 10,000 mensajes/mes
+• 20 asistentes
+• 50,000 mensajes/mes
 • Todos los canales
 • Analytics avanzado
 
 🏢 *Enterprise — Personalizado*
 • Sin límites
 • SLA garantizado
-• Implementación dedicada
+• Soporte dedicado
 
-👉 Crea tu cuenta gratis en *conversaai.store*`;
+👉 Regístrate gratis en *conversaai.store*`;
 
-// ─── Contact ─────────────────────────────────────────────────────────────────
-export const contactMessage = `📬 *Contacta con nosotros*
-
-Estamos aquí para ayudarte. Elige el canal que prefieras:
+// ─── Contact ──────────────────────────────────────────────────────────────────
+// Note: We deliberately keep URLs out of message text so they don't conflict
+// with inline button URLs. Text stays clean; links go in the keyboard.
+export const contactMessage = `📬 *Puedes contactarnos por estos canales:*
 
 💬 *WhatsApp* — Respuesta en minutos
-${CONTACT_INFO.whatsapp}
 
-✈️ *Telegram* — Escríbenos directo
-${CONTACT_INFO.telegram}
+${CONTACT_INFO.telegram && CONTACT_INFO.telegram.startsWith("https://t.me/") ? `✈️ *Telegram* — Escríbenos directo\n\n` : ""}📧 *Email* — ${CONTACT_INFO.email}
 
-📧 *Email* — ${CONTACT_INFO.email}
+🕐 *Horario:* ${CONTACT_INFO.schedule}`;
 
-🕐 *Horario:* ${CONTACT_INFO.schedule}
+// ─── Demo ─────────────────────────────────────────────────────────────────────
+export const demoMessage = `🚀 *¿Cómo crear tu asistente de IA?*
 
-También puedes escribirnos desde nuestra web:
-🌐 conversaai.store/contact`;
-
-// ─── Demo ────────────────────────────────────────────────────────────────────
-export const demoMessage = `🚀 *¿Cómo empezar con ConversaAI?*
-
-Es muy sencillo, sigue estos pasos:
+Sigue estos 5 pasos:
 
 *1️⃣ Crea tu cuenta*
 Regístrate gratis en conversaai.store/register
 
-*2️⃣ Crea tu primer asistente*
-Define el nombre, personalidad y objetivo de tu IA
+*2️⃣ Crea tu asistente*
+Define nombre, tono, objetivo y personalidad
 
 *3️⃣ Agrega conocimiento*
-Sube tus FAQs, catálogos, horarios y más
+FAQs, catálogos, horarios, servicios
 
 *4️⃣ Pruébalo*
-Usa el chat de prueba para ajustar las respuestas
+Usa el chat de prueba y ajusta las respuestas
 
 *5️⃣ Conecta tu canal*
-Publica el asistente en Telegram, WhatsApp o tu sitio web
+Publica en Telegram, WhatsApp o tu sitio web
 
-¡Listo! Tu asistente estará atendiendo clientes automáticamente 🎉
+¡Listo! Tu asistente atenderá clientes automáticamente 🎉`;
 
-¿Tienes dudas? Estamos a un mensaje de distancia.`;
+// ─── Commands ─────────────────────────────────────────────────────────────────
+export const commandsMessage = `📋 *Comandos disponibles*
 
-// ─── Fallback ────────────────────────────────────────────────────────────────
-export const fallbackMessage = `Lo siento, en este momento no puedo generar una respuesta automática. Pero puedes contactarnos directamente:
+/start — Iniciar conversación y ver bienvenida
+/help — Ver ayuda detallada
+/plans — Ver planes y precios
+/contact — Contactar soporte humano
+/demo — Cómo crear tu primer asistente
+/commands — Ver esta lista
 
-🌐 conversaai.store/contact
-💬 ${CONTACT_INFO.whatsapp}`;
+💡 *Tip:* También puedes escribirme cualquier pregunta y te responderé con IA.`;
+
+// ─── Fallback (OpenAI falla) ───────────────────────────────────────────────────
+export const fallbackMessage = `Gracias por escribirnos. Ahora mismo no pude generar una respuesta automática, pero puedes usar /contact para hablar con nosotros directamente. 🙏`;

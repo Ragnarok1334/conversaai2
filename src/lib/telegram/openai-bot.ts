@@ -1,30 +1,36 @@
 import OpenAI from "openai";
 import { DEFAULT_OPENAI_MODEL } from "@/lib/openai";
 
-const CONVERSA_BOT_SYSTEM_PROMPT = `Eres el asistente oficial de ConversaAI, una plataforma SaaS que permite a empresas crear asistentes de inteligencia artificial para automatizar conversaciones con sus clientes.
+const OPENAI_TIMEOUT_MS = 7000;
 
-Responde SIEMPRE en español, de forma breve, amable y profesional.
+const CONVERSA_BOT_SYSTEM_PROMPT = `Eres el asistente oficial de ConversaAI. Respondes en español, de forma breve, clara y profesional.
 
-CONOCIMIENTO DE CONVERSAAI:
-- ConversaAI permite crear asistentes IA personalizados para cualquier negocio
-- Los asistentes se pueden conectar a: Webchat, Telegram, WhatsApp
-- El dashboard incluye: creación de asistentes, conversaciones, leads, facturación
-- Planes disponibles: Free ($0), Pro ($19/mes), Business ($49/mes), Enterprise (personalizado)
-- Free: 1 asistente, 100 mensajes/mes
-- Pro: 5 asistentes, 2,000 mensajes/mes
-- Business: 15 asistentes, 10,000 mensajes/mes
-- Enterprise: sin límites, SLA, soporte dedicado
-- Los asistentes capturan leads automáticamente
-- Integración con OpenAI GPT para respuestas inteligentes
-- Disponible en conversaai.store
+ConversaAI es una plataforma SaaS para crear asistentes de IA que automatizan conversaciones, captan leads y ayudan a negocios a responder clientes.
 
-INSTRUCCIONES CRÍTICAS:
-- NO inventes precios, funciones o datos que no estén en este prompt
-- Si la pregunta requiere soporte humano, invita a contactar por WhatsApp o email
-- Sé conciso: máximo 3-4 párrafos por respuesta
+PLANES ACTUALES:
+- Free: $0/mes — 1 asistente, 100 mensajes
+- Pro: $19/mes — 5 asistentes, 5,000 mensajes
+- Business: $49/mes — 20 asistentes, 50,000 mensajes
+- Enterprise: personalizado, sin límites, SLA garantizado
+
+CANALES COMPATIBLES: Webchat, Telegram, WhatsApp
+
+FUNCIONES PRINCIPALES:
+- Crear asistentes de IA personalizados
+- Captura automática de leads
+- Historial de conversaciones
+- Dashboard con métricas
+- Integración con OpenAI
+
+INSTRUCCIONES:
+- Responde siempre en español
+- Sé breve: máximo 3-4 párrafos
 - No uses markdown complejo, solo texto simple con emojis moderados
-- Nunca digas que eres GPT o un modelo de OpenAI
-- Si no sabes algo: "Para ayudarte mejor, puedes contactarnos en conversaai.store/contact"`;
+- No inventes funciones o precios no listados arriba
+- Nunca digas que eres GPT, ChatGPT o un modelo de OpenAI. Eres el asistente de ConversaAI
+- Si el usuario pregunta por contacto o soporte humano, indícale usar el comando /contact
+- Si el usuario quiere empezar, recomiéndale /demo o registrarse en conversaai.store/register
+- Si no sabes algo: "Para ayudarte mejor, usa /contact para hablar con nuestro equipo."`;
 
 let openaiClient: OpenAI | null = null;
 
@@ -32,30 +38,52 @@ function getOpenAIClient(): OpenAI {
   if (!openaiClient) {
     openaiClient = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      timeout: OPENAI_TIMEOUT_MS,
     });
   }
   return openaiClient;
 }
 
+const TIMEOUT_FALLBACK =
+  "Gracias por escribirnos. En este momento la IA está tardando un poco. Puedes usar /contact para hablar con nosotros directamente. 🙏";
+
+const ERROR_FALLBACK =
+  "Gracias por escribirnos. Ahora mismo no pude generar una respuesta automática, pero puedes usar /contact para hablar con nosotros.";
+
 export async function generateConversaBotReply(userMessage: string): Promise<string> {
-  try {
-    const client = getOpenAIClient();
+  // Race between OpenAI call and a hard timeout
+  const timeoutPromise = new Promise<string>((resolve) =>
+    setTimeout(() => resolve(TIMEOUT_FALLBACK), OPENAI_TIMEOUT_MS)
+  );
 
-    const response = await client.responses.create({
-      model: DEFAULT_OPENAI_MODEL,
-      instructions: CONVERSA_BOT_SYSTEM_PROMPT,
-      input: userMessage,
-    });
+  const openaiPromise = (async (): Promise<string> => {
+    try {
+      const client = getOpenAIClient();
 
-    const text = response.output_text?.trim();
+      const response = await client.responses.create({
+        model: DEFAULT_OPENAI_MODEL,
+        instructions: CONVERSA_BOT_SYSTEM_PROMPT,
+        input: userMessage,
+      });
 
-    if (!text) {
-      return "Gracias por tu mensaje. Puedes visitar conversaai.store/contact para contactarnos directamente.";
+      const text = response.output_text?.trim();
+
+      if (!text) {
+        return "Gracias por tu mensaje. Puedes usar /contact para hablar con nuestro equipo directamente.";
+      }
+
+      return text;
+    } catch (error: any) {
+      // Safe logging — never log API keys or full request objects
+      const msg = error?.message ?? "Unknown error";
+      if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out")) {
+        console.warn("[ConversaBot] OpenAI timeout:", msg);
+        return TIMEOUT_FALLBACK;
+      }
+      console.error("[ConversaBot] OpenAI error:", msg);
+      return ERROR_FALLBACK;
     }
+  })();
 
-    return text;
-  } catch (error) {
-    console.error("[ConversaBot] OpenAI error:", error);
-    return "Gracias por escribirnos. En este momento no puedo generar una respuesta automática, pero puedes contactarnos en conversaai.store/contact";
-  }
+  return Promise.race([openaiPromise, timeoutPromise]);
 }

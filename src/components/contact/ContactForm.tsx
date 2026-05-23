@@ -133,7 +133,7 @@ export function ContactForm() {
               type="tel"
               value={form.phone}
               onChange={handleChange}
-              placeholder="+52 55 1234 5678"
+              placeholder="+56 9 1234 5678"
               className="w-full bg-white/[0.03] border border-white/10 rounded-xl py-3.5 px-4 text-sm text-white placeholder-text-soft focus:outline-none focus:border-brand-cyan/50 focus:bg-white/[0.05] transition-all"
             />
           </div>
