@@ -42,6 +42,7 @@ export function Header() {
     { name: "Cómo funciona", href: "/#como-funciona" },
     { name: "Precios", href: "/#precios" },
     { name: "FAQ", href: "/#faq" },
+    { name: "Contacto", href: "/contact" },
   ];
 
   return (

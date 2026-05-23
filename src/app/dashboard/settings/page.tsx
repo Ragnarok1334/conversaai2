@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { signOut } from '@/app/auth/actions'
-import { User, Mail, Shield, LogOut, Bell, Globe, Key } from 'lucide-react'
+import { User, Mail, Shield, LogOut, Bell, Globe, Key, MessageCircle, ExternalLink, Copy } from 'lucide-react'
+import { CONTACT_INFO } from '@/lib/contact'
 
 export default async function SettingsPage() {
   const supabase = await createClient()
@@ -90,6 +91,31 @@ export default async function SettingsPage() {
           <div className="w-11 h-6 rounded-full bg-white/10 border border-white/10 flex items-center px-1">
             <div className="w-4 h-4 rounded-full bg-white/30 shadow" />
           </div>
+        </div>
+      </div>
+
+      {/* Telegram Bot Card */}
+      <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <MessageCircle className="w-5 h-5 text-[#0088cc]" />
+          <h2 className="font-semibold text-lg">Bot oficial de Telegram</h2>
+        </div>
+        <p className="text-sm text-text-soft">
+          Usa este bot para probar ConversaAI, hacer preguntas rápidas o contactarnos directamente desde Telegram.
+        </p>
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] text-sm font-mono text-brand-cyan">
+          {CONTACT_INFO.telegram}
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <a
+            href={CONTACT_INFO.telegram}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0088cc]/10 border border-[#0088cc]/30 text-[#0088cc] font-semibold text-sm hover:bg-[#0088cc]/20 transition-all"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Abrir bot
+          </a>
         </div>
       </div>
 

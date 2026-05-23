@@ -3,8 +3,12 @@
 import {
   Sparkles,
   ArrowUpRight,
+  MessageCircle,
+  Send,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
+import { CONTACT_INFO } from "@/lib/contact";
 
 export function Footer() {
   const productLinks = [
@@ -12,6 +16,25 @@ export function Footer() {
     { name: "Precios", href: "#precios" },
     { name: "Casos de uso", href: "#casos" },
     { name: "FAQ", href: "#faq" },
+    { name: "Contacto", href: "/contact" },
+  ];
+
+  const socialLinks = [
+    {
+      icon: <MessageCircle className="w-5 h-5" />,
+      href: CONTACT_INFO.whatsapp,
+      label: "WhatsApp",
+    },
+    {
+      icon: <Send className="w-5 h-5" />,
+      href: CONTACT_INFO.telegram,
+      label: "Telegram",
+    },
+    {
+      icon: <Mail className="w-5 h-5" />,
+      href: `mailto:${CONTACT_INFO.email}`,
+      label: "Email",
+    },
   ];
 
   return (
@@ -47,6 +70,21 @@ export function Footer() {
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] border border-white/10 text-[#CBD5E1] text-sm mb-8">
                 <Sparkles className="w-4 h-4 text-[#06B6D4]" />
                 IA para ventas, soporte y automatización
+              </div>
+
+              <div className="flex items-center gap-4">
+                {socialLinks.map((item) => (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={item.label}
+                    className="w-11 h-11 rounded-2xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-[#94A3B8] hover:text-white hover:border-[#06B6D4]/50 hover:bg-white/[0.08] hover:-translate-y-1 transition-all duration-300"
+                  >
+                    {item.icon}
+                  </a>
+                ))}
               </div>
             </div>
 
