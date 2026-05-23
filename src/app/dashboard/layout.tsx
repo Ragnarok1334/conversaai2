@@ -4,6 +4,7 @@ import { signOut } from '@/app/auth/actions'
 import { Sidebar } from '@/components/dashboard/Sidebar'
 import { Bell, LogOut, Menu } from 'lucide-react'
 import Link from 'next/link'
+import { NotificationsBell } from '@/components/dashboard/NotificationsBell'
 
 export default async function DashboardLayout({
   children,
@@ -36,28 +37,29 @@ export default async function DashboardLayout({
             </button>
             <div className="hidden lg:block" />
 
-            <div className="flex items-center gap-3">
-              <button className="relative w-9 h-9 rounded-xl bg-card-bg border border-card-border flex items-center justify-center hover:bg-white/10 transition-colors">
-                <Bell className="w-4 h-4 text-text-soft" />
-                <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-brand-cyan rounded-full" />
-              </button>
+            <div className="flex items-center gap-3 sm:gap-4">
+              <NotificationsBell />
 
-              <div className="flex items-center gap-2 pl-3 border-l border-white/[0.08]">
-                <div className="w-8 h-8 rounded-full gradient-btn flex items-center justify-center text-white text-sm font-bold">
-                  {userInitial}
+              <div className="h-8 w-[1px] bg-white/[0.08] hidden sm:block" />
+
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2.5 py-1 px-1 sm:pr-4 rounded-full bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] hover:border-white/10 transition-all cursor-default shadow-sm group">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-violet to-brand-cyan flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-brand-cyan/20 group-hover:scale-105 transition-transform">
+                    {userInitial}
+                  </div>
+                  <span className="text-sm font-semibold hidden sm:block text-text-main pr-1">{userName}</span>
                 </div>
-                <span className="text-sm font-medium hidden sm:block">{userName}</span>
-              </div>
 
-              <form action={signOut}>
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-card-bg border border-card-border text-text-soft hover:text-text-main hover:bg-white/[0.08] transition-all text-sm"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="hidden sm:block">Salir</span>
-                </button>
-              </form>
+                <form action={signOut}>
+                  <button
+                    type="submit"
+                    className="flex items-center justify-center w-10 h-10 rounded-xl bg-card-bg border border-card-border text-text-soft hover:text-text-main hover:bg-white/[0.08] hover:border-white/20 hover:shadow-lg transition-all group"
+                    title="Cerrar sesión"
+                  >
+                    <LogOut className="w-[18px] h-[18px] group-hover:-translate-x-0.5 transition-transform" />
+                  </button>
+                </form>
+              </div>
             </div>
           </div>
         </header>

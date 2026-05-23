@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Sparkles, Crown, Zap, Loader2, Bot, MessageSquare, Briefcase, Building } from 'lucide-react'
+import Link from 'next/link'
 import type { UserSubscription, PlanConfig } from '@/lib/plans'
 import { getPlanConfig, isUnlimited, formatLimit, getChannelLabel } from '@/lib/plans'
 
@@ -95,12 +96,12 @@ export function PlanUsageCard() {
           
           {/* Messages */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-1.5 text-text-secondary">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <div className="flex items-center gap-1.5 text-text-secondary whitespace-nowrap">
                 <MessageSquare className="w-4 h-4" />
                 <span className="font-medium">Mensajes</span>
               </div>
-              <span className={usage.messagesPercentage > 90 ? 'text-brand-pink font-semibold' : 'text-text-main font-medium'}>
+              <span className={`whitespace-nowrap ${usage.messagesPercentage > 90 ? 'text-brand-pink font-semibold' : 'text-text-main font-medium'}`}>
                 {usage.messagesUsed.toLocaleString()} <span className="text-text-soft font-normal">/ {formatLimit(planConfig.messagesLimit)}</span>
               </span>
             </div>
@@ -116,12 +117,12 @@ export function PlanUsageCard() {
 
           {/* Assistants */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-1.5 text-text-secondary">
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <div className="flex items-center gap-1.5 text-text-secondary whitespace-nowrap">
                 <Bot className="w-4 h-4" />
                 <span className="font-medium">Asistentes</span>
               </div>
-              <span className={usage.assistantsPercentage > 90 ? 'text-brand-pink font-semibold' : 'text-text-main font-medium'}>
+              <span className={`whitespace-nowrap ${usage.assistantsPercentage > 90 ? 'text-brand-pink font-semibold' : 'text-text-main font-medium'}`}>
                 {usage.assistantsUsed} <span className="text-text-soft font-normal">/ {formatLimit(planConfig.assistantsLimit)}</span>
               </span>
             </div>
@@ -140,13 +141,13 @@ export function PlanUsageCard() {
         {/* Right: Actions */}
         <div className="flex-shrink-0 w-full lg:w-auto lg:border-l lg:border-white/[0.08] lg:pl-8">
           {subscription.plan === 'free' ? (
-            <button className="w-full relative group overflow-hidden rounded-xl p-[1px]">
+            <Link href="/precios" className="w-full relative group overflow-hidden rounded-xl p-[1px] block">
               <span className="absolute inset-0 bg-gradient-to-r from-brand-violet via-brand-cyan to-brand-violet opacity-70 group-hover:opacity-100 transition-opacity duration-300 rounded-xl" />
               <div className="relative bg-background px-6 py-3 rounded-xl flex items-center justify-center gap-2 group-hover:bg-opacity-0 transition-all duration-300">
                 <Zap className="w-4 h-4 text-brand-cyan group-hover:text-white transition-colors" />
                 <span className="text-sm font-bold text-white">Mejorar plan</span>
               </div>
-            </button>
+            </Link>
           ) : subscription.plan === 'enterprise' ? (
             <button className="w-full px-6 py-3 rounded-xl bg-white/[0.04] border border-white/[0.1] hover:bg-white/[0.08] transition-colors text-sm font-medium text-text-secondary">
               Contactar soporte

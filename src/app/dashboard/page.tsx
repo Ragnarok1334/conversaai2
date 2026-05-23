@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Bot, MessageSquare, Users, Plus, ArrowRight, TrendingUp, Clock } from 'lucide-react'
+import { Bot, MessageSquare, Users, Plus, ArrowRight, TrendingUp, Clock, Zap } from 'lucide-react'
 import { PlanUsageCard } from '@/components/dashboard/PlanUsageCard'
 
 export default async function DashboardPage() {
@@ -116,7 +116,7 @@ export default async function DashboardPage() {
                 <Link
                   key={a.id}
                   href={`/dashboard/assistants/${a.id}`}
-                  className="flex items-center gap-4 p-3 rounded-xl hover:bg-white/[0.04] transition-colors group"
+                  className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] hover:border-white/10 transition-all group"
                 >
                   <div className="w-10 h-10 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     {a.assistant_name.charAt(0).toUpperCase()}
@@ -177,10 +177,10 @@ export default async function DashboardPage() {
 
           <div className="bg-gradient-to-br from-brand-violet/20 via-brand-blue/10 to-brand-cyan/10 border border-brand-violet/20 rounded-2xl p-6">
             <div className="flex items-center gap-2 mb-3">
-              <Clock className="w-5 h-5 text-brand-cyan" />
-              <span className="font-semibold text-sm">Próximamente</span>
+              <Zap className="w-5 h-5 text-brand-success" />
+              <span className="font-semibold text-sm">Nuevas Integraciones</span>
             </div>
-            <p className="text-xs text-text-soft">Integración con Telegram, WhatsApp Business y Web Chat Widget disponible en la próxima actualización.</p>
+            <p className="text-xs text-text-soft">Las integraciones con Telegram, WhatsApp Business y Web Chat Widget ya se encuentran totalmente disponibles para configurar.</p>
           </div>
         </div>
       </div>
