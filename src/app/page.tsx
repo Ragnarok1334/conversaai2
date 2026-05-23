@@ -5,7 +5,7 @@ import { Benefits } from "@/components/Benefits";
 import { HowItWorks } from "@/components/HowItWorks";
 import { UseCases } from "@/components/UseCases";
 import { Pricing } from "@/components/Pricing";
-import { Testimonials } from "@/components/Testimonials";
+import { ReviewsSection } from "@/components/ReviewsSection";
 import { FAQ } from "@/components/FAQ";
 import { CTA } from "@/components/CTA";
 import { Footer } from "@/components/Footer";
@@ -22,7 +22,7 @@ export default function Home() {
       <HowItWorks />
       <UseCases />
       <Pricing />
-      <Testimonials />
+      <ReviewsSection />
       <FAQ />
       <CTA />
       <Footer />

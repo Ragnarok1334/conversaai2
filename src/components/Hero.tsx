@@ -18,6 +18,7 @@ import { Particles } from "@/components/magicui/particles";
 import { BlurFade } from "@/components/magicui/blur-fade";
 import { AnimatedGradientText } from "@/components/magicui/animated-gradient-text";
 import { ShimmerButton } from "@/components/magicui/shimmer-button";
+import { AuroraText } from "@/components/ui/aurora-text";
 
 export function Hero() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -65,18 +66,22 @@ export function Hero() {
 
             <BlurFade delay={0.2}>
               {/* Title */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight tracking-[-0.04em]">
-                Convierte cada mensaje en una oportunidad de venta{" "}
-                <AnimatedGradientText>
-                  inteligencia artificial
-                </AnimatedGradientText>
-              </h1>
+              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-7xl">
+                 Convierte cada mensaje en una{" "}
+                 <AuroraText
+                   colors={["#8b5cf6", "#06b6d4", "#3b82f6", "#a855f7"]}
+                   speed={1}
+                >
+                   oportunidad de venta
+                 </AuroraText>
+               </h1>
             </BlurFade>
 
             <BlurFade delay={0.3}>
               {/* Description */}
-              <p className="text-lg text-[#CBD5E1] max-w-xl leading-relaxed">
-                Atiende consultas, captura datos de clientes y responde al instante desde Web Chat, Telegram y WhatsApp, incluso fuera de horario.
+              <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
+                Atiende consultas, captura datos de clientes y responde al instante desde Web
+                Chat, Telegram y WhatsApp, incluso fuera de horario.
               </p>
             </BlurFade>
 
