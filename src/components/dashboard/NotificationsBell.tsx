@@ -52,31 +52,39 @@ export function NotificationsBell() {
       }
 
       // Suscripción a cambios
-      channel = supabase.channel('realtime-notifications')
+      channel = supabase.channel(`realtime-notifications-${user.id}-${Date.now()}`)
         .on(
           'postgres_changes',
           {
-            event: '*',
+            event: 'INSERT',
             schema: 'public',
             table: 'notifications',
             filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
-            if (payload.eventType === 'INSERT') {
-              const newNotif = payload.new as Notification
-              setNotifications(prev => [newNotif, ...prev])
-              setUnreadCount(prev => prev + 1)
-            } else if (payload.eventType === 'UPDATE') {
-              const updatedNotif = payload.new as Notification
-              setNotifications(prev => prev.map(n => n.id === updatedNotif.id ? updatedNotif : n))
-              setUnreadCount(prev => {
-                const isNowRead = updatedNotif.is_read
-                const wasRead = payload.old?.is_read
-                if (!wasRead && isNowRead) return Math.max(0, prev - 1)
-                if (wasRead && !isNowRead) return prev + 1
-                return prev
-              })
-            }
+            const newNotif = payload.new as Notification
+            setNotifications(prev => [newNotif, ...prev])
+            setUnreadCount(prev => prev + 1)
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const updatedNotif = payload.new as Notification
+            setNotifications(prev => prev.map(n => n.id === updatedNotif.id ? updatedNotif : n))
+            setUnreadCount(prev => {
+              const isNowRead = updatedNotif.is_read
+              const wasRead = payload.old?.is_read
+              if (!wasRead && isNowRead) return Math.max(0, prev - 1)
+              if (wasRead && !isNowRead) return prev + 1
+              return prev
+            })
           }
         )
         .subscribe()
