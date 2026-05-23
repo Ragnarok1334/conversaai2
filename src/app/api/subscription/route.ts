@@ -5,17 +5,19 @@ import { UserSubscription, getPlanConfig, getUsagePercentage } from '@/lib/plans
 export async function GET() {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user }, error } = await supabase.auth.getUser()
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let { data: subscription, error } = await supabase
+    const { data: subscriptionData, error: subError } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
       .single()
+      
+    let subscription = subscriptionData
 
     // If subscription doesn't exist for some reason, create a fallback Free one
     if (!subscription || error) {

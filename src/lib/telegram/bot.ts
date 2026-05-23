@@ -36,6 +36,7 @@ async function saveTelegramLead(
       message,
       source: "telegram_official_bot",
     });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     console.warn("[ConversaBot] Could not save lead:", err?.message ?? err);
   }
@@ -106,6 +107,7 @@ export function createConversaBot(): Bot {
         parse_mode: "Markdown",
         reply_markup: contactKeyboard(),
       });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("[ConversaBot] /contact error:", err?.message ?? err);
       // Fallback: send plain text without parse_mode if Markdown fails
@@ -114,6 +116,7 @@ export function createConversaBot(): Bot {
           "Puedes contactarnos por:\n\n• WhatsApp\n• Email: contacto@conversaai.store\n• Web: conversaai.store/contact",
           { reply_markup: contactKeyboard() }
         );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (fallbackErr: any) {
         console.error("[ConversaBot] /contact fallback error:", fallbackErr?.message);
       }
@@ -158,6 +161,7 @@ export function createConversaBot(): Bot {
       await ctx.reply(reply, {
         reply_markup: mainMenuKeyboard(),
       });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("[ConversaBot] Reply error:", err?.message ?? err);
       await ctx.reply(fallbackMessage, {

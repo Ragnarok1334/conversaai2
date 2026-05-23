@@ -73,7 +73,8 @@ export async function generateConversaBotReply(userMessage: string): Promise<str
       }
 
       return text;
-    } catch (error: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } catch (error: any) {
       // Safe logging — never log API keys or full request objects
       const msg = error?.message ?? "Unknown error";
       if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out")) {

@@ -63,7 +63,7 @@ export function Header() {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-8">
+        <nav className="hidden xl:flex items-center gap-8">
           <ul className="flex items-center gap-6">
             {navLinks.map((link) => (
               <li key={link.name}>
@@ -106,7 +106,7 @@ export function Header() {
 
         {/* Mobile Toggle */}
         <button
-          className="lg:hidden text-text-main"
+          className="xl:hidden text-text-main"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -120,7 +120,7 @@ export function Header() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="lg:hidden absolute top-full left-0 w-full bg-dark-secondary border-b border-card-border p-4 flex flex-col gap-4 shadow-xl"
+            className="xl:hidden absolute top-full left-0 w-full bg-dark-secondary border-b border-card-border p-4 flex flex-col gap-4 shadow-xl"
           >
             {navLinks.map((link) => (
               <Link

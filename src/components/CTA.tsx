@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Sparkles, ArrowRight, Zap } from "lucide-react";
 import Link from "next/link";
+import { ShimmerButton } from "@/components/magicui/shimmer-button";
 
 export function CTA() {
   return (
@@ -57,22 +58,21 @@ export function CTA() {
 
             {/* Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
-              <Link
-                href="/register"
-                className="group inline-flex items-center gap-3 px-10 py-5 rounded-2xl bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white font-bold text-lg hover:scale-105 transition-all duration-300 shadow-[0_0_50px_rgba(124,58,237,0.45)]"
-              >
-                <Sparkles className="w-5 h-5" />
-
-                Crear mi asistente IA
-
-                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
+              <Link href="/register">
+                <ShimmerButton className="font-semibold text-lg px-8 py-4" shimmerColor="#A855F7" background="linear-gradient(90deg, #7C3AED, #2563EB, #06B6D4)">
+                  <span className="flex items-center gap-3">
+                    <Sparkles className="w-5 h-5" />
+                    Crear asistente
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </span>
+                </ShimmerButton>
               </Link>
 
               <a
-                href="#funciones"
-                className="px-10 py-5 rounded-2xl bg-white/[0.06] backdrop-blur-xl border border-white/10 text-white font-semibold text-lg hover:bg-white/[0.09] hover:scale-105 transition-all duration-300"
+                href="#precios"
+                className="px-10 py-4 rounded-[100px] bg-white/[0.06] backdrop-blur-xl border border-white/10 text-white font-semibold text-lg hover:bg-white/[0.09] hover:scale-105 transition-all duration-300"
               >
-                Ver funciones
+                Ver planes
               </a>
             </div>
 

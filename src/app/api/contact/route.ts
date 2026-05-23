@@ -43,6 +43,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (err: any) {
     console.error('API Contact Error:', err)
     return NextResponse.json(

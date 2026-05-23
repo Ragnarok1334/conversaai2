@@ -14,7 +14,10 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 import { TypeAnimation } from "react-type-animation";
-import { ParticlesBackground } from "@/components/ParticlesBackground";
+import { Particles } from "@/components/magicui/particles";
+import { BlurFade } from "@/components/magicui/blur-fade";
+import { AnimatedGradientText } from "@/components/magicui/animated-gradient-text";
+import { ShimmerButton } from "@/components/magicui/shimmer-button";
 
 export function Hero() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -28,8 +31,12 @@ export function Hero() {
 
   return (
     <section className="relative min-h-screen pt-32 pb-24 flex items-center overflow-hidden bg-[#050816]">
-
-      <ParticlesBackground />
+      <Particles
+        className="absolute inset-0 z-0 pointer-events-none"
+        quantity={60}
+        ease={80}
+        color="#ffffff"
+      />
       
       {/* Premium Background */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.22),transparent_32%),radial-gradient(circle_at_80%_30%,rgba(6,182,212,0.18),transparent_30%),linear-gradient(135deg,#050816_0%,#0B1026_45%,#111C44_100%)]" />
@@ -45,59 +52,63 @@ export function Hero() {
         <div className="grid lg:grid-cols-2 gap-14 items-center">
 
           {/* LEFT SIDE */}
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7 }}
-            className="flex flex-col gap-7"
-          >
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 w-fit shadow-[0_0_30px_rgba(124,58,237,0.15)]">
-              <Sparkles className="w-4 h-4 text-[#06B6D4]" />
-              <span className="text-sm font-medium text-[#CBD5E1]">
-                IA para ventas y atención
-              </span>
-            </div>
-
-            {/* Title */}
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight tracking-[-0.04em]">
-              Automatiza tus{" "}
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#A855F7] via-[#2563EB] to-[#06B6D4] drop-shadow-[0_0_25px_rgba(168,85,247,0.35)]">
-                conversaciones
-              </span>{" "}
-              con inteligencia artificial
-            </h1>
-
-            {/* Description */}
-            <p className="text-lg text-[#CBD5E1] max-w-xl leading-relaxed">
-              ConversaAI ayuda a tu negocio a responder clientes, captar
-              prospectos y cerrar más ventas las 24 horas con asistentes
-              inteligentes.
-            </p>
-
-            {/* Buttons */}
-            <div className="flex flex-wrap items-center gap-4 mt-2">
-              <Link href={isLoggedIn ? "/dashboard/create-assistant" : "/register"} className="gradient-btn px-8 py-4 rounded-xl text-white font-semibold text-lg hover:scale-105 transition-transform glow-violet flex items-center gap-2">
-                Probar ConversaAI
-              </Link>
-              <Link href="/#funciones" className="px-8 py-4 rounded-xl bg-card-bg border border-card-border text-text-main font-semibold text-lg hover:bg-white/10 transition-colors">
-                Ver funciones
-              </Link>
-            </div>
-
-            {/* Small Info */}
-            <div className="flex flex-wrap items-center gap-6 mt-4">
-              <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
-                <Clock className="w-4 h-4 text-[#A855F7]" />
-                <span>Disponible 24/7</span>
+          <div className="flex flex-col gap-7">
+            <BlurFade delay={0.1}>
+              {/* Badge */}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 w-fit shadow-[0_0_30px_rgba(124,58,237,0.15)]">
+                <Sparkles className="w-4 h-4 text-[#06B6D4]" />
+                <span className="text-sm font-medium text-[#CBD5E1]">
+                  IA para ventas y atención
+                </span>
               </div>
+            </BlurFade>
 
-              <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
-                <MessageSquare className="w-4 h-4 text-[#06B6D4]" />
-                <span>Atención automática</span>
+            <BlurFade delay={0.2}>
+              {/* Title */}
+              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight tracking-[-0.04em]">
+                Convierte mensajes en clientes con{" "}
+                <AnimatedGradientText>
+                  inteligencia artificial
+                </AnimatedGradientText>
+              </h1>
+            </BlurFade>
+
+            <BlurFade delay={0.3}>
+              {/* Description */}
+              <p className="text-lg text-[#CBD5E1] max-w-xl leading-relaxed">
+                Automatiza respuestas, capta leads y atiende clientes 24/7 desde Web Chat, Telegram y WhatsApp con asistentes de IA personalizados para tu negocio.
+              </p>
+            </BlurFade>
+
+            <BlurFade delay={0.4}>
+              {/* Buttons */}
+              <div className="flex flex-wrap items-center gap-4 mt-2">
+                <Link href={isLoggedIn ? "/dashboard/create-assistant" : "/register"}>
+                  <ShimmerButton className="font-semibold text-lg" shimmerColor="#A855F7" background="linear-gradient(90deg, #7C3AED, #2563EB, #06B6D4)">
+                    Comenzar ahora
+                  </ShimmerButton>
+                </Link>
+                <Link href="/#funciones" className="px-8 py-4 rounded-[100px] bg-white/[0.06] border border-white/10 text-white font-semibold text-lg hover:bg-white/10 transition-colors">
+                  Ver demo
+                </Link>
               </div>
-            </div>
-          </motion.div>
+            </BlurFade>
+
+            <BlurFade delay={0.5}>
+              {/* Small Info */}
+              <div className="flex flex-wrap items-center gap-6 mt-4">
+                <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
+                  <Clock className="w-4 h-4 text-[#A855F7]" />
+                  <span>Disponible 24/7</span>
+                </div>
+
+                <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
+                  <MessageSquare className="w-4 h-4 text-[#06B6D4]" />
+                  <span>Atención automática</span>
+                </div>
+              </div>
+            </BlurFade>
+          </div>
 
           {/* RIGHT SIDE */}
           <motion.div

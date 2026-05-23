@@ -44,8 +44,10 @@ export async function POST(req: NextRequest) {
     });
 
     return await Promise.race([handlerPromise, timeoutPromise]);
-  } catch (err: any) {
-    console.error("[Webhook] Unexpected error:", err?.message ?? "Unknown error");
+  } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const errMessage = (error as any)?.message || String(error);
+    console.error("[Webhook] Unexpected error:", errMessage);
     // Always return 200 so Telegram doesn't retry and disable the webhook
     return new NextResponse("OK", { status: 200 });
   }

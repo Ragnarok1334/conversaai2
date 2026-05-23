@@ -6,6 +6,9 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { PLAN_CONFIGS } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/client'
+import { BorderBeam } from '@/components/magicui/border-beam'
+import { ShimmerButton } from '@/components/magicui/shimmer-button'
+import { BlurFade } from '@/components/magicui/blur-fade'
 
 export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -29,60 +32,53 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(124,58,237,0.18),transparent_32%),radial-gradient(circle_at_85%_80%,rgba(6,182,212,0.14),transparent_28%)]" />
 
       <div className="container mx-auto px-4 md:px-6 relative z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 35 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7 }}
-          viewport={{ once: true }}
-          className="text-center max-w-3xl mx-auto mb-20"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 mb-6">
-            <Sparkles className="w-4 h-4 text-[#06B6D4]" />
-            <span className="text-sm text-[#CBD5E1] font-medium">Planes flexibles</span>
-          </div>
-
-          <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-[-0.03em]">
-            Planes y facturación
-          </h2>
-
-          <p className="text-[#94A3B8] text-lg mb-8">
-            Elige el plan ideal para automatizar conversaciones, captar leads y atender clientes 24/7 con ConversaAI.
-          </p>
-          
-          <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-[#CBD5E1]">
-            <div className="flex items-center gap-2">
-              <Shield className="w-4 h-4 text-[#06B6D4]" />
-              <span>Cancela cuando quieras</span>
+        <BlurFade delay={0.2} yOffset={30}>
+          <div className="text-center max-w-3xl mx-auto mb-20">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 mb-6">
+              <Sparkles className="w-4 h-4 text-[#06B6D4]" />
+              <span className="text-sm text-[#CBD5E1] font-medium">Planes flexibles</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#06B6D4]" />
-              <span>Soporte incluido</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-[#06B6D4]" />
-              <span>Actualización inmediata del plan</span>
+
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-[-0.03em]">
+              Planes y facturación
+            </h2>
+
+            <p className="text-[#94A3B8] text-lg mb-8">
+              Elige el plan ideal para automatizar conversaciones, captar leads y atender clientes 24/7 con ConversaAI.
+            </p>
+            
+            <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-[#CBD5E1]">
+              <div className="flex items-center gap-2">
+                <Shield className="w-4 h-4 text-[#06B6D4]" />
+                <span>Cancela cuando quieras</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#06B6D4]" />
+                <span>Soporte incluido</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-[#06B6D4]" />
+                <span>Actualización inmediata del plan</span>
+              </div>
             </div>
           </div>
-        </motion.div>
+        </BlurFade>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {plans.map((plan, index) => {
             const isCurrentPlan = currentPlanId === plan.key;
             
             return (
-              <motion.div
-                key={plan.key}
-                initial={{ opacity: 0, y: 45 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                viewport={{ once: true }}
-                className={`relative rounded-[2rem] p-8 flex flex-col overflow-hidden backdrop-blur-2xl transition-all duration-500 hover:-translate-y-2 ${
-                  plan.highlighted
-                    ? 'bg-white/[0.08] border border-[#7C3AED]/50 shadow-[0_0_70px_rgba(124,58,237,0.24)] lg:-translate-y-4'
-                    : 'bg-white/[0.05] border border-white/10 shadow-[0_0_40px_rgba(6,182,212,0.06)]'
-                }`}
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-[#7C3AED]/10 via-transparent to-[#06B6D4]/10 opacity-60" />
+              <BlurFade delay={0.4 + index * 0.1} key={plan.key} yOffset={45} className="flex h-full flex-col">
+                <div
+                  className={`relative h-full rounded-[2rem] p-8 flex flex-col overflow-hidden backdrop-blur-2xl transition-all duration-500 hover:-translate-y-2 ${
+                    plan.highlighted
+                      ? 'bg-white/[0.08] shadow-[0_0_70px_rgba(124,58,237,0.24)] lg:-translate-y-4'
+                      : 'bg-white/[0.05] border border-white/10 shadow-[0_0_40px_rgba(6,182,212,0.06)]'
+                  }`}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#7C3AED]/10 via-transparent to-[#06B6D4]/10 opacity-60 pointer-events-none" />
+                  {plan.highlighted && <BorderBeam size={250} duration={12} delay={9} />}
 
                 {plan.badge && (
                   <div className="absolute -top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white text-xs font-bold uppercase tracking-wider py-1.5 px-4 rounded-b-xl shadow-lg">
@@ -117,7 +113,7 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
                   </ul>
 
                   {isCurrentPlan ? (
-                    <button disabled className="w-full py-3.5 rounded-xl font-semibold bg-white/5 border border-white/10 text-white/50 cursor-not-allowed">
+                    <button disabled className="w-full py-3.5 mt-auto rounded-xl font-semibold bg-white/5 border border-white/10 text-white/50 cursor-not-allowed">
                       Plan activo
                     </button>
                   ) : plan.external ? (
@@ -125,28 +121,41 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
                       href={plan.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`w-full py-3.5 rounded-xl font-semibold transition-all duration-300 text-center inline-block hover:scale-[1.02] ${
-                        plan.highlighted
-                          ? 'bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white shadow-[0_0_30px_rgba(124,58,237,0.3)]'
-                          : 'bg-white/[0.06] border border-white/10 text-white hover:bg-white/10'
-                      }`}
+                      className="w-full mt-auto block"
                     >
-                      {plan.cta}
+                      {plan.highlighted ? (
+                        <ShimmerButton className="w-full font-semibold" shimmerColor="#A855F7" background="linear-gradient(90deg, #7C3AED, #2563EB, #06B6D4)">
+                          {plan.cta}
+                        </ShimmerButton>
+                      ) : (
+                        <button className="w-full py-3.5 rounded-xl font-semibold transition-all duration-300 text-center bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 hover:scale-[1.02]">
+                          {plan.cta}
+                        </button>
+                      )}
                     </a>
                   ) : (
                     <Link
-                      href={plan.key === 'free' && !isLoggedIn ? '/register' : plan.href}
-                      className={`w-full py-3.5 rounded-xl font-semibold transition-all duration-300 text-center inline-block hover:scale-[1.02] ${
-                        plan.highlighted
-                          ? 'bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white shadow-[0_0_30px_rgba(124,58,237,0.3)]'
-                          : 'bg-white/[0.06] border border-white/10 text-white hover:bg-white/10'
-                      }`}
+                      href={
+                        !isLoggedIn
+                          ? (plan.key === 'free' ? '/register' : `/login?redirect=${encodeURIComponent(plan.href)}`)
+                          : plan.href
+                      }
+                      className="w-full mt-auto block"
                     >
-                      {plan.cta}
+                      {plan.highlighted ? (
+                        <ShimmerButton className="w-full font-semibold" shimmerColor="#A855F7" background="linear-gradient(90deg, #7C3AED, #2563EB, #06B6D4)">
+                          {plan.cta}
+                        </ShimmerButton>
+                      ) : (
+                        <button className="w-full py-3.5 rounded-xl font-semibold transition-all duration-300 text-center bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 hover:scale-[1.02]">
+                          {plan.cta}
+                        </button>
+                      )}
                     </Link>
                   )}
                 </div>
-              </motion.div>
+                </div>
+              </BlurFade>
             )
           })}
         </div>

@@ -1,6 +1,6 @@
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
-import { Features } from "@/components/Features";
+import { Stats } from "@/components/Stats";
 import { Benefits } from "@/components/Benefits";
 import { HowItWorks } from "@/components/HowItWorks";
 import { UseCases } from "@/components/UseCases";
@@ -17,7 +17,7 @@ export default function Home() {
       <CursorGlow />
       <Header />
       <Hero />
-      <Features />
+      <Stats />
       <Benefits />
       <HowItWorks />
       <UseCases />

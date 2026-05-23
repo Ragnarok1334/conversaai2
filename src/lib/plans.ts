@@ -8,6 +8,8 @@ export interface PlanFeature {
 
 import { CONTACT_INFO } from './contact'
 
+const telegramBase = process.env.NEXT_PUBLIC_TELEGRAM_URL || CONTACT_INFO.telegram
+
 export interface PlanConfig {
   key: PlanKey
   label: string
@@ -21,6 +23,8 @@ export interface PlanConfig {
   features: string[]
   cta: string
   href: string
+  // TODO: Implement payment gateway. This URL will be used to generate the checkout session.
+  checkoutUrl?: string
   external?: boolean
   highlighted?: boolean
   badge?: string
@@ -65,7 +69,8 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
       'Soporte prioritario',
     ],
     cta: 'Contratar Pro',
-    href: '/dashboard/billing/pro',
+    href: '/dashboard/billing/checkout?plan=pro',
+    checkoutUrl: '/api/checkout', // TODO: Connect to Stripe/MercadoPago API route
     highlighted: false
   },
   business: {
@@ -87,7 +92,8 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
       'Soporte prioritario',
     ],
     cta: 'Contratar Business',
-    href: '/dashboard/billing/business',
+    href: '/dashboard/billing/checkout?plan=business',
+    checkoutUrl: '/api/checkout', // TODO: Connect to Stripe/MercadoPago API route
     highlighted: true,
     badge: 'Más popular'
   },
@@ -109,7 +115,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
       'Soporte dedicado',
     ],
     cta: 'Hablar por Telegram',
-    href: `${CONTACT_INFO.telegram}?text=Hola,%20quiero%20información%20sobre%20el%20plan%20Enterprise%20de%20ConversaAI`,
+    href: `${telegramBase}?text=Hola,%20quiero%20información%20sobre%20el%20plan%20Enterprise%20de%20ConversaAI`,
     external: true,
     highlighted: false
   },
