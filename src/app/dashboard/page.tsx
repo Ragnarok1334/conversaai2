@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Bot, MessageSquare, Users, Wifi, Plus, ArrowRight, TrendingUp, Clock } from 'lucide-react'
+import { Bot, MessageSquare, Users, Plus, ArrowRight, TrendingUp, Clock } from 'lucide-react'
+import { PlanUsageCard } from '@/components/dashboard/PlanUsageCard'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -26,10 +27,9 @@ export default async function DashboardPage() {
     .limit(5)
 
   const metrics = [
-    { label: 'Asistentes', value: assistantCount ?? 0, icon: Bot, color: 'violet', trend: '+1 este mes' },
-    { label: 'Conversaciones', value: convCount ?? 0, icon: MessageSquare, color: 'cyan', trend: 'Total acumulado' },
-    { label: 'Leads captados', value: leadCount ?? 0, icon: Users, color: 'pink', trend: 'Total acumulado' },
-    { label: 'Canales activos', value: 0, icon: Wifi, color: 'blue', trend: 'Próximamente' },
+    { label: 'Asistentes', value: assistantCount ?? 0, icon: Bot, color: 'violet', trend: 'Actual' },
+    { label: 'Conversaciones', value: convCount ?? 0, icon: MessageSquare, color: 'cyan', trend: 'Histórico' },
+    { label: 'Leads captados', value: leadCount ?? 0, icon: Users, color: 'pink', trend: 'Histórico' },
   ]
 
   const colorMap: Record<string, string> = {
@@ -67,8 +67,11 @@ export default async function DashboardPage() {
         </Link>
       </div>
 
+      {/* Subscription Card */}
+      <PlanUsageCard />
+
       {/* Metrics Grid */}
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      <div className="grid sm:grid-cols-3 gap-5">
         {metrics.map((m) => {
           const classes = colorMap[m.color]
           const [fromClass, , borderClass, textClass, bgClass] = classes.split(' ')

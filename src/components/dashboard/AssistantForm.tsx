@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { Loader2, CheckCircle2, ChevronDown, MessageCircle, Clock } from 'lucide-react'
 import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
 import { KnowledgeSection } from '@/components/dashboard/KnowledgeSection'
+import { UpgradeModal } from '@/components/dashboard/UpgradeModal'
 import { type AssistantConfig } from '@/lib/openai'
 
 const TONES = ['profesional', 'amable', 'vendedor', 'breve', 'elegante']
@@ -114,23 +115,28 @@ function SelectInput({ value, onChange, options }: { value: string; onChange: (v
   )
 }
 
-function ChipGroup({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
+function ChipGroup({ options, value, onChange, disabledOptions = [], onDisabledClick }: { options: string[]; value: string; onChange: (v: string) => void; disabledOptions?: string[]; onDisabledClick?: (v: string) => void }) {
   return (
     <div className="flex flex-wrap gap-2">
-      {options.map((o) => (
-        <button
-          key={o}
-          type="button"
-          onClick={() => onChange(o)}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all capitalize ${
-            value === o
-              ? 'border-brand-violet/60 bg-brand-violet/20 text-white'
-              : 'border-white/[0.1] bg-white/[0.03] text-text-soft hover:border-brand-violet/30 hover:text-text-main'
-          }`}
-        >
-          {o}
-        </button>
-      ))}
+      {options.map((o) => {
+        const isDisabled = disabledOptions.includes(o)
+        return (
+          <button
+            key={o}
+            type="button"
+            onClick={() => isDisabled ? onDisabledClick?.(o) : onChange(o)}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all capitalize ${
+              isDisabled 
+                ? 'opacity-50 cursor-not-allowed border-white/[0.05] bg-white/[0.02] text-text-soft/50'
+                : value === o
+                ? 'border-brand-violet/60 bg-brand-violet/20 text-white'
+                : 'border-white/[0.1] bg-white/[0.03] text-text-soft hover:border-brand-violet/30 hover:text-text-main'
+            }`}
+          >
+            {o}
+          </button>
+        )
+      })}
     </div>
   )
 }
@@ -140,8 +146,28 @@ export function AssistantForm() {
   const [form, setForm] = useState<FormData>(initialForm)
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
+  const [subPlan, setSubPlan] = useState<'free' | 'pro' | 'enterprise' | null>(null)
+  
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [upgradeModalContent, setUpgradeModalContent] = useState({ title: '', desc: '' })
+
+  useEffect(() => {
+    fetch('/api/subscription')
+      .then(r => r.json())
+      .then(d => {
+        if (!d.error) setSubPlan(d.plan)
+      })
+  }, [])
 
   const set = (key: keyof FormData) => (val: string) => setForm(prev => ({ ...prev, [key]: val }))
+
+  const handleDisabledClick = (channel: string) => {
+    setUpgradeModalContent({
+      title: 'Canal Premium',
+      desc: `El canal ${channel} está disponible en planes superiores. Mejora tu cuenta para integrarlo.`
+    })
+    setShowUpgradeModal(true)
+  }
 
   const previewConfig: Partial<AssistantConfig> = {
     assistantName: form.assistant_name || 'Mi Asistente',
@@ -218,8 +244,14 @@ export function AssistantForm() {
         {/* Section 2 */}
         <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-6 space-y-5">
           <h2 className="font-semibold text-lg border-b border-white/[0.06] pb-3">Comportamiento</h2>
-          <FormField label="Canal inicial">
-            <ChipGroup options={CHANNELS.map(c => c.value)} value={form.channel} onChange={set('channel')} />
+          <FormField label="Canal inicial" hint={subPlan === 'free' ? 'WhatsApp y Telegram requieren plan Pro.' : ''}>
+            <ChipGroup 
+              options={CHANNELS.map(c => c.value)} 
+              value={form.channel} 
+              onChange={set('channel')}
+              disabledOptions={subPlan === 'free' ? ['telegram', 'whatsapp'] : []}
+              onDisabledClick={handleDisabledClick}
+            />
           </FormField>
           <FormField label="Tono de comunicación">
             <ChipGroup options={TONES} value={form.tone} onChange={set('tone')} />
@@ -288,6 +320,13 @@ export function AssistantForm() {
           title={form.assistant_name || 'Vista previa'}
         />
       </motion.div>
+
+      <UpgradeModal 
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        title={upgradeModalContent.title}
+        description={upgradeModalContent.desc}
+      />
     </div>
   )
 }

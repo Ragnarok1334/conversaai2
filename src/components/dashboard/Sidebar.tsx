@@ -12,6 +12,7 @@ import {
   Plus,
   ChevronRight,
   Zap,
+  CreditCard,
 } from 'lucide-react'
 
 const navItems = [
@@ -71,18 +72,17 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Upgrade Banner */}
+      {/* Billing Link */}
       <div className="p-4 border-t border-white/[0.06]">
-        <div className="bg-gradient-to-br from-brand-violet/20 to-brand-cyan/10 border border-brand-violet/20 rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Zap className="w-4 h-4 text-brand-cyan" />
-            <span className="text-sm font-semibold text-white">Plan Pro</span>
+        <Link href="/dashboard/billing" className="group flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-br from-white/[0.02] to-white/[0.04] border border-white/[0.05] hover:border-white/[0.1] hover:bg-white/[0.06] transition-all">
+          <div className="w-8 h-8 rounded-lg bg-brand-violet/20 border border-brand-violet/30 flex items-center justify-center group-hover:scale-105 transition-transform">
+            <CreditCard className="w-4 h-4 text-brand-violet" />
           </div>
-          <p className="text-xs text-text-soft mb-3">Canales ilimitados y conversaciones sin límite</p>
-          <button className="w-full text-xs font-semibold gradient-btn py-2 rounded-lg text-white hover:opacity-90 transition-opacity">
-            Mejorar plan
-          </button>
-        </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white group-hover:text-brand-violet transition-colors">Facturación</p>
+            <p className="text-xs text-text-soft truncate">Administrar suscripción</p>
+          </div>
+        </Link>
       </div>
     </aside>
   )
