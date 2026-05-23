@@ -9,9 +9,9 @@ const geistSans = Geist({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://conversaai.store"),
-  title: "ConversaAI — Asistentes de IA para tu negocio",
+  title: "ConversaAI — Asistentes de IA para ventas y atención",
   description:
-    "Crea asistentes de inteligencia artificial personalizados para automatizar conversaciones, captar leads y atender clientes las 24 horas.",
+    "Automatiza conversaciones, capta leads y atiende clientes 24/7 con asistentes de inteligencia artificial para tu negocio.",
   icons: {
     icon: [
       { url: "/logo.png", sizes: "any" },
@@ -21,9 +21,9 @@ export const metadata: Metadata = {
     shortcut: "/logo.png",
   },
   openGraph: {
-    title: "ConversaAI — Asistentes de IA para tu negocio",
+    title: "ConversaAI — Automatiza tus conversaciones",
     description:
-      "Automatiza conversaciones, capta leads y atiende clientes con IA. Sin código.",
+      "Crea asistentes de IA para responder clientes, captar prospectos y vender más.",
     url: "https://conversaai.store",
     siteName: "ConversaAI",
     images: [{ url: "/logo.png" }],

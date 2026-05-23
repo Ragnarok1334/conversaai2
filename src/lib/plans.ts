@@ -6,6 +6,8 @@ export interface PlanFeature {
   name: string
 }
 
+import { CONTACT_INFO } from './contact'
+
 export interface PlanConfig {
   key: PlanKey
   label: string
@@ -17,6 +19,11 @@ export interface PlanConfig {
   channels: ChannelKey[]
   popular?: boolean
   features: string[]
+  cta: string
+  href: string
+  external?: boolean
+  highlighted?: boolean
+  badge?: string
 }
 
 export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
@@ -34,19 +41,21 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
       '100 mensajes al mes',
       'Canal Web Chat',
       'Playground básico',
-      'Soporte comunidad',
+      'Soporte comunitario',
     ],
+    cta: 'Crear asistente',
+    href: '/dashboard/create-assistant',
+    highlighted: false
   },
   pro: {
     key: 'pro',
     label: 'Pro',
     price: '$19',
     period: '/mes',
-    description: 'Para negocios que quieren automatizar ventas y atención.',
+    description: 'Ideal para emprendedores y negocios pequeños que quieren automatizar conversaciones.',
     assistantsLimit: 5,
     messagesLimit: 5000,
     channels: ['webchat', 'telegram', 'whatsapp'],
-    popular: true,
     features: [
       '5 asistentes IA',
       '5,000 mensajes al mes',
@@ -55,13 +64,16 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
       'Historial de conversaciones',
       'Soporte prioritario',
     ],
+    cta: 'Contratar Pro',
+    href: '/dashboard/billing/pro',
+    highlighted: false
   },
   business: {
     key: 'business',
     label: 'Business',
     price: '$49',
     period: '/mes',
-    description: 'Para equipos y negocios con alto volumen.',
+    description: 'Para negocios con más volumen, más canales y automatización avanzada.',
     assistantsLimit: 20,
     messagesLimit: 50000,
     channels: ['webchat', 'telegram', 'whatsapp'],
@@ -74,13 +86,17 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
       'API y Webhooks',
       'Soporte prioritario',
     ],
+    cta: 'Contratar Business',
+    href: '/dashboard/billing/business',
+    highlighted: true,
+    badge: 'Más popular'
   },
   enterprise: {
     key: 'enterprise',
     label: 'Enterprise',
     price: 'Personalizado',
     period: '',
-    description: 'Para empresas con necesidades avanzadas.',
+    description: 'Solución a medida para empresas que necesitan infraestructura dedicada y soporte directo.',
     assistantsLimit: null,
     messagesLimit: null,
     channels: ['webchat', 'telegram', 'whatsapp'],
@@ -92,6 +108,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
       'Integraciones custom',
       'Soporte dedicado',
     ],
+    cta: 'Hablar por Telegram',
+    href: `${CONTACT_INFO.telegram}?text=Hola,%20quiero%20información%20sobre%20el%20plan%20Enterprise%20de%20ConversaAI`,
+    external: true,
+    highlighted: false
   },
 }
 

@@ -2,7 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PlanUsageCard } from '@/components/dashboard/PlanUsageCard'
 import { PLAN_CONFIGS } from '@/lib/plans'
-import { Check, Lock, Sparkles, Receipt, CreditCard } from 'lucide-react'
+import { Check, Lock, Sparkles, Receipt, CreditCard, Shield, Clock, Zap } from 'lucide-react'
+import Link from 'next/link'
 
 export default async function BillingPage() {
   const supabase = await createClient()
@@ -24,8 +25,22 @@ export default async function BillingPage() {
       
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Facturación</h1>
-        <p className="text-text-soft">Administra tu plan, uso mensual y métodos de pago.</p>
+        <h1 className="text-3xl font-bold tracking-tight mb-2">Planes y facturación</h1>
+        <p className="text-text-soft">Elige el plan ideal para automatizar conversaciones, captar leads y atender clientes 24/7 con ConversaAI.</p>
+        <div className="flex flex-wrap items-center gap-6 text-sm text-[#CBD5E1] mt-4">
+          <div className="flex items-center gap-2">
+            <Shield className="w-4 h-4 text-brand-cyan" />
+            <span>Cancela cuando quieras</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-brand-cyan" />
+            <span>Soporte incluido</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Zap className="w-4 h-4 text-brand-cyan" />
+            <span>Actualización inmediata</span>
+          </div>
+        </div>
       </div>
 
       {/* Plan & Usage Overview */}
@@ -76,49 +91,72 @@ export default async function BillingPage() {
       <section className="space-y-6 pt-4">
         <h2 className="text-xl font-semibold">Explorar planes</h2>
         
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
           {plans.map((plan) => {
             const isCurrent = currentPlan === plan.key
             return (
               <div 
                 key={plan.key}
-                className={`relative rounded-2xl p-6 flex flex-col bg-card-bg border transition-all ${
-                  isCurrent 
-                    ? 'border-brand-violet/50 shadow-[0_0_30px_rgba(124,58,237,0.15)] bg-gradient-to-b from-brand-violet/10 to-transparent' 
-                    : 'border-card-border hover:border-white/20'
+                className={`relative rounded-[2rem] p-6 flex flex-col transition-all ${
+                  plan.highlighted 
+                    ? 'border border-[#7C3AED]/50 bg-white/[0.04] shadow-[0_0_30px_rgba(124,58,237,0.15)]' 
+                    : 'bg-card-bg border border-card-border hover:border-white/20'
                 }`}
               >
-                {isCurrent && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-brand-violet text-white text-xs font-bold shadow-lg">
+                {plan.badge && (
+                  <div className="absolute -top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-b-lg shadow-md">
+                    {plan.badge}
+                  </div>
+                )}
+                {isCurrent && !plan.badge && (
+                  <div className="absolute -top-0 left-1/2 -translate-x-1/2 bg-white/10 border border-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-b-lg shadow-md">
                     Plan actual
                   </div>
                 )}
                 
-                <h3 className="text-lg font-bold mb-1 mt-2">{plan.label}</h3>
-                <div className="mb-4">
-                  <span className="text-2xl font-bold">{plan.price}</span>
+                <h3 className="text-xl font-bold mb-1 mt-4">{plan.label}</h3>
+                <div className="mb-6 flex items-baseline gap-1">
+                  <span className={`font-bold ${plan.price.length > 8 ? 'text-2xl' : 'text-3xl'}`}>{plan.price}</span>
                   <span className="text-text-soft text-sm">{plan.period}</span>
                 </div>
                 
                 <ul className="space-y-3 flex-1 mb-6">
-                  {plan.features.slice(0, 4).map((f, i) => (
+                  {plan.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
                       <Check className="w-4 h-4 text-brand-success shrink-0 mt-0.5" />
                       <span>{f}</span>
                     </li>
                   ))}
-                  {plan.features.length > 4 && (
-                    <li className="text-xs text-text-soft pl-6 italic">
-                      + {plan.features.length - 4} características más
-                    </li>
-                  )}
                 </ul>
 
-                {!isCurrent && (
-                  <button disabled className="w-full py-2.5 rounded-lg text-sm font-semibold border border-white/10 bg-white/[0.02] text-text-soft opacity-60 cursor-not-allowed flex items-center justify-center gap-2">
-                    <Lock className="w-3 h-3" />
-                    Mejorar próximamente
+                {isCurrent ? (
+                  <button disabled className="w-full py-3 rounded-xl text-sm font-semibold border border-white/10 bg-white/[0.02] text-text-soft opacity-60 cursor-not-allowed">
+                    Plan activo
                   </button>
+                ) : plan.external ? (
+                  <a
+                    href={plan.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`w-full py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-center inline-block ${
+                      plan.highlighted
+                        ? 'bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white'
+                        : 'bg-white/[0.06] border border-white/10 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {plan.cta}
+                  </a>
+                ) : (
+                  <Link
+                    href={plan.href}
+                    className={`w-full py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-center inline-block ${
+                      plan.highlighted
+                        ? 'bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white'
+                        : 'bg-white/[0.06] border border-white/10 text-white hover:bg-white/10'
+                    }`}
+                  >
+                    {plan.cta}
+                  </Link>
                 )}
               </div>
             )
