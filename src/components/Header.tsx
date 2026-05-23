@@ -63,8 +63,8 @@ export function Header() {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden xl:flex items-center gap-8">
-          <ul className="flex items-center gap-6">
+        <nav className="hidden lg:flex items-center gap-4 lg:gap-6">
+          <ul className="flex items-center gap-3 lg:gap-5">
             {navLinks.map((link) => (
               <li key={link.name}>
                 <Link
@@ -77,7 +77,7 @@ export function Header() {
             ))}
           </ul>
           
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 lg:gap-4">
             {user ? (
               <>
                 <Link href="/dashboard" className="text-sm font-medium text-text-secondary hover:text-text-main transition-colors flex items-center gap-2">
@@ -96,7 +96,7 @@ export function Header() {
                 <Link href="/login" className="text-sm font-medium text-text-secondary hover:text-text-main transition-colors">
                   Iniciar sesión
                 </Link>
-                <Link href="/register" className="gradient-btn px-5 py-2.5 rounded-full text-white font-medium text-sm hover:opacity-90 transition-opacity glow-violet">
+                <Link href="/register" className="gradient-btn px-4 py-2 lg:px-5 lg:py-2.5 rounded-full text-white font-medium text-xs lg:text-sm hover:opacity-90 transition-opacity glow-violet">
                   Comenzar ahora
                 </Link>
               </>
@@ -106,7 +106,7 @@ export function Header() {
 
         {/* Mobile Toggle */}
         <button
-          className="xl:hidden text-text-main"
+          className="lg:hidden text-text-main"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
           {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -120,7 +120,7 @@ export function Header() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="xl:hidden absolute top-full left-0 w-full bg-dark-secondary border-b border-card-border p-4 flex flex-col gap-4 shadow-xl"
+            className="lg:hidden absolute top-full left-0 w-full bg-dark-secondary border-b border-card-border p-4 flex flex-col gap-4 shadow-xl"
           >
             {navLinks.map((link) => (
               <Link

@@ -13,7 +13,7 @@ import { CursorGlow } from "@/components/CursorGlow";
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-dark-bg text-text-main font-sans selection:bg-brand-violet/30 selection:text-white">
+    <main className="min-h-screen bg-dark-bg text-text-main font-sans selection:bg-brand-violet/30 selection:text-white overflow-x-hidden">
       <CursorGlow />
       <Header />
       <Hero />

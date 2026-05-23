@@ -48,7 +48,7 @@ export function Hero() {
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#7C3AED]/20 rounded-full blur-[120px]" />
       <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#06B6D4]/20 rounded-full blur-[120px]" />
 
-      <div className="container mx-auto px-4 md:px-6 relative z-[2]">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="grid lg:grid-cols-2 gap-14 items-center">
 
           {/* LEFT SIDE */}
@@ -65,7 +65,7 @@ export function Hero() {
 
             <BlurFade delay={0.2}>
               {/* Title */}
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white leading-tight tracking-[-0.04em]">
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-white leading-tight tracking-[-0.04em]">
                 Convierte mensajes en clientes con{" "}
                 <AnimatedGradientText>
                   inteligencia artificial

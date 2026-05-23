@@ -20,7 +20,7 @@ const features = [
     description: "Responde preguntas frecuentes, atiende clientes y evita perder oportunidades fuera de horario.",
     href: "/",
     cta: "Saber más",
-    className: "md:col-span-2",
+    className: "lg:col-span-2",
     background: <div className="absolute inset-0 bg-gradient-to-br from-brand-violet/10 to-transparent" />,
   },
   {
@@ -29,7 +29,7 @@ const features = [
     description: "Guarda nombre, teléfono, correo y necesidades del cliente para dar seguimiento comercial.",
     href: "/",
     cta: "Saber más",
-    className: "md:col-span-1",
+    className: "lg:col-span-1",
     background: <div className="absolute inset-0 bg-gradient-to-br from-brand-cyan/10 to-transparent" />,
   },
   {
@@ -38,7 +38,7 @@ const features = [
     description: "Conecta los canales donde tus clientes ya conversan con tu negocio.",
     href: "/",
     cta: "Saber más",
-    className: "md:col-span-1",
+    className: "lg:col-span-1",
     background: <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(34,197,94,0.1)_0%,transparent_50%)]" />,
   },
   {
@@ -47,7 +47,7 @@ const features = [
     description: "Consulta métricas de mensajes, conversaciones, clientes potenciales y rendimiento.",
     href: "/",
     cta: "Saber más",
-    className: "md:col-span-2",
+    className: "lg:col-span-2",
     background: <div className="absolute inset-0 bg-gradient-to-bl from-brand-blue/10 to-transparent" />,
   },
   {
@@ -56,7 +56,7 @@ const features = [
     description: "Revisa interacciones anteriores para entender mejor a cada cliente.",
     href: "/",
     cta: "Saber más",
-    className: "md:col-span-1",
+    className: "lg:col-span-1",
     background: <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(168,85,247,0.1)_0%,transparent_50%)]" />,
   },
   {
@@ -65,7 +65,7 @@ const features = [
     description: "Conecta ConversaAI con tus herramientas internas, CRM o procesos personalizados.",
     href: "/",
     cta: "Saber más",
-    className: "md:col-span-1",
+    className: "lg:col-span-1",
     background: <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent" />,
   },
   {
@@ -74,7 +74,7 @@ const features = [
     description: "Adapta colores, mensajes y personalidad del asistente a tu marca.",
     href: "/",
     cta: "Saber más",
-    className: "md:col-span-1",
+    className: "lg:col-span-1",
     background: <div className="absolute inset-0 bg-gradient-to-br from-brand-pink/5 to-transparent" />,
   },
   {
@@ -83,7 +83,7 @@ const features = [
     description: "Entrena tu asistente con información propia de tu negocio para respuestas más precisas.",
     href: "/",
     cta: "Saber más",
-    className: "md:col-span-3",
+    className: "lg:col-span-3",
     background: <div className="absolute inset-0 bg-gradient-to-b from-brand-cyan/5 to-transparent" />,
   },
 ];

@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       )
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const handlerPromise = handler(req).catch((err: any) => {
       // Handle errors from grammY or our bot handlers — never expose internals
       console.error("[Webhook] Handler error:", err?.message ?? "Unknown error");
