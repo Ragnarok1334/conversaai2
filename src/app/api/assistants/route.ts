@@ -31,86 +31,307 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
 
+    // PASO 3: Obtener usuario autenticado desde el servidor (nunca desde el frontend)
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Debes iniciar sesión para crear un asistente.' },
+        { status: 401 }
+      )
     }
 
+    // PASO 4: Leer y validar body
     const body = await request.json()
-    const {
-      assistant_name,
-      business_name,
-      business_type,
-      channel,
-      tone,
-      main_goal,
-      instructions,
-      faqs,
-      services,
-      schedule,
-      fallback_message,
-      language,
-    } = body
 
-    if (!assistant_name || !business_name) {
-      return NextResponse.json({ error: 'Nombre del asistente y negocio son requeridos' }, { status: 400 })
+    // Acepta tanto los nombres del nuevo payload anidado como los legacy snake_case
+    const name = body.assistant_name || body.name || ''
+    const businessName = body.business_name || body.businessName || ''
+    const businessInfo = body.instructions || body.business_info || body.businessInfo || ''
+    const language = 'es' // siempre español por ahora
+
+    // Comportamiento: viene de behavior.* o de legacy fields a nivel raíz
+    const behavior = body.behavior ?? {}
+    const channel = behavior.initialChannel || body.channel || 'webchat'
+    const tone = behavior.tone || body.tone || 'profesional'
+    const mainGoal = behavior.goal || body.main_goal || null
+    const salesLevel = behavior.salesLevel || null
+    const responseStyle = behavior.responseStyle || null
+    const rules = behavior.rules ?? null
+
+    // Campos adicionales
+    const faqs = body.faqs || null
+    const services = body.services || null
+    const schedule = body.schedule || body.business_hours || body.businessHours || null
+    const fallbackMessage = body.fallback_message || body.fallbackMessage || null
+    const welcomeMessage = body.welcome_message || body.welcomeMessage || null
+
+    // Canales del nuevo objeto channels
+    const channels = body.channels ?? {}
+
+    if (!name.trim()) {
+      return NextResponse.json(
+        { error: 'El nombre del asistente es obligatorio.' },
+        { status: 400 }
+      )
+    }
+    if (!businessInfo.trim() && !businessName.trim()) {
+      return NextResponse.json(
+        { error: 'Agrega información de tu negocio para crear el asistente.' },
+        { status: 400 }
+      )
     }
 
     // --- Subscription & Limit Checks ---
-    const { data: sub } = await supabase
+    const { data: sub, error: subError } = await supabase
       .from('subscriptions')
       .select('plan, assistants_limit, status')
       .eq('user_id', user.id)
       .single()
 
-    if (!sub || sub.status !== 'active') {
-      return NextResponse.json({ error: 'Suscripción inactiva o no encontrada' }, { status: 403 })
+    if (subError && subError.code !== 'PGRST116') {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[POST /api/assistants] subError:', subError)
+      }
     }
 
-    const requestedChannel = channel || 'webchat'
-    if (!canUseChannel(sub.plan as PlanKey, requestedChannel)) {
-      return NextResponse.json({ error: `Tu plan actual no permite el canal: ${requestedChannel}. Actualiza tu plan para desbloquearlo.` }, { status: 403 })
+    // TODO: reemplazar currentPlan por plan real desde billing/subscription de manera más robusta si no hay entrada.
+    // Si no hay suscripción activa, asumimos plan "free" con límite de 1 asistente temporalmente.
+    const isActiveSub = sub && sub.status === 'active'
+    const planKey = isActiveSub ? (sub.plan as PlanKey) : 'free'
+    const assistantsLimit = isActiveSub ? sub.assistants_limit : 1
+
+    // Verificar que el plan permite el canal solicitado
+    if (!canUseChannel(planKey, channel)) {
+      return NextResponse.json(
+        {
+          error: `Tu plan actual no permite el canal: ${channel}. Actualiza tu plan para desbloquearlo.`,
+        },
+        { status: 403 }
+      )
     }
 
+    // Verificar límite de asistentes
     const { count, error: countErr } = await supabase
       .from('assistants')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
 
-    if (countErr) throw countErr
+    if (countErr) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[POST /api/assistants] countErr:', countErr)
+      }
+      throw countErr
+    }
 
-    if (!isUnlimited(sub.assistants_limit) && (count || 0) >= sub.assistants_limit) {
-      return NextResponse.json({ error: `Has alcanzado el límite de asistentes de tu plan (${sub.assistants_limit}). Actualiza tu cuenta para crear más.` }, { status: 403 })
+    if (!isUnlimited(assistantsLimit) && (count || 0) >= (assistantsLimit || 1)) {
+      return NextResponse.json(
+        {
+          error: 'Alcanzaste el límite de asistentes de tu plan actual. Mejora tu plan para crear más.',
+        },
+        { status: 403 }
+      )
     }
     // -----------------------------------
 
-    const { data, error } = await supabase
-      .from('assistants')
-      .insert({
-        user_id: user.id,
-        assistant_name,
-        business_name,
-        business_type: business_type || null,
-        channel: requestedChannel,
-        tone: tone || 'profesional',
-        main_goal: main_goal || null,
-        instructions: instructions || null,
-        faqs: faqs || null,
-        services: services || null,
-        schedule: schedule || null,
-        fallback_message: fallback_message || null,
-        language: language || 'es',
-        status: 'active',
+    // PASO 5 & 6: Construir payload con columnas que SÍ existen en la tabla assistants
+    // Las columnas como behavior, business_info, business_hours se guardan si la tabla las tiene.
+    // Si no existen, el fallback hace un insert solo con las columnas base conocidas.
+    const behaviorData = {
+      initialChannel: channel,
+      tone,
+      goal: mainGoal,
+      salesLevel,
+      responseStyle,
+      rules,
+    }
+
+    // Payload con todas las columnas posibles (incluyendo extendidas)
+    const assistantPayloadFull = {
+      user_id: user.id,
+      assistant_name: name,
+      business_name: businessName || name,
+      business_type: body.business_type || body.businessType || null,
+      channel,
+      tone,
+      main_goal: mainGoal,
+      instructions: businessInfo || null,
+      faqs,
+      services,
+      schedule,
+      fallback_message: fallbackMessage,
+      language,
+      status: 'active',
+      behavior: behaviorData,
+      ...(welcomeMessage ? { welcome_message: welcomeMessage } : {}),
+      ...(businessInfo ? { business_info: businessInfo } : {}),
+      ...(schedule ? { business_hours: schedule } : {}),
+    }
+
+    // Payload mínimo solo con columnas base (fallback si las extendidas no existen)
+    const assistantPayloadBase = {
+      user_id: user.id,
+      assistant_name: name,
+      business_name: businessName || name,
+      business_type: body.business_type || body.businessType || null,
+      channel,
+      tone,
+      main_goal: mainGoal,
+      instructions: businessInfo || null,
+      faqs,
+      services,
+      schedule,
+      fallback_message: fallbackMessage,
+      language,
+      status: 'active',
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[POST /api/assistants] assistantPayload (full):', {
+        ...assistantPayloadFull,
       })
+    }
+
+    // Intentar primero con payload completo (incluyendo behavior y campos extendidos)
+    let { data: assistant, error: assistantError } = await supabase
+      .from('assistants')
+      .insert(assistantPayloadFull)
       .select()
       .single()
 
-    if (error) throw error
+    // Si falla por columna desconocida (código PGRST204 o 42703), hacer fallback al payload base
+    if (assistantError) {
+      const isColumnError =
+        assistantError.message?.includes('column') ||
+        assistantError.code === '42703' ||
+        assistantError.code === 'PGRST204'
 
-    return NextResponse.json({ assistant: data }, { status: 201 })
+      if (isColumnError) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(
+            '[POST /api/assistants] Columna extendida no existe, reintentando con payload base...',
+            assistantError.message
+          )
+        }
+        const fallbackResult = await supabase
+          .from('assistants')
+          .insert(assistantPayloadBase)
+          .select()
+          .single()
+
+        assistant = fallbackResult.data
+        assistantError = fallbackResult.error
+      }
+    }
+
+    if (assistantError || !assistant) {
+      console.error('[POST /api/assistants] assistantError final:', assistantError)
+      return NextResponse.json(
+        {
+          error: 'No se pudo crear el asistente.',
+          details:
+            process.env.NODE_ENV === 'development'
+              ? assistantError?.message ?? 'Error desconocido'
+              : undefined,
+        },
+        { status: 500 }
+      )
+    }
+
+    // PASO 7: Insertar canales en assistant_channels (si la tabla existe)
+    // Si la tabla no existe todavía, el error se captura de forma segura
+    // y no impide que el asistente se cree exitosamente.
+    try {
+      const telegramToken =
+        channels?.telegram?.token ||
+        channels?.telegram?.telegram_token ||
+        body.telegramToken ||
+        ''
+
+      // Reglas de habilitación por canal:
+      // - webchat: true por defecto si el usuario lo activó en el formulario
+      // - telegram: true SOLO si hay token válido (no vacío)
+      // - whatsapp: siempre false hasta implementación real
+      const telegramTokenTrimmed = telegramToken.trim()
+
+      const channelsPayload = [
+        {
+          assistant_id: assistant.id,
+          user_id: user.id,
+          channel: 'webchat',
+          is_enabled: channels?.webchat?.enabled ?? true,
+          config: { status: 'active' },
+        },
+        {
+          assistant_id: assistant.id,
+          user_id: user.id,
+          channel: 'telegram',
+          // is_enabled true SOLO si hay token — el toggle del formulario no es suficiente
+          is_enabled: Boolean(telegramTokenTrimmed),
+          config: telegramTokenTrimmed
+            ? { telegram_token: telegramTokenTrimmed, status: 'pending_connection' }
+            : { status: 'not_configured' },
+        },
+        {
+          assistant_id: assistant.id,
+          user_id: user.id,
+          channel: 'whatsapp',
+          is_enabled: false,
+          config: { status: 'coming_soon' },
+        },
+      ]
+
+      if (process.env.NODE_ENV === 'development') {
+        // Log seguro — ocultar token real
+        const safeChannelsPayload = channelsPayload.map((ch) => {
+          if (ch.channel === 'telegram' && 'telegram_token' in ch.config) {
+            return { ...ch, config: { ...ch.config, telegram_token: '***' } }
+          }
+          return ch
+        })
+        console.log('[POST /api/assistants] channelsPayload:', safeChannelsPayload)
+      }
+
+      const { error: channelsError } = await supabase
+        .from('assistant_channels')
+        .insert(channelsPayload)
+
+      if (channelsError) {
+        // No fallamos el request completo si assistant_channels no existe aún
+        // Dejamos el asistente creado y logueamos el error para debugging
+        console.error(
+          '[POST /api/assistants] channelsError (non-fatal):',
+          channelsError.message
+        )
+      }
+    } catch (channelsCatchErr) {
+      // Si la tabla assistant_channels no existe todavía, este bloque lo absorbe
+      console.error(
+        '[POST /api/assistants] channels insert failed (non-fatal):',
+        channelsCatchErr
+      )
+    }
+
+    // PASO 8: Respuesta de éxito
+    return NextResponse.json(
+      {
+        success: true,
+        assistant,
+      },
+      { status: 201 }
+    )
   } catch (error) {
-    console.error('[POST /api/assistants]', error)
-    return NextResponse.json({ error: 'Error al crear asistente' }, { status: 500 })
+    const err = error as Error
+    console.error('[POST /api/assistants] error completo:', err)
+    return NextResponse.json(
+      {
+        error: 'Error al crear asistente',
+        details:
+          process.env.NODE_ENV === 'development'
+            ? err?.message ?? String(err)
+            : undefined,
+      },
+      { status: 500 }
+    )
   }
 }

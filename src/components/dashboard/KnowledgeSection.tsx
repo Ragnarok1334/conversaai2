@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Brain,
   Sparkles,
@@ -12,9 +12,6 @@ import {
   CreditCard,
   ShieldCheck,
   Tag,
-  ChevronDown,
-  ChevronUp,
-  Lightbulb,
   CheckCircle2,
   Scissors,
   UtensilsCrossed,
@@ -22,6 +19,11 @@ import {
   ShoppingBag,
   Home,
   Zap,
+  Trash2,
+  Wand2,
+  MessageCircle,
+  Bot,
+  Lightbulb
 } from 'lucide-react'
 
 // ─── Templates ────────────────────────────────────────────────
@@ -173,65 +175,31 @@ R: Cédula de identidad, últimas 3 liquidaciones de sueldo o declaración de re
   },
 }
 
-// ─── Tips data ─────────────────────────────────────────────────
-const QUICK_TIPS = [
-  { icon: <CheckCircle2 className="w-3.5 h-3.5" />, text: 'Sé específico y detallado', color: 'text-brand-success' },
-  { icon: <Clock className="w-3.5 h-3.5" />, text: 'Incluye horarios exactos', color: 'text-brand-cyan' },
-  { icon: <DollarSign className="w-3.5 h-3.5" />, text: 'Agrega precios cuando puedas', color: 'text-brand-violet' },
-  { icon: <HelpCircle className="w-3.5 h-3.5" />, text: 'Añade preguntas frecuentes', color: 'text-brand-blue' },
-  { icon: <Tag className="w-3.5 h-3.5" />, text: 'Explica promociones y ofertas', color: 'text-brand-pink' },
-  { icon: <CreditCard className="w-3.5 h-3.5" />, text: 'Menciona formas de pago', color: 'text-brand-cyan' },
-  { icon: <MapPin className="w-3.5 h-3.5" />, text: 'Incluye dirección y contacto', color: 'text-brand-success' },
-  { icon: <ShieldCheck className="w-3.5 h-3.5" />, text: 'Indica políticas del negocio', color: 'text-brand-violet' },
-]
-
-const ADVANCED_TIPS = [
-  { title: 'Evita información ambigua', desc: 'Si dices "precios desde $X", aclara qué incluye cada opción para evitar confusiones.' },
-  { title: 'Escribe como hablarías', desc: 'Tu asistente aprenderá tu tono. Si escribes formal, responderá formal. Si escribes amigable, responderá amigable.' },
-  { title: 'Actualiza cuando cambies', desc: 'Si cambias precios o productos, recuerda editar el asistente para mantener la información al día.' },
-  { title: 'Incluye manejo de quejas', desc: 'Indica cómo debe responder ante quejas o situaciones difíciles: "Si el cliente está molesto, disculparte y derivar a..."' },
-]
-
+// ─── What to include ─────────────────────────────────────────────────
 const WHAT_TO_INCLUDE = [
-  { icon: <ShoppingBag className="w-4 h-4" />, label: 'Productos / Servicios' },
-  { icon: <DollarSign className="w-4 h-4" />, label: 'Precios' },
-  { icon: <Clock className="w-4 h-4" />, label: 'Horarios' },
-  { icon: <HelpCircle className="w-4 h-4" />, label: 'Preguntas frecuentes' },
-  { icon: <CreditCard className="w-4 h-4" />, label: 'Formas de pago' },
-  { icon: <MapPin className="w-4 h-4" />, label: 'Ubicación / Contacto' },
-  { icon: <Tag className="w-4 h-4" />, label: 'Promociones' },
-  { icon: <ShieldCheck className="w-4 h-4" />, label: 'Políticas' },
+  { icon: <ShoppingBag className="w-4 h-4" />, label: 'Servicios y productos', desc: 'Ayuda a explicar qué ofreces.', color: 'text-brand-cyan' },
+  { icon: <DollarSign className="w-4 h-4" />, label: 'Precios', desc: 'Permite responder consultas comerciales.', color: 'text-brand-violet' },
+  { icon: <Clock className="w-4 h-4" />, label: 'Horarios', desc: 'Evita confusiones sobre disponibilidad.', color: 'text-emerald-400' },
+  { icon: <MapPin className="w-4 h-4" />, label: 'Ubicación', desc: 'Ideal para negocios físicos.', color: 'text-fuchsia-400' },
+  { icon: <CreditCard className="w-4 h-4" />, label: 'Métodos de pago', desc: 'Reduce preguntas repetidas.', color: 'text-brand-cyan' },
+  { icon: <HelpCircle className="w-4 h-4" />, label: 'Preguntas frecuentes', desc: 'Mejora la precisión de respuestas.', color: 'text-brand-blue' },
+  { icon: <Tag className="w-4 h-4" />, label: 'Promociones', desc: 'Ayuda a vender ofertas activas.', color: 'text-brand-pink' },
+  { icon: <ShieldCheck className="w-4 h-4" />, label: 'Políticas del negocio', desc: 'Evita malentendidos con clientes.', color: 'text-brand-violet' },
+  { icon: <MessageCircle className="w-4 h-4" />, label: 'Datos de contacto', desc: 'Permite derivar a un asesor.', color: 'text-emerald-400' },
+  { icon: <Clock className="w-4 h-4" />, label: 'Cómo agendar', desc: 'Útil para citas y reservas.', color: 'text-fuchsia-400' },
 ]
 
-const PLACEHOLDER = `Ejemplo:
-Somos una barbería ubicada en Santiago de Chile.
-Atendemos de lunes a sábado de 10am a 8pm.
+const PLACEHOLDER = `Comienza escribiendo o usa una plantilla rápida de arriba...`
 
-Nuestros servicios principales son:
-- Corte clásico: $12
-- Fade: $15
-- Corte + barba: $18
-- Diseño de cejas: $8
-
-Aceptamos efectivo y transferencia bancaria.
-La dirección es Av. Providencia 1234.
-
-Preguntas frecuentes:
-- ¿Atienden sin cita? Sí, pero recomendamos reservar los fines de semana.
-- ¿Atienden niños? Sí, con descuento del 20%.
-
-Política de cancelación: Se puede cancelar hasta 2 horas antes sin costo.`
-
-// ─── Main component ────────────────────────────────────────────
 interface KnowledgeSectionProps {
   value: string
   onChange: (v: string) => void
 }
 
 export function KnowledgeSection({ value, onChange }: KnowledgeSectionProps) {
-  const [showAdvancedTips, setShowAdvancedTips] = useState(false)
   const [activeTemplate, setActiveTemplate] = useState<string | null>(null)
-  const [focused, setFocused] = useState(false)
+  const [isEnhancing, setIsEnhancing] = useState(false)
+  const [improveError, setImproveError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const charCount = value.length
   const charLimit = 5000
@@ -244,193 +212,226 @@ export function KnowledgeSection({ value, onChange }: KnowledgeSectionProps) {
     setTimeout(() => textareaRef.current?.focus(), 100)
   }
 
-  const quality = charCount === 0 ? 0 : charCount < 300 ? 1 : charCount < 800 ? 2 : charCount < 1500 ? 3 : 4
-  const qualityLabel = ['Sin información', 'Básico', 'Aceptable', 'Bueno', 'Excelente']
-  const qualityColor = ['bg-white/10', 'bg-brand-pink', 'bg-yellow-500', 'bg-brand-cyan', 'bg-brand-success']
-  const qualityTextColor = ['text-text-soft', 'text-brand-pink', 'text-yellow-400', 'text-brand-cyan', 'text-brand-success']
+  const handleClear = () => {
+    onChange('')
+    setActiveTemplate(null)
+    textareaRef.current?.focus()
+  }
+
+  const handleEnhance = async () => {
+    if (charCount < 10) {
+      setImproveError('Escribe más información antes de mejorar la redacción.')
+      return
+    }
+    setIsEnhancing(true)
+    setImproveError('')
+    
+    try {
+      const res = await fetch('/api/ai/improve-business-info', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ text: value })
+      })
+      
+      const data = await res.json()
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'No se pudo mejorar la redacción. Intenta de nuevo.')
+      }
+      
+      if (data.improvedText) {
+        onChange(data.improvedText)
+      }
+    } catch (error: unknown) {
+      const err = error as Error
+      setImproveError(err.message || 'No se pudo mejorar la redacción. Intenta de nuevo.')
+    } finally {
+      setIsEnhancing(false)
+    }
+  }
+
+  // Generar preview dinámico basado en el contenido
+  let previewMsg = 'Cuando agregues información, aquí verás una muestra de cómo respondería tu asistente.'
+  if (value.length > 30) {
+    // Un mock simple para extraer algunas palabras clave
+    const hasPrices = value.toLowerCase().includes('$') || value.toLowerCase().includes('precio')
+    const hasHours = value.toLowerCase().includes('horario') || value.toLowerCase().includes('lunes')
+    
+    let msg = 'Gracias por escribirnos. Puedo ayudarte con '
+    const topics = []
+    if (hasPrices) topics.push('nuestros precios')
+    if (hasHours) topics.push('horarios')
+    if (topics.length === 0) topics.push('información sobre nuestros servicios')
+    
+    msg += topics.join(' y ') + '. ¿Qué te gustaría consultar?'
+    previewMsg = msg
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="space-y-6"
+      className="space-y-8"
     >
       {/* ── Header ── */}
-      <div className="relative overflow-hidden rounded-2xl border border-brand-violet/25 bg-gradient-to-br from-brand-violet/10 via-brand-blue/5 to-brand-cyan/10 p-6">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(124,58,237,0.12),transparent_60%)]" />
-        <div className="relative z-10 flex gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-brand-violet to-brand-blue flex items-center justify-center shadow-[0_0_24px_rgba(124,58,237,0.4)] flex-shrink-0">
-            <Brain className="w-6 h-6 text-white" />
+      <div className="relative overflow-hidden rounded-3xl border border-brand-violet/20 bg-gradient-to-br from-[#0a0e1f] to-[#0f142e] p-6 lg:p-8 shadow-xl">
+        <div className="absolute top-0 right-0 p-8 opacity-20 pointer-events-none">
+          <Brain className="w-32 h-32 text-brand-violet" />
+        </div>
+        
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-violet/10 border border-brand-violet/20 text-brand-violet text-xs font-semibold mb-4">
+            <Sparkles className="w-3.5 h-3.5" />
+            Entrenamiento de IA
           </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-lg font-bold">Conocimiento del asistente</h2>
-              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-violet/20 border border-brand-violet/30 text-brand-violet font-medium flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> IA
-              </span>
-            </div>
-            <p className="text-sm text-text-soft leading-relaxed max-w-lg">
-              Aquí enseñas a tu asistente todo sobre tu negocio. Cuanta más información proporciones, mejores y más precisas serán sus respuestas.
-            </p>
-          </div>
+          
+          <h2 className="text-2xl font-bold mb-2">Entrena a tu asistente con la información de tu negocio</h2>
+          <p className="text-slate-400 leading-relaxed max-w-2xl text-sm">
+            Escribe aquí servicios, precios, horarios, ubicación, promociones y preguntas frecuentes. Mientras más claro seas, mejores respuestas dará tu asistente.
+          </p>
         </div>
       </div>
 
-      {/* ── What to include ── */}
-      <div className="bg-card-bg/60 backdrop-blur border border-white/[0.08] rounded-2xl p-6 space-y-4">
-        <p className="text-sm font-semibold text-text-secondary">¿Qué debes incluir?</p>
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-          {WHAT_TO_INCLUDE.map((item) => (
-            <div key={item.label} className="flex items-center gap-3 text-xs text-text-soft p-3 rounded-xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.05] hover:border-brand-violet/30 transition-all group">
-              <div className="w-8 h-8 rounded-lg bg-white/[0.04] group-hover:bg-brand-cyan/10 flex items-center justify-center shrink-0 transition-colors">
-                <span className="text-brand-cyan opacity-80 group-hover:opacity-100 transition-opacity">{item.icon}</span>
-              </div>
-              <span className="font-medium leading-snug">{item.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Template selector ── */}
+      {/* ── Templates ── */}
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
+        <p className="text-sm font-semibold text-slate-300 flex items-center gap-2">
           <Zap className="w-4 h-4 text-brand-cyan" />
-          <p className="text-sm font-semibold">Ejemplos rápidos — haz clic para rellenar automáticamente</p>
-        </div>
+          Plantillas rápidas para empezar
+        </p>
         <div className="flex flex-wrap gap-2">
           {Object.entries(TEMPLATES).map(([key, tpl]) => (
             <motion.button
               key={key}
               type="button"
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => applyTemplate(key)}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
                 activeTemplate === key
-                  ? 'bg-brand-violet/25 border-brand-violet/50 text-white shadow-[0_0_16px_rgba(124,58,237,0.3)]'
-                  : 'bg-white/[0.04] border-white/[0.1] text-text-soft hover:text-text-main hover:border-brand-violet/30 hover:bg-brand-violet/10'
+                  ? 'bg-brand-violet/25 border-brand-violet/50 text-white shadow-[0_0_15px_rgba(124,58,237,0.3)]'
+                  : 'bg-white/[0.04] border-white/10 text-slate-200 hover:bg-white/[0.08] hover:border-cyan-400/40 hover:text-white'
               }`}
             >
-              {tpl.icon}
+              <span className={activeTemplate === key ? 'text-brand-cyan' : 'text-brand-violet'}>{tpl.icon}</span>
               {tpl.label}
               {activeTemplate === key && <CheckCircle2 className="w-3.5 h-3.5 text-brand-success ml-1" />}
             </motion.button>
           ))}
         </div>
-        {activeTemplate && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-xs text-brand-success flex items-center gap-1.5"
-          >
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            Ejemplo de {TEMPLATES[activeTemplate].label} aplicado. Edítalo con la información real de tu negocio.
-          </motion.p>
-        )}
       </div>
 
-      {/* ── Textarea ── */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-text-secondary block">
-          Información de tu negocio
-          <span className="ml-2 text-xs text-text-soft font-normal">(escribe con tus propias palabras)</span>
-        </label>
-        <div className={`relative rounded-2xl transition-all duration-200 ${focused ? 'shadow-[0_0_0_1px_rgba(124,58,237,0.5),0_0_24px_rgba(124,58,237,0.12)]' : ''}`}>
+      {/* ── Textarea Main ── */}
+      <div className="space-y-4">
+        <div className="relative group">
           <textarea
             ref={textareaRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
             placeholder={PLACEHOLDER}
             maxLength={charLimit}
-            rows={14}
-            className="w-full bg-[#0a0e1f] border border-white/[0.1] rounded-2xl px-5 py-4 text-sm text-text-main placeholder:text-text-soft/30 focus:outline-none focus:border-brand-violet/40 transition-all resize-y leading-relaxed font-mono"
-            style={{ minHeight: '280px' }}
+            rows={12}
+            className="w-full bg-slate-950/70 border border-white/10 rounded-2xl p-5 text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/20 transition-all resize-y leading-7 min-h-[260px] scrollbar-thin scrollbar-track-slate-900 scrollbar-thumb-slate-700 hover:scrollbar-thumb-cyan-500/50"
           />
-          {/* char count overlay */}
-          <div className="absolute bottom-3 right-4 text-[10px] text-text-soft/40 pointer-events-none">
+          
+          <div className="absolute bottom-4 right-5 text-xs font-mono text-slate-500">
             {charCount.toLocaleString()} / {charLimit.toLocaleString()}
           </div>
         </div>
 
-        {/* Quality bar */}
-        <div className="flex items-center gap-3">
-          <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-            <motion.div
-              className={`h-full rounded-full transition-all ${qualityColor[quality]}`}
-              animate={{ width: `${(quality / 4) * 100}%` }}
-              transition={{ duration: 0.4 }}
-            />
-          </div>
-          <span className={`text-xs font-semibold whitespace-nowrap ${qualityTextColor[quality]}`}>
-            {qualityLabel[quality]}
-          </span>
-        </div>
-        <p className="text-xs text-text-soft">
-          {charCount === 0
-            ? 'Comienza escribiendo o usa uno de los ejemplos rápidos de arriba ↑'
-            : charCount < 300
-            ? 'Añade más información: servicios, precios, horarios y preguntas frecuentes.'
-            : charCount < 800
-            ? 'Bien. Agrega más detalles como precios, formas de pago o políticas.'
-            : '✓ Excelente base de conocimiento. Más detalle = mejores respuestas.'}
-        </p>
-      </div>
-
-      {/* ── Quick tips ── */}
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-3">
-        {QUICK_TIPS.map((tip) => (
-          <div
-            key={tip.text}
-            className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.06] text-xs text-text-soft hover:bg-white/[0.05] transition-colors"
-          >
-            <span className={`shrink-0 ${tip.color}`}>{tip.icon}</span>
-            <span className="leading-snug">{tip.text}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Advanced tips collapsible ── */}
-      <div className="rounded-2xl border border-white/[0.08] overflow-hidden">
-        <button
-          type="button"
-          onClick={() => setShowAdvancedTips(v => !v)}
-          className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.02] transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <Lightbulb className="w-4 h-4 text-brand-cyan" />
-            <span className="text-sm font-semibold">Consejos para mejores respuestas</span>
-          </div>
-          <motion.div animate={{ rotate: showAdvancedTips ? 180 : 0 }} transition={{ duration: 0.2 }}>
-            <ChevronDown className="w-4 h-4 text-text-soft" />
-          </motion.div>
-        </button>
-
-        <AnimatePresence>
-          {showAdvancedTips && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25 }}
-              className="overflow-hidden"
+        {/* Action Buttons under textarea */}
+        {improveError && (
+          <p className="text-sm text-brand-pink bg-brand-pink/10 border border-brand-pink/20 rounded-lg p-3">
+            {improveError}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <p className="text-sm text-slate-400">
+            {charCount === 0 ? 'Comienza escribiendo o usa una plantilla rápida de arriba.' : 'Puedes editar la información en cualquier momento.'}
+          </p>
+          
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleClear}
+              disabled={charCount === 0}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <div className="px-5 pb-5 pt-1 grid sm:grid-cols-2 gap-3 border-t border-white/[0.06]">
-                {ADVANCED_TIPS.map((tip) => (
-                  <div key={tip.title} className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-4 space-y-1">
-                    <p className="text-sm font-semibold text-text-secondary flex items-center gap-2">
-                      <Lightbulb className="w-3.5 h-3.5 text-brand-cyan flex-shrink-0" />
-                      {tip.title}
-                    </p>
-                    <p className="text-xs text-text-soft leading-relaxed">{tip.desc}</p>
-                  </div>
-                ))}
+              <Trash2 className="w-4 h-4" />
+              Limpiar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const keys = Object.keys(TEMPLATES)
+                const rand = keys[Math.floor(Math.random() * keys.length)]
+                applyTemplate(rand)
+              }}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-slate-200 border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] transition-all"
+            >
+              Usar ejemplo
+            </button>
+            <button
+              type="button"
+              onClick={handleEnhance}
+              disabled={charCount < 10 || isEnhancing}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-white border border-brand-violet/40 bg-brand-violet/20 hover:bg-brand-violet/30 hover:border-brand-violet/60 transition-all flex items-center gap-2 shadow-[0_0_10px_rgba(124,58,237,0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Wand2 className={`w-4 h-4 ${isEnhancing ? 'animate-spin' : ''}`} />
+              {isEnhancing ? 'Mejorando...' : 'Mejorar redacción ✨'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Dynamic Preview ── */}
+      <div className="bg-slate-900/50 border border-white/5 rounded-2xl p-5">
+        <h3 className="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+          <Bot className="w-4 h-4 text-brand-cyan" />
+          Vista previa del asistente
+        </h3>
+        <div className="flex gap-4">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-brand-violet to-brand-cyan flex items-center justify-center shrink-0">
+            <Bot className="w-4 h-4 text-white" />
+          </div>
+          <div className="bg-white/[0.06] border border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-200 max-w-[85%] leading-relaxed">
+            {previewMsg}
+          </div>
+        </div>
+      </div>
+
+      {/* ── What to include Checklist ── */}
+      <div className="space-y-4 pt-4 border-t border-white/5">
+        <div>
+          <h3 className="text-lg font-semibold text-white mb-1">Qué información debes incluir</h3>
+          <p className="text-sm text-slate-400">Estos datos ayudan a que tu asistente responda mejor y no invente información.</p>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {WHAT_TO_INCLUDE.map((item) => (
+            <div key={item.label} className="group p-4 rounded-2xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.07] hover:border-cyan-400/40 transition-all cursor-default">
+              <div className="flex items-center gap-3 mb-1">
+                <div className={`p-2 rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors ${item.color}`}>
+                  {item.icon}
+                </div>
+                <h4 className="text-sm font-medium text-white">{item.label}</h4>
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <p className="text-xs text-slate-400 pl-11">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 p-4 rounded-2xl border border-brand-cyan/20 bg-brand-cyan/5 flex gap-4 items-start">
+          <Lightbulb className="w-5 h-5 text-brand-cyan shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-brand-cyan mb-1">Consejo destacado</p>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              No escribas solo &quot;vendemos productos&quot;. Agrega nombres, precios, horarios y respuestas reales que usarías con tus clientes.
+            </p>
+          </div>
+        </div>
       </div>
     </motion.div>
   )

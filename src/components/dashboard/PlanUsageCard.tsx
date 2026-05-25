@@ -150,7 +150,7 @@ export function PlanUsageCard() {
           <div className="sm:ml-6 shrink-0">
             {subscription.plan === 'free' ? (
               <Link
-                href="/dashboard/billing/checkout?plan=business"
+                href="/dashboard/billing#plan-business"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-violet to-brand-blue text-white text-sm font-semibold shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] hover:scale-[1.02] transition-all duration-200 whitespace-nowrap border-0"
               >
                 <Zap className="w-4 h-4 shrink-0" />

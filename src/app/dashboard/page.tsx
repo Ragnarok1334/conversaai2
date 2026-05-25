@@ -1,8 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Bot, MessageSquare, Users, Plus, ArrowRight, TrendingUp, Clock, Zap } from 'lucide-react'
+import { Bot, MessageSquare, Users, Plus, ArrowRight, TrendingUp, Zap } from 'lucide-react'
 import { PlanUsageCard } from '@/components/dashboard/PlanUsageCard'
+import { DeleteAssistantButton } from '@/components/dashboard/DeleteAssistantButton'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -113,25 +114,27 @@ export default async function DashboardPage() {
           {recentAssistants && recentAssistants.length > 0 ? (
             <div className="space-y-3">
               {recentAssistants.map((a) => (
-                <Link
-                  key={a.id}
-                  href={`/dashboard/assistants/${a.id}`}
-                  className="flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] hover:border-white/10 transition-all group"
-                >
-                  <div className="w-10 h-10 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    {a.assistant_name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{a.assistant_name}</p>
-                    <p className="text-xs text-text-soft truncate">{a.business_name}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs px-2 py-1 rounded-full bg-white/[0.06] border border-white/10 text-text-soft">
-                      {channelLabel[a.channel] || a.channel}
-                    </span>
-                    <span className={`w-2 h-2 rounded-full ${a.status === 'active' ? 'bg-brand-success' : 'bg-text-soft'}`} />
-                  </div>
-                </Link>
+                <div key={a.id} className="relative flex items-center gap-2 group">
+                  <Link
+                    href={`/dashboard/assistants/${a.id}`}
+                    className="flex-1 flex items-center gap-4 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] hover:border-white/10 transition-all min-w-0"
+                  >
+                    <div className="w-10 h-10 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                      {a.assistant_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">{a.assistant_name}</p>
+                      <p className="text-xs text-text-soft truncate">{a.business_name}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <span className="text-xs px-2 py-1 rounded-full bg-white/[0.06] border border-white/10 text-text-soft">
+                        {channelLabel[a.channel] || a.channel}
+                      </span>
+                      <span className={`w-2 h-2 rounded-full ${a.status === 'active' ? 'bg-brand-success' : 'bg-text-soft'}`} />
+                    </div>
+                  </Link>
+                  <DeleteAssistantButton assistantId={a.id} assistantName={a.assistant_name} />
+                </div>
               ))}
             </div>
           ) : (
