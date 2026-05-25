@@ -5,7 +5,13 @@ import { createFlowPayment } from '@/lib/flow';
 const PRICES = {
   pro: 19000,
   business: 49000
-};
+} as const;
+
+type Plan = keyof typeof PRICES;
+
+function isValidPlan(plan: unknown): plan is Plan {
+  return typeof plan === 'string' && plan in PRICES;
+}
 
 export async function POST(req: Request) {
   try {
@@ -19,8 +25,8 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { plan } = body;
 
-    if (plan !== 'pro' && plan !== 'business') {
-      return NextResponse.json({ error: 'Plan inválido.' }, { status: 400 });
+    if (!isValidPlan(plan)) {
+      return NextResponse.json({ error: 'Plan inválido. Debe ser pro o business.' }, { status: 400 });
     }
 
     const amount = PRICES[plan];
