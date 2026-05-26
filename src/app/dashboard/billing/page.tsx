@@ -8,7 +8,14 @@ import { PLAN_CONFIGS } from '@/lib/plans'
 import { Check, Lock, Sparkles, Receipt, CreditCard, Shield, Clock, Zap } from 'lucide-react'
 import Link from 'next/link'
 
-export default async function BillingPage() {
+interface BillingPageProps {
+  searchParams: Promise<{ payment?: string }>
+}
+
+export default async function BillingPage({ searchParams }: BillingPageProps) {
+  const resolvedParams = await searchParams;
+  const paymentStatus = resolvedParams?.payment;
+
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
 
@@ -26,6 +33,32 @@ export default async function BillingPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-10">
       
+      {/* Alert based on payment query param */}
+      {paymentStatus === 'success' && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl flex items-center gap-3">
+          <Check className="w-5 h-5" />
+          <p>Pago aprobado. Tu plan se actualizará en unos momentos.</p>
+        </div>
+      )}
+      {paymentStatus === 'pending' && (
+        <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 p-4 rounded-xl flex items-center gap-3">
+          <Clock className="w-5 h-5" />
+          <p>Tu pago está pendiente de confirmación.</p>
+        </div>
+      )}
+      {paymentStatus === 'rejected' && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3">
+          <Lock className="w-5 h-5" />
+          <p>El pago fue rechazado o cancelado.</p>
+        </div>
+      )}
+      {paymentStatus === 'unknown' && (
+        <div className="bg-slate-500/10 border border-slate-500/20 text-slate-300 p-4 rounded-xl flex items-center gap-3">
+          <Sparkles className="w-5 h-5" />
+          <p>Volviste desde Flow. Revisa el historial de pagos en unos momentos.</p>
+        </div>
+      )}
+
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight mb-2">Planes y facturación</h1>

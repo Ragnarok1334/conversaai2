@@ -22,10 +22,24 @@ export function PlanComparison({ plans, currentPlan }: PlanComparisonProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: planKey })
       })
+
+      const contentType = res.headers.get("content-type") || ""
+      if (!contentType.includes("application/json")) {
+        const text = await res.text()
+        console.error("Respuesta no JSON:", text.slice(0, 500))
+        throw new Error("El servidor devolvió una respuesta inválida (No es JSON).")
+      }
+
       const data = await res.json()
       
       if (!res.ok) {
-        throw new Error(data.error || 'Error al iniciar el pago')
+        let finalError = data.error || 'Error al iniciar el pago'
+        if (finalError.includes('No hay medios de pago disponibles')) {
+          finalError = 'No hay medios de pago disponibles en tu cuenta Flow Sandbox. Revisa en Flow Sandbox la sección Medios de pago y habilita al menos un método de prueba.'
+        } else if (data.details) {
+          finalError = `${finalError} ${data.details}`
+        }
+        throw new Error(finalError)
       }
       
       if (data.url) {

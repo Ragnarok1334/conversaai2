@@ -14,8 +14,13 @@ function isValidPlan(plan: unknown): plan is Plan {
 }
 
 export async function POST(req: Request) {
+  let commerceOrder = '';
+  let plan = '';
+  let amount = 0;
+  // Declare supabase outside so we can use it in catch block for cleanup
+  const supabase = await createClient();
+
   try {
-    const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -23,18 +28,18 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { plan } = body;
+    plan = body.plan;
 
     if (!isValidPlan(plan)) {
       return NextResponse.json({ error: 'Plan inválido. Debe ser pro o business.' }, { status: 400 });
     }
 
-    const amount = PRICES[plan];
+    amount = PRICES[plan as Plan];
     
     // Create unique order ID
     const shortId = user.id.split('-')[0];
     const timestamp = Date.now();
-    const commerceOrder = `conversaai-${shortId}-${plan}-${timestamp}`;
+    commerceOrder = `conversaai-${shortId}-${plan}-${timestamp}`;
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://conversaai.store';
 
@@ -53,9 +58,6 @@ export async function POST(req: Request) {
 
     if (insertError) {
       console.error('Error insertando en billing_payments:', insertError);
-      // Even if table doesn't exist yet, we don't want to completely block testing locally if they haven't run migrations.
-      // But we should throw ideally. The user requested: "No crear otra tabla duplicada."
-      // We will proceed for now but log the error.
     }
 
     // Call Flow Sandbox
@@ -66,7 +68,7 @@ export async function POST(req: Request) {
       amount,
       email: user.email || 'usuario@conversaai.store',
       urlConfirmation: `${appUrl}/api/webhooks/flow`,
-      urlReturn: `${appUrl}/dashboard/billing/flow-return`
+      urlReturn: `${appUrl}/api/billing/flow/return`
     });
 
     // Update token
@@ -80,7 +82,52 @@ export async function POST(req: Request) {
     });
 
   } catch (error: unknown) {
-    console.error('Flow Checkout Error:', error instanceof Error ? error.message : error);
-    return NextResponse.json({ error: 'Ocurrió un error al procesar el pago con Flow.' }, { status: 500 });
+    const errMessage = error instanceof Error ? error.message : String(error);
+    console.error('Flow Checkout Error:', errMessage);
+    
+    // Cleanup pending payment if we failed
+    if (commerceOrder) {
+      await supabase
+        .from('billing_payments')
+        .update({ 
+          status: 'failed', 
+          raw_response: { error: errMessage } 
+        })
+        .eq('flow_order', commerceOrder);
+    }
+    
+    let userFriendlyMessage = 'Ocurrió un error al procesar el pago con Flow.';
+    let details: string | undefined = undefined;
+    let statusCode = 500;
+    let flowCode: number | undefined = undefined;
+
+    if (errMessage.includes('No services available') || errMessage.includes('105')) {
+      userFriendlyMessage = 'No hay medios de pago disponibles en tu cuenta Flow Sandbox.';
+      statusCode = 400;
+      flowCode = 105;
+      
+      details = 'Revisa en Flow Sandbox que tu cuenta tenga medios de pago habilitados. También confirma que FLOW_API_KEY y FLOW_SECRET_KEY sean de sandbox y que FLOW_BASE_URL sea https://sandbox.flow.cl/api.';
+    } else if (errMessage.includes('Faltan credenciales')) {
+      userFriendlyMessage = 'Faltan variables de entorno de Flow.';
+      statusCode = 400;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Flow Error Logs:', {
+        message: errMessage,
+        code: flowCode,
+        endpoint: 'https://sandbox.flow.cl/api/payment/create',
+        plan,
+        amount,
+        urlReturn: `${process.env.NEXT_PUBLIC_APP_URL || 'https://conversaai.store'}/api/billing/flow/return`,
+        urlConfirmation: `${process.env.NEXT_PUBLIC_APP_URL || 'https://conversaai.store'}/api/webhooks/flow`
+      });
+    }
+
+    return NextResponse.json({ 
+      error: userFriendlyMessage,
+      ...(flowCode ? { code: flowCode } : {}),
+      ...(details ? { details } : {})
+    }, { status: statusCode });
   }
 }

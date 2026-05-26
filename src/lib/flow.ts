@@ -53,6 +53,10 @@ export function createFlowSignature(params: Record<string, string>): string {
 }
 
 export async function createFlowPayment(params: FlowPaymentParams): Promise<FlowPaymentResponse> {
+  if (!process.env.FLOW_API_KEY || !process.env.FLOW_SECRET_KEY || !process.env.FLOW_BASE_URL) {
+    throw new Error('Faltan credenciales de Flow Sandbox.');
+  }
+
   const apiKey = getEnvVar('FLOW_API_KEY');
   const baseUrl = getEnvVar('FLOW_BASE_URL');
   
@@ -63,10 +67,26 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
     currency: params.currency,
     amount: params.amount.toString(),
     email: params.email,
-    paymentMethod: '9', // All options enabled
     urlConfirmation: params.urlConfirmation,
     urlReturn: params.urlReturn,
   };
+
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Flow API Config:', {
+      flowBaseUrl: process.env.FLOW_BASE_URL,
+      endpoint: `${process.env.FLOW_BASE_URL}/payment/create`,
+      hasApiKey: Boolean(process.env.FLOW_API_KEY),
+      hasSecretKey: Boolean(process.env.FLOW_SECRET_KEY),
+      appUrl: process.env.NEXT_PUBLIC_APP_URL,
+      amount: params.amount,
+      commerceOrder: params.commerceOrder,
+      subject: params.subject,
+      currency: params.currency,
+      email: params.email,
+      urlConfirmation: params.urlConfirmation,
+      urlReturn: params.urlReturn
+    });
+  }
   
   const s = createFlowSignature(payload);
   payload.s = s;

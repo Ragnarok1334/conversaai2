@@ -41,9 +41,15 @@ export async function updateSession(request: NextRequest) {
                       request.nextUrl.pathname.startsWith('/forgot-password') || 
                       request.nextUrl.pathname.startsWith('/reset-password')
 
-  const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') ||
+  const isFlowRoute = request.nextUrl.pathname.startsWith('/flow/return') ||
+                      request.nextUrl.pathname.startsWith('/api/webhooks/flow') ||
+                      request.nextUrl.pathname.startsWith('/api/billing/flow/status') ||
+                      request.nextUrl.pathname.startsWith('/api/billing/flow/return');
+
+  const isProtectedRoute = (request.nextUrl.pathname.startsWith('/dashboard') ||
                            request.nextUrl.pathname.startsWith('/create-assistant') ||
-                           request.nextUrl.pathname.startsWith('/connect')
+                           request.nextUrl.pathname.startsWith('/connect')) && 
+                           !isFlowRoute;
 
   if (
     !user &&

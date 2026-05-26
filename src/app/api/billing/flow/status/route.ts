@@ -8,15 +8,11 @@ export async function GET(req: Request) {
     const token = searchParams.get('token');
 
     if (!token) {
-      return NextResponse.json({ error: 'Token no proporcionado.' }, { status: 400 });
+      return NextResponse.json({ error: 'Token requerido.' }, { status: 400 });
     }
 
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'Debes iniciar sesión.' }, { status: 401 });
-    }
 
     // 1. Verify token in Flow
     const flowStatus = await getFlowPaymentStatus(token);
@@ -26,12 +22,18 @@ export async function GET(req: Request) {
       .from('billing_payments')
       .select('*')
       .eq('flow_token', token)
-      .eq('user_id', user.id)
       .single();
 
-    if (!payment) {
+    if (!payment || paymentError) {
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
+
+    // Optional: if user is logged in, verify it belongs to them
+    if (user && payment.user_id !== user.id) {
+      return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
+    }
+
+
 
     // Map Flow status to our DB status
     // 1: Pending, 2: Paid, 3: Rejected, 4: Cancelled
@@ -54,7 +56,7 @@ export async function GET(req: Request) {
       const { data: subscription } = await supabase
         .from('subscriptions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', payment.user_id)
         .single();
 
       if (subscription) {
@@ -64,13 +66,13 @@ export async function GET(req: Request) {
             plan: payment.plan,
             status: 'active'
           })
-          .eq('user_id', user.id);
+          .eq('user_id', payment.user_id);
       } else {
         // Create if missing
         await supabase
           .from('subscriptions')
           .insert({
-            user_id: user.id,
+            user_id: payment.user_id,
             plan: payment.plan,
             status: 'active',
             assistants_limit: payment.plan === 'business' ? 20 : 5,
@@ -80,10 +82,15 @@ export async function GET(req: Request) {
       }
     }
 
-    return NextResponse.json({ status: newStatus });
+    return NextResponse.json({
+      status: newStatus,
+      plan: payment.plan,
+      amount: payment.amount,
+      currency: payment.currency
+    });
 
   } catch (error: unknown) {
     console.error('Flow Status Check Error:', error instanceof Error ? error.message : error);
-    return NextResponse.json({ error: 'Error verificando pago.' }, { status: 500 });
+    return NextResponse.json({ error: 'No se pudo verificar el pago.' }, { status: 500 });
   }
 }
