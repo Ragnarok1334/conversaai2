@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
 
 export async function GET(req: Request) {
@@ -11,14 +11,13 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Token requerido.' }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabaseAdmin = createSupabaseAdmin();
 
     // 1. Verify token in Flow
     const flowStatus = await getFlowPaymentStatus(token);
 
     // 2. Fetch billing_payment record
-    const { data: payment, error: paymentError } = await supabase
+    const { data: payment, error: paymentError } = await supabaseAdmin
       .from('billing_payments')
       .select('*')
       .eq('flow_token', token)
@@ -28,13 +27,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
 
-    // Optional: if user is logged in, verify it belongs to them
-    if (user && payment.user_id !== user.id) {
-      return NextResponse.json({ error: 'No autorizado.' }, { status: 403 });
-    }
-
-
-
     // Map Flow status to our DB status
     // 1: Pending, 2: Paid, 3: Rejected, 4: Cancelled
     let newStatus = 'pending';
@@ -43,7 +35,7 @@ export async function GET(req: Request) {
     else if (flowStatus.status === 4) newStatus = 'cancelled';
 
     // 3. Update billing_payments
-    await supabase
+    await supabaseAdmin
       .from('billing_payments')
       .update({
         status: newStatus,
@@ -53,14 +45,14 @@ export async function GET(req: Request) {
 
     // 4. If paid, update subscription
     if (newStatus === 'paid') {
-      const { data: subscription } = await supabase
+      const { data: subscription } = await supabaseAdmin
         .from('subscriptions')
         .select('*')
         .eq('user_id', payment.user_id)
         .single();
 
       if (subscription) {
-        await supabase
+        await supabaseAdmin
           .from('subscriptions')
           .update({
             plan: payment.plan,
@@ -69,7 +61,7 @@ export async function GET(req: Request) {
           .eq('user_id', payment.user_id);
       } else {
         // Create if missing
-        await supabase
+        await supabaseAdmin
           .from('subscriptions')
           .insert({
             user_id: payment.user_id,

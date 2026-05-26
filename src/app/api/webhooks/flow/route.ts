@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
 
 export async function POST(req: Request) {
@@ -12,17 +12,7 @@ export async function POST(req: Request) {
     }
 
     // Usamos el rol de servicio porque el webhook de Flow no tiene sesión de usuario.
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('Webhook Flow: Missing SUPABASE config');
-      return NextResponse.json({ error: 'Server configuration error.' }, { status: 500 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { persistSession: false }
-    });
+    const supabase = createSupabaseAdmin();
 
     // 1. Check real status in Flow
     const flowStatus = await getFlowPaymentStatus(token);
