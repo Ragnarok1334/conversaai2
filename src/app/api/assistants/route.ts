@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { canUseChannel, PlanKey, isUnlimited } from '@/lib/plans'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plans'
 
 // GET /api/assistants — list user's assistants
 export async function GET() {
@@ -82,36 +83,34 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // --- Subscription & Limit Checks ---
-    const { data: sub, error: subError } = await supabase
+    // --- Subscription & Limit Checks via admin client (bypasses RLS) ---
+    const supabaseAdmin = createSupabaseAdmin()
+    const { data: sub } = await supabaseAdmin
       .from('subscriptions')
       .select('plan, assistants_limit, status')
       .eq('user_id', user.id)
       .single()
 
-    if (subError && subError.code !== 'PGRST116') {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[POST /api/assistants] subError:', subError)
-      }
-    }
-
-    // TODO: reemplazar currentPlan por plan real desde billing/subscription de manera más robusta si no hay entrada.
-    // Si no hay suscripción activa, asumimos plan "free" con límite de 1 asistente temporalmente.
     const isActiveSub = sub && sub.status === 'active'
-    const planKey = isActiveSub ? (sub.plan as PlanKey) : 'free'
-    const assistantsLimit = isActiveSub ? sub.assistants_limit : 1
+    const rawPlan = isActiveSub ? sub.plan : 'free'
+    const planKey = normalizePlan(rawPlan) as PlanKey
+    const planLimits = getPlanLimits(planKey)
+    const assistantsLimit = planLimits.assistants
 
-    // Verificar que el plan permite el canal solicitado
+    // Verify channel is allowed for this plan
     if (!canUseChannel(planKey, channel)) {
       return NextResponse.json(
         {
-          error: `Tu plan actual no permite el canal: ${channel}. Actualiza tu plan para desbloquearlo.`,
+          error: `Tu plan actual (${planKey}) no permite el canal: ${channel}. Actualiza tu plan para desbloquearlo.`,
+          code: 'CHANNEL_NOT_ALLOWED',
+          plan: planKey,
+          channel,
         },
         { status: 403 }
       )
     }
 
-    // Verificar límite de asistentes
+    // Count current assistants
     const { count, error: countErr } = await supabase
       .from('assistants')
       .select('*', { count: 'exact', head: true })
@@ -124,10 +123,14 @@ export async function POST(request: NextRequest) {
       throw countErr
     }
 
-    if (!isUnlimited(assistantsLimit) && (count || 0) >= (assistantsLimit || 1)) {
+    if (assistantsLimit !== Infinity && (count || 0) >= assistantsLimit) {
       return NextResponse.json(
         {
-          error: 'Alcanzaste el límite de asistentes de tu plan actual. Mejora tu plan para crear más.',
+          error: 'Alcanzaste el límite de asistentes de tu plan actual.',
+          code: 'ASSISTANT_LIMIT_REACHED',
+          limit: assistantsLimit,
+          used: count || 0,
+          plan: planKey,
         },
         { status: 403 }
       )

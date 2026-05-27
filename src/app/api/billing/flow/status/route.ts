@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
+import { getPlanConfig, normalizePlan } from '@/lib/plans';
 
 export async function GET(req: Request) {
   try {
@@ -43,8 +44,11 @@ export async function GET(req: Request) {
       })
       .eq('id', payment.id);
 
-    // 4. If paid, update subscription
+    // 4. If paid, update subscription with correct limits from plans config
     if (newStatus === 'paid') {
+      const planKey = normalizePlan(payment.plan)
+      const planConfig = getPlanConfig(planKey)
+
       const { data: subscription } = await supabaseAdmin
         .from('subscriptions')
         .select('*')
@@ -55,8 +59,10 @@ export async function GET(req: Request) {
         await supabaseAdmin
           .from('subscriptions')
           .update({
-            plan: payment.plan,
-            status: 'active'
+            plan: planKey,
+            status: 'active',
+            assistants_limit: planConfig.assistantsLimit,
+            messages_limit: planConfig.messagesLimit,
           })
           .eq('user_id', payment.user_id);
       } else {
@@ -65,10 +71,10 @@ export async function GET(req: Request) {
           .from('subscriptions')
           .insert({
             user_id: payment.user_id,
-            plan: payment.plan,
+            plan: planKey,
             status: 'active',
-            assistants_limit: payment.plan === 'business' ? 20 : 5,
-            messages_limit: payment.plan === 'business' ? 50000 : 5000,
+            assistants_limit: planConfig.assistantsLimit,
+            messages_limit: planConfig.messagesLimit,
             current_messages_used: 0
           });
       }

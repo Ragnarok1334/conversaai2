@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { UserSubscription, getPlanConfig, getUsagePercentage } from '@/lib/plans'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { UserSubscription, getPlanConfig, getUsagePercentage, normalizePlan } from '@/lib/plans'
 
 export async function GET() {
   try {
@@ -11,7 +12,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: subscriptionData, error: subError } = await supabase
+    const { data: subscriptionData } = await supabase
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
@@ -19,19 +20,20 @@ export async function GET() {
       
     let subscription = subscriptionData
 
-    // If subscription doesn't exist for some reason, create a fallback Free one
-    if (!subscription || error) {
-      const fallbackSub = {
-        user_id: user.id,
-        plan: 'free',
-        status: 'active',
-        assistants_limit: 1,
-        messages_limit: 100,
-        current_messages_used: 0
-      }
-      const { data: newSub, error: insertError } = await supabase
+    // If subscription doesn't exist, create a fallback Free one using admin (bypasses RLS)
+    if (!subscription) {
+      const planConfig = getPlanConfig('free')
+      const supabaseAdmin = createSupabaseAdmin()
+      const { data: newSub, error: insertError } = await supabaseAdmin
         .from('subscriptions')
-        .insert(fallbackSub)
+        .insert({
+          user_id: user.id,
+          plan: 'free',
+          status: 'active',
+          assistants_limit: planConfig.assistantsLimit ?? 1,
+          messages_limit: planConfig.messagesLimit ?? 100,
+          current_messages_used: 0
+        })
         .select()
         .single()
         
@@ -48,14 +50,16 @@ export async function GET() {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
 
+    const normalizedPlan = normalizePlan(subscription.plan)
     const sub = subscription as UserSubscription
-    const planConfig = getPlanConfig(sub.plan)
+    const planConfig = getPlanConfig(normalizedPlan)
 
+    // Use limits from PLAN_CONFIGS (source of truth), not stored DB value
     const assistantsLimit = planConfig.assistantsLimit
     const messagesLimit = planConfig.messagesLimit
 
     const payload = {
-      subscription: sub,
+      subscription: { ...sub, plan: normalizedPlan },
       planConfig,
       usage: {
         assistantsUsed: assistantsUsed || 0,
@@ -73,3 +77,4 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
+

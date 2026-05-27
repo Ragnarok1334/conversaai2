@@ -133,7 +133,75 @@ export interface UserSubscription {
   updated_at: string
 }
 
-// Helpers
+// ─── PLAN_LIMITS: source of truth with Infinity for enterprise ───────────────
+export const PLAN_LIMITS = {
+  free: {
+    assistants: 1,
+    messagesPerMonth: 100,
+    channels: { webchat: true, telegram: false, whatsapp: false },
+    features: {
+      playground: true, leadCapture: false, conversationHistory: false,
+      advancedAnalytics: false, customBranding: false, apiWebhooks: false,
+    },
+  },
+  pro: {
+    assistants: 5,
+    messagesPerMonth: 5000,
+    channels: { webchat: true, telegram: true, whatsapp: false },
+    features: {
+      playground: true, leadCapture: true, conversationHistory: true,
+      advancedAnalytics: false, customBranding: false, apiWebhooks: false,
+    },
+  },
+  business: {
+    assistants: 20,
+    messagesPerMonth: 50000,
+    channels: { webchat: true, telegram: true, whatsapp: true },
+    features: {
+      playground: true, leadCapture: true, conversationHistory: true,
+      advancedAnalytics: true, customBranding: true, apiWebhooks: true,
+    },
+  },
+  enterprise: {
+    assistants: Infinity,
+    messagesPerMonth: Infinity,
+    channels: { webchat: true, telegram: true, whatsapp: true },
+    features: {
+      playground: true, leadCapture: true, conversationHistory: true,
+      advancedAnalytics: true, customBranding: true, apiWebhooks: true,
+      dedicatedSupport: true, customIntegrations: true,
+    },
+  },
+} as const
+
+export function getPlanLimits(plan: PlanKey) {
+  return PLAN_LIMITS[plan] ?? PLAN_LIMITS.free
+}
+
+export function normalizePlan(plan: unknown): PlanKey {
+  if (plan === 'pro' || plan === 'business' || plan === 'enterprise') return plan
+  return 'free'
+}
+
+export function getRemainingAssistants(plan: PlanKey, currentCount: number): number | null {
+  const limit = getPlanLimits(plan).assistants
+  if (limit === Infinity) return null
+  return Math.max(0, limit - currentCount)
+}
+
+export function canSendMessage(plan: PlanKey, usedMessagesThisMonth: number): boolean {
+  const limit = getPlanLimits(plan).messagesPerMonth
+  if (limit === Infinity) return true
+  return usedMessagesThisMonth < limit
+}
+
+export function getRemainingMessages(plan: PlanKey, usedMessagesThisMonth: number): number | null {
+  const limit = getPlanLimits(plan).messagesPerMonth
+  if (limit === Infinity) return null
+  return Math.max(0, limit - usedMessagesThisMonth)
+}
+
+// ─── Legacy helpers (keep for backward compatibility) ─────────────────────────
 export function getPlanConfig(plan: PlanKey): PlanConfig {
   return PLAN_CONFIGS[plan] || PLAN_CONFIGS.free
 }

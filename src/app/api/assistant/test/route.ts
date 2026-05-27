@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
-import { isUnlimited } from '@/lib/plans'
+import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +23,7 @@ export async function POST(request: NextRequest) {
     // --- Subscription Limits ---
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('current_messages_used, messages_limit, status')
+      .select('plan, current_messages_used, messages_limit, status')
       .eq('user_id', user.id)
       .single()
 
@@ -30,8 +31,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Suscripción inactiva o no encontrada' }, { status: 403 })
     }
 
-    if (!isUnlimited(sub.messages_limit) && sub.current_messages_used >= sub.messages_limit) {
-      return NextResponse.json({ error: `Límite de mensajes alcanzado (${sub.messages_limit}). Actualiza a Pro para continuar chateando.` }, { status: 403 })
+    const normalizedPlan = normalizePlan(sub.plan)
+    const planConfig = getPlanConfig(normalizedPlan)
+    // Use PLAN_CONFIGS as source of truth for limits
+    const effectiveLimit = planConfig.messagesLimit
+
+    if (!isUnlimited(effectiveLimit) && sub.current_messages_used >= (effectiveLimit ?? 0)) {
+      return NextResponse.json({
+        error: 'Alcanzaste el límite mensual de mensajes de tu plan.',
+        code: 'MESSAGE_LIMIT_REACHED',
+        limit: effectiveLimit,
+        used: sub.current_messages_used,
+        plan: normalizedPlan
+      }, { status: 403 })
     }
     // ---------------------------
 
@@ -73,8 +85,9 @@ export async function POST(request: NextRequest) {
 
     const reply = await generateAssistantReply(config, userMessage.trim())
 
-    // Update message count
-    await supabase.from('subscriptions')
+    // Update message count — use admin client to bypass RLS on UPDATE
+    const supabaseAdmin = createSupabaseAdmin()
+    await supabaseAdmin.from('subscriptions')
       .update({ current_messages_used: sub.current_messages_used + 1 })
       .eq('user_id', user.id)
 
