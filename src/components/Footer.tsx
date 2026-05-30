@@ -15,7 +15,6 @@ export function Footer() {
   const productLinks = [
     { name: "Funciones", href: "#funciones" },
     { name: "Precios", href: "#precios" },
-    { name: "Casos de uso", href: "#casos" },
     { name: "FAQ", href: "#faq" },
     { name: "Contacto", href: "/contact" },
   ];
