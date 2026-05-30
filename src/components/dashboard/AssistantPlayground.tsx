@@ -22,6 +22,9 @@ export function AssistantPlayground({ assistantId, assistantConfig, title }: Ass
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [showWarningModal, setShowWarningModal] = useState(false)
+  const [hasAcknowledgedWarning, setHasAcknowledgedWarning] = useState(false)
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -33,7 +36,7 @@ export function AssistantPlayground({ assistantId, assistantConfig, title }: Ass
     scrollToBottom()
   }, [messages])
 
-  const handleSend = async () => {
+  const processMessage = async () => {
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
 
@@ -78,6 +81,24 @@ export function AssistantPlayground({ assistantId, assistantConfig, title }: Ass
       setIsLoading(false)
       inputRef.current?.focus()
     }
+  }
+
+  const handleSend = () => {
+    const trimmed = input.trim()
+    if (!trimmed || isLoading) return
+
+    if (!hasAcknowledgedWarning && messages.length === 0) {
+      setShowWarningModal(true)
+      return
+    }
+
+    processMessage()
+  }
+
+  const handleConfirmWarning = () => {
+    setHasAcknowledgedWarning(true)
+    setShowWarningModal(false)
+    processMessage()
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -226,6 +247,44 @@ export function AssistantPlayground({ assistantId, assistantConfig, title }: Ass
         </div>
         <p className="text-[10px] text-text-soft/40 mt-2 text-center">Enter para enviar · Shift+Enter para nueva línea</p>
       </div>
+      {/* Modal Aviso */}
+      <AnimatePresence>
+        {showWarningModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050816]/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-card-bg border border-card-border rounded-3xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-brand-violet to-brand-cyan" />
+              <h3 className="text-xl font-bold mb-2">Esta prueba consume mensajes</h3>
+              <p className="text-sm text-text-soft mb-6">
+                Cada mensaje enviado y respondido durante la prueba se descuenta de tu límite mensual.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowWarningModal(false)}
+                  className="flex-1 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors font-medium text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmWarning}
+                  className="flex-1 px-4 py-2 rounded-xl gradient-btn text-white font-semibold shadow-lg hover:opacity-90 transition-opacity text-sm"
+                >
+                  Entendido, probar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

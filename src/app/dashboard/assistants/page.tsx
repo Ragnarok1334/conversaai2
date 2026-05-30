@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Bot } from 'lucide-react'
+import { Plus, Search, Bot, Crown, Sparkles, Briefcase, Building, MessagesSquare, CheckCircle2 } from 'lucide-react'
 import Link from 'next/link'
 import { AssistantCard } from '@/components/dashboard/AssistantCard'
+import type { PlanKey } from '@/lib/plans'
+import { PLAN_LIMITS } from '@/lib/plans'
 
 interface Assistant {
   id: string
@@ -16,6 +18,12 @@ interface Assistant {
   created_at: string
 }
 
+interface SubscriptionData {
+  subscription: { plan: string; status: string }
+  planConfig: { label: string; assistantsLimit: number | null; messagesLimit: number | null; channels: string[] }
+  usage: { assistantsUsed: number; messagesUsed: number }
+}
+
 const FILTER_CHANNELS = ['todos', 'webchat', 'telegram', 'whatsapp']
 const CHANNEL_LABEL: Record<string, string> = {
   todos: 'Todos',
@@ -24,9 +32,20 @@ const CHANNEL_LABEL: Record<string, string> = {
   whatsapp: 'WhatsApp',
 }
 
+function PlanIcon({ plan }: { plan: string }) {
+  switch (plan) {
+    case 'pro': return <Crown className="w-4 h-4 text-white" />
+    case 'business': return <Briefcase className="w-4 h-4 text-white" />
+    case 'enterprise': return <Building className="w-4 h-4 text-white" />
+    default: return <Sparkles className="w-4 h-4 text-white" />
+  }
+}
+
 export default function AssistantsPage() {
   const [assistants, setAssistants] = useState<Assistant[]>([])
+  const [subData, setSubData] = useState<SubscriptionData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [subLoading, setSubLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterChannel, setFilterChannel] = useState('todos')
 
@@ -38,6 +57,12 @@ export default function AssistantsPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+
+    fetch('/api/subscription')
+      .then(r => r.json())
+      .then(d => { if (!d.error) setSubData(d) })
+      .catch(() => null)
+      .finally(() => setSubLoading(false))
   }, [])
 
   const filtered = assistants.filter(a => {
@@ -55,82 +80,140 @@ export default function AssistantsPage() {
     setAssistants(prev => prev.map(a => a.id === id ? { ...a, status } : a))
   }
 
+  const plan = (subData?.subscription?.plan ?? 'free') as PlanKey
+  const planLimits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free
+  const isUnlimitedAssistants = planLimits.assistants === Infinity
+  const isUnlimitedMessages = planLimits.messagesPerMonth === Infinity
+
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Mis asistentes</h1>
-          <p className="text-text-soft mt-1">{assistants.length} asistente{assistants.length !== 1 ? 's' : ''} creado{assistants.length !== 1 ? 's' : ''}</p>
+    <div className="max-w-7xl mx-auto space-y-8">
+      {/* HEADER PROFESIONAL */}
+      <div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Mis asistentes</h1>
+            <p className="text-text-soft mt-1">Administra, prueba e instala tus asistentes en los canales donde tus clientes ya te escriben.</p>
+          </div>
+          <Link
+            href="/dashboard/create-assistant"
+            className="gradient-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity glow-violet w-fit"
+          >
+            <Plus className="w-5 h-5" />
+            Crear asistente
+          </Link>
         </div>
-        <Link
-          href="/dashboard/create-assistant"
-          className="gradient-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity glow-violet w-fit"
-        >
-          <Plus className="w-5 h-5" />
-          Crear asistente
-        </Link>
+
+        {/* STATS BAR */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex flex-col justify-center">
+            <span className="text-xs text-text-soft mb-1 flex items-center gap-1.5"><Bot className="w-3.5 h-3.5"/> Asistentes creados</span>
+            <span className="text-lg font-bold text-white">
+              {!subLoading ? `${assistants.length} / ${isUnlimitedAssistants ? '∞' : planLimits.assistants}` : '...'}
+            </span>
+          </div>
+          <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex flex-col justify-center">
+            <span className="text-xs text-text-soft mb-1 flex items-center gap-1.5"><MessagesSquare className="w-3.5 h-3.5"/> Mensajes este mes</span>
+            <span className="text-lg font-bold text-white">
+              {!subLoading ? `${subData?.usage?.messagesUsed ?? 0} / ${isUnlimitedMessages ? '∞' : planLimits.messagesPerMonth}` : '...'}
+            </span>
+          </div>
+          <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex flex-col justify-center">
+            <span className="text-xs text-text-soft mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Canales activos</span>
+            <span className="text-lg font-bold text-white">{assistants.length > 0 ? '1' : '0'}</span>
+          </div>
+          <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex items-center justify-between">
+            <div className="flex flex-col justify-center">
+              <span className="text-xs text-text-soft mb-1 flex items-center gap-1.5">Plan actual</span>
+              <span className="text-lg font-bold text-white capitalize flex items-center gap-2">
+                {!subLoading ? (
+                  <>
+                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-brand-violet to-brand-blue flex items-center justify-center shadow-lg">
+                      <PlanIcon plan={plan} />
+                    </div>
+                    {plan} {plan === 'business' && <span className="text-[10px] bg-brand-cyan/20 text-brand-cyan px-2 py-0.5 rounded-full">Activo</span>}
+                  </>
+                ) : '...'}
+              </span>
+            </div>
+            {!subLoading && (plan === 'free' || plan === 'pro') && (
+              <Link href="/dashboard/billing" className="text-[10px] px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.1] hover:bg-white/[0.08] transition-colors font-medium">
+                Mejorar
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Search & filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+      {/* BUSCADOR Y FILTROS */}
+      <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-soft" />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar asistente o negocio..."
-            className="w-full bg-card-bg/80 backdrop-blur border border-card-border rounded-xl pl-11 pr-4 py-3 text-sm text-text-main placeholder:text-text-soft/40 focus:outline-none focus:border-brand-violet/40 transition-all"
+            placeholder="Buscar por asistente, negocio o canal..."
+            className="w-full bg-card-bg/80 backdrop-blur border border-card-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-text-main placeholder:text-text-soft/40 focus:outline-none focus:border-brand-violet/40 transition-all"
           />
         </div>
-        <div className="flex gap-2">
-          {FILTER_CHANNELS.map(ch => (
-            <button
-              key={ch}
-              onClick={() => setFilterChannel(ch)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                filterChannel === ch
-                  ? 'gradient-btn text-white border-transparent'
-                  : 'bg-card-bg border-card-border text-text-soft hover:text-text-main hover:border-brand-violet/30'
-              }`}
-            >
-              {CHANNEL_LABEL[ch]}
-            </button>
-          ))}
+        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+          {FILTER_CHANNELS.map(ch => {
+            const count = ch === 'todos' ? assistants.length : assistants.filter(a => a.channel === ch).length
+            return (
+              <button
+                key={ch}
+                onClick={() => setFilterChannel(ch)}
+                className={`whitespace-nowrap flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border transition-all ${
+                  filterChannel === ch
+                    ? 'gradient-btn text-white border-transparent shadow-[0_0_15px_rgba(124,58,237,0.3)]'
+                    : 'bg-card-bg border-card-border text-text-soft hover:text-text-main hover:border-brand-violet/30'
+                }`}
+              >
+                {CHANNEL_LABEL[ch]}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${filterChannel === ch ? 'bg-black/20' : 'bg-white/5'}`}>
+                  {count}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* Content */}
-      {loading ? (
+      {/* CONTENIDO */}
+      {loading || subLoading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-52 bg-card-bg/60 rounded-2xl animate-pulse border border-card-border" />
+            <div key={i} className="h-64 bg-card-bg/60 rounded-3xl animate-pulse border border-card-border" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center py-24"
+          className="bg-card-bg/80 backdrop-blur-xl border border-card-border rounded-3xl p-12 text-center relative overflow-hidden"
         >
-          <div className="w-20 h-20 rounded-2xl gradient-btn/10 border border-brand-violet/20 flex items-center justify-center mx-auto mb-6">
-            <Bot className="w-10 h-10 text-brand-violet/50" />
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-brand-violet to-brand-cyan opacity-50" />
+          <div className="w-20 h-20 rounded-2xl bg-brand-violet/10 border border-brand-violet/20 flex items-center justify-center mx-auto mb-6 relative">
+            <Bot className="w-10 h-10 text-brand-violet" />
+            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-brand-cyan/20 border border-brand-cyan/30 flex items-center justify-center">
+              <Sparkles className="w-3 h-3 text-brand-cyan" />
+            </div>
           </div>
-          <h3 className="text-xl font-bold mb-2">
-            {search || filterChannel !== 'todos' ? 'Sin resultados' : 'No tienes asistentes aún'}
-          </h3>
-          <p className="text-text-soft mb-6 max-w-sm mx-auto">
-            {search || filterChannel !== 'todos'
-              ? 'Intenta con otros filtros o términos de búsqueda.'
-              : 'Crea tu primer asistente de IA y empieza a automatizar conversaciones con clientes.'}
+          <h3 className="text-xl font-bold mb-3 text-white">Aún no has creado asistentes</h3>
+          <p className="text-text-soft mb-8 max-w-md mx-auto">
+            Crea tu primer asistente para empezar a responder clientes en Web Chat, Telegram y próximamente WhatsApp.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-4 mb-8 text-sm text-text-soft">
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Responde FAQs</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Captura leads</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Atiende fuera de horario</span>
+          </div>
           {!search && filterChannel === 'todos' && (
             <Link
               href="/dashboard/create-assistant"
-              className="gradient-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity"
+              className="gradient-btn inline-flex items-center gap-2 px-8 py-4 rounded-xl text-white font-bold hover:opacity-90 transition-opacity glow-violet text-lg"
             >
-              <Plus className="w-5 h-5" />
-              Crear mi primer asistente
+              <Plus className="w-6 h-6" />
+              Crear primer asistente
             </Link>
           )}
         </motion.div>
@@ -141,6 +224,9 @@ export default function AssistantsPage() {
               <AssistantCard
                 key={a.id}
                 assistant={a}
+                plan={plan}
+                planLimits={planLimits}
+                usage={subData?.usage}
                 onDelete={handleDelete}
                 onToggleStatus={handleToggleStatus}
               />
