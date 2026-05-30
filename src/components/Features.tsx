@@ -79,9 +79,9 @@ export function Features() {
           </div>
 
           <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-[-0.03em]">
-            Todo lo que necesitas para{" "}
+            Funciones diseñadas para vender,{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#A855F7] via-[#2563EB] to-[#06B6D4]">
-              conversar mejor
+              atender y dar seguimiento a tus clientes.
             </span>
           </h2>
 

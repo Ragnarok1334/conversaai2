@@ -1,8 +1,9 @@
 import { Header } from "@/components/Header";
 import { Hero } from "@/components/Hero";
 import { Stats } from "@/components/Stats";
-import { Benefits } from "@/components/Benefits";
+
 import { HowItWorks } from "@/components/HowItWorks";
+import { FeaturesSection } from "@/components/home/FeaturesSection";
 import { UseCases } from "@/components/UseCases";
 import { Pricing } from "@/components/Pricing";
 import { ReviewsSection } from "@/components/ReviewsSection";
@@ -18,8 +19,10 @@ export default function Home() {
       <Header />
       <Hero />
       <Stats />
-      <Benefits />
+
       <HowItWorks />
+      {/* FeaturesSection: modular, con modal de detalle por feature */}
+      <FeaturesSection />
       <UseCases />
       <Pricing />
       <ReviewsSection />
@@ -29,4 +32,3 @@ export default function Home() {
     </main>
   );
 }
-
