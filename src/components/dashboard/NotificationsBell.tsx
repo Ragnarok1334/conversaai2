@@ -102,10 +102,15 @@ export function NotificationsBell() {
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n))
     setUnreadCount(prev => Math.max(0, prev - 1))
 
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', id)
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      })
+    } catch (err) {
+      console.error('Failed to mark notification as read:', err)
+    }
   }
 
   const markAllAsRead = async () => {
@@ -115,14 +120,15 @@ export function NotificationsBell() {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
     setUnreadCount(0)
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-
-    await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', user.id)
-      .in('id', unreadIds)
+    try {
+      await fetch('/api/notifications/read', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ all: true })
+      })
+    } catch (err) {
+      console.error('Failed to mark all notifications as read:', err)
+    }
   }
 
   return (
@@ -150,9 +156,9 @@ export function NotificationsBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute right-0 mt-3 w-[340px] sm:w-[380px] bg-card-bg/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 origin-top-right"
+            className="absolute right-0 mt-3 w-[340px] sm:w-[380px] bg-[#080e22] border border-white/[0.14] rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden z-50 origin-top-right"
           >
-            <div className="p-4 border-b border-white/[0.08] flex items-center justify-between bg-white/[0.02]">
+            <div className="px-4 py-3.5 border-b border-white/[0.1] flex items-center justify-between bg-white/[0.03]">
               <h3 className="font-semibold flex items-center gap-2">
                 Notificaciones
                 {unreadCount > 0 && (
@@ -184,7 +190,7 @@ export function NotificationsBell() {
                   {notifications.map((notif) => (
                     <div 
                       key={notif.id} 
-                      className={`p-4 transition-colors hover:bg-white/[0.03] ${!notif.is_read ? 'bg-brand-violet/[0.03]' : ''}`}
+                    className={`p-4 transition-colors hover:bg-white/[0.05] ${!notif.is_read ? 'bg-brand-violet/[0.06]' : ''}`}
                     >
                       <div className="flex gap-3">
                         <div className="flex-shrink-0 mt-0.5">
@@ -196,7 +202,7 @@ export function NotificationsBell() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className={`text-sm font-medium ${!notif.is_read ? 'text-text-main' : 'text-text-secondary'}`}>
+                            <p className={`text-sm font-medium ${!notif.is_read ? 'text-white' : 'text-[#94A3B8]'}`}>
                               {notif.title}
                             </p>
                             <span className="text-[10px] text-text-soft whitespace-nowrap">

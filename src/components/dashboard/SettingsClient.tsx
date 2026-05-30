@@ -25,10 +25,6 @@ interface UserSettings {
   payment_alerts: boolean
   dashboard_density: 'comfortable' | 'compact'
   default_dashboard_page: string
-  display_name: string | null
-  company_name: string | null
-  phone: string | null
-  country: string | null
 }
 
 interface SubscriptionData {
@@ -209,7 +205,7 @@ function EditProfileModal({
   open, initialValues, onClose, onSave,
 }: {
   open: boolean
-  initialValues: { display_name: string; company_name: string; phone: string; country: string }
+  initialValues: { full_name: string; company_name: string; phone: string; country: string }
   onClose: () => void
   onSave: (values: typeof initialValues) => Promise<void>
 }) {
@@ -262,7 +258,7 @@ function EditProfileModal({
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {field('Nombre visible', 'display_name', 'Tu nombre')}
+              {field('Nombre visible', 'full_name', 'Tu nombre')}
               {field('Empresa (opcional)', 'company_name', 'Nombre de tu empresa')}
               {field('Teléfono (opcional)', 'phone', '+56 9 1234 5678')}
               {field('País (opcional)', 'country', 'Chile')}
@@ -323,7 +319,8 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   const [copied, setCopied] = useState(false)
 
   // ── Profile edit initial values ─────────────────────────────────────────────
-  const [profileValues, setProfileValues] = useState({ display_name: userName, company_name: '', phone: '', country: '' })
+  const [profileValues, setProfileValues] = useState({ full_name: userName, company_name: '', phone: '', country: '' })
+  const [profileLoading, setProfileLoading] = useState(true)
 
   // ── Fetch subscription ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -334,15 +331,14 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
       .finally(() => setSubLoading(false))
   }, [])
 
-  // ── Fetch settings ─────────────────────────────────────────────────────────
+  // ── Fetch profile ──────────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/settings')
+    fetch('/api/profile')
       .then(r => r.json())
       .then(d => {
         if (!d.error) {
-          setSettings(d)
           setProfileValues({
-            display_name: d.display_name || userName,
+            full_name: d.full_name || userName,
             company_name: d.company_name || '',
             phone: d.phone || '',
             country: d.country || '',
@@ -350,8 +346,17 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
         }
       })
       .catch(() => null)
-      .finally(() => setSettingsLoading(false))
+      .finally(() => setProfileLoading(false))
   }, [userName])
+
+  // ── Fetch notification settings ────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => { if (!d.error) setSettings(d) })
+      .catch(() => null)
+      .finally(() => setSettingsLoading(false))
+  }, [])
 
   // ── Toggle notification setting ────────────────────────────────────────────
   async function toggleSetting(key: keyof UserSettings, value: boolean) {
@@ -381,16 +386,29 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
 
   // ── Save profile ───────────────────────────────────────────────────────────
   async function handleSaveProfile(values: typeof profileValues) {
-    const res = await fetch('/api/settings', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
-    })
-    if (res.ok) {
-      setProfileValues(values)
-      showToast('Perfil actualizado correctamente')
-    } else {
-      showToast('No se pudo guardar el perfil', 'error')
+    try {
+      const res = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: values.full_name,
+          company_name: values.company_name,
+          phone: values.phone,
+          country: values.country,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setProfileValues(values)
+        showToast('Perfil actualizado correctamente')
+      } else {
+        const errMsg = data.error || 'No se pudo guardar el perfil'
+        showToast(errMsg, 'error')
+        console.error('[handleSaveProfile]', data)
+      }
+    } catch (err) {
+      showToast('Error de conexión al guardar perfil', 'error')
+      console.error('[handleSaveProfile] network error', err)
     }
   }
 
@@ -427,22 +445,43 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   const usage = subData?.usage
   const planLimits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free
   const isPremium = plan !== 'free'
-  const displayName = profileValues.display_name || userName
+  const displayName = profileValues.full_name || userName
+  const hasAssistant = assistantCount > 0
 
   // ── Channel statuses ───────────────────────────────────────────────────────
+  // Web Chat: always available per plan; actionable only if user has an assistant
+  // Telegram: requires plan that includes telegram
+  // WhatsApp: always 'coming soon' as backend is not yet implemented
   const channelStatus = {
-    webchat: { available: true, label: 'Web Chat', icon: <Globe2 className="w-4 h-4" />, color: 'text-brand-cyan' },
+    webchat: {
+      available: true,
+      configured: hasAssistant,
+      label: 'Web Chat',
+      description: hasAssistant ? 'Instalable en tu sitio web' : 'Crea un asistente para instalarlo',
+      icon: <Globe2 className="w-4 h-4" />,
+      color: 'text-brand-cyan',
+      actionLabel: hasAssistant ? 'Ver instalación' : 'Crear asistente',
+      actionHref: hasAssistant ? '/dashboard/assistants' : '/dashboard/create-assistant',
+    },
     telegram: {
       available: planLimits.channels.telegram,
+      configured: false,
       label: 'Telegram',
+      description: planLimits.channels.telegram ? 'Conecta tu bot de Telegram' : 'Disponible desde el plan Pro',
       icon: <MessageCircle className="w-4 h-4" />,
       color: 'text-[#0088cc]',
+      actionLabel: planLimits.channels.telegram ? 'Configurar' : 'Mejorar plan',
+      actionHref: planLimits.channels.telegram ? '/dashboard/assistants' : '/dashboard/billing',
     },
     whatsapp: {
-      available: planLimits.channels.whatsapp,
+      available: false, // Not yet implemented — always show as coming soon
+      configured: false,
       label: 'WhatsApp',
+      description: 'Próximamente disponible',
       icon: <MessageSquare className="w-4 h-4" />,
       color: 'text-brand-success',
+      actionLabel: 'Próximamente',
+      actionHref: '/dashboard/billing',
     },
   }
 
@@ -737,32 +776,31 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
 
           <div className="space-y-3">
             {(Object.entries(channelStatus) as [keyof typeof channelStatus, (typeof channelStatus)[keyof typeof channelStatus]][]).map(([key, ch]) => (
-              <div key={key} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                <div className="flex items-center gap-3">
-                  <div className={`${ch.color}`}>{ch.icon}</div>
-                  <div>
+              <div key={key} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`${ch.color} shrink-0`}>{ch.icon}</div>
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-white">{ch.label}</p>
-                    <p className={`text-xs mt-0.5 flex items-center gap-1 ${ch.available ? 'text-brand-success' : 'text-text-soft'}`}>
-                      {ch.available ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                      {ch.available ? 'Disponible en tu plan' : key === 'whatsapp' ? 'Próximamente' : `Disponible desde ${key === 'telegram' ? 'Pro' : 'Business'}`}
+                    <p className={`text-xs mt-0.5 flex items-center gap-1 truncate ${
+                      ch.available ? 'text-brand-success' : 'text-text-soft'
+                    }`}>
+                      {ch.available ? <Wifi className="w-3 h-3 shrink-0" /> : <WifiOff className="w-3 h-3 shrink-0" />}
+                      {ch.description}
                     </p>
                   </div>
                 </div>
-                {ch.available ? (
-                  <Link
-                    href={key === 'telegram' ? '/dashboard/settings' : '/dashboard/assistants'}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.1] text-text-soft hover:text-white hover:border-white/20 transition-all"
-                  >
-                    {key === 'webchat' ? 'Ver instalación' : key === 'telegram' ? 'Configurar' : 'Ver'}
-                  </Link>
-                ) : (
-                  <Link
-                    href="/dashboard/billing"
-                    className="text-xs px-3 py-1.5 rounded-lg bg-brand-violet/10 border border-brand-violet/20 text-brand-purple hover:bg-brand-violet/20 transition-all"
-                  >
-                    {key === 'whatsapp' ? 'Próximamente' : 'Mejorar plan'}
-                  </Link>
-                )}
+                <Link
+                  href={ch.actionHref}
+                  className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                    ch.available
+                      ? 'bg-white/[0.04] border-white/[0.1] text-text-soft hover:text-white hover:border-white/20'
+                      : key === 'whatsapp'
+                        ? 'bg-white/[0.02] border-white/[0.06] text-text-soft cursor-default pointer-events-none'
+                        : 'bg-brand-violet/10 border-brand-violet/20 text-brand-purple hover:bg-brand-violet/20'
+                  }`}
+                >
+                  {ch.actionLabel}
+                </Link>
               </div>
             ))}
           </div>
