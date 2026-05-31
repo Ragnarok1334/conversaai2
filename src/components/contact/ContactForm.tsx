@@ -31,7 +31,13 @@ export function ContactForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form)
       })
-      const data = await res.json()
+      
+      let data;
+      try {
+        data = await res.json()
+      } catch (e) {
+        throw new Error("Error de conexión con el servidor. Intenta nuevamente.")
+      }
 
       if (!res.ok) {
         throw new Error(data.error || "Ocurrió un error inesperado.")
@@ -59,7 +65,7 @@ export function ContactForm() {
         </div>
         <h3 className="text-3xl font-bold text-white mb-4">¡Mensaje enviado!</h3>
         <p className="text-text-secondary text-lg mb-8 max-w-sm mx-auto">
-          Hemos recibido tu solicitud. Nuestro equipo la revisará y te responderemos a la brevedad.
+          Mensaje enviado correctamente. Te responderemos pronto.
         </p>
         <button
           onClick={() => setStatus("idle")}

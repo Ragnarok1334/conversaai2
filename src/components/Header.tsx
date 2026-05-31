@@ -48,13 +48,13 @@ export function Header() {
 
   return (
     <header
-      className={`fixed top-0 w-full z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 w-full z-50 transition-all duration-300 ${
         isScrolled
-          ? "bg-dark-bg/80 backdrop-blur-xl border-b border-card-border py-4"
-          : "bg-transparent py-6"
+          ? "bg-[#050816]/80 backdrop-blur-xl border-b border-white/10"
+          : "bg-transparent"
       }`}
     >
-      <div className="container mx-auto px-4 md:px-6 flex items-center justify-between gap-4">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity shrink-0">
           <Image src="/logo.png" alt="ConversaAI logo" width={34} height={34} className="rounded-lg" priority />
           <span className="text-xl font-bold text-text-main tracking-tight">
@@ -63,13 +63,13 @@ export function Header() {
         </Link>
 
         {/* Desktop Nav */}
-        <nav className="hidden lg:flex items-center gap-4 lg:gap-6">
-          <ul className="flex items-center gap-3 lg:gap-5">
+        <nav className="hidden lg:flex items-center gap-6">
+          <ul className="flex items-center gap-6">
             {navLinks.map((link) => (
               <li key={link.name}>
                 <Link
                   href={link.href}
-                  className="text-sm font-medium text-text-secondary hover:text-brand-cyan transition-colors"
+                  className="text-sm font-medium text-text-secondary hover:text-white transition-colors"
                 >
                   {link.name}
                 </Link>
@@ -77,15 +77,15 @@ export function Header() {
             ))}
           </ul>
           
-          <div className="flex items-center gap-2 lg:gap-4">
+          <div className="flex items-center gap-4 pl-4 border-l border-white/10">
             {user ? (
               <>
-                <Link href="/dashboard" className="text-sm font-medium text-text-secondary hover:text-text-main transition-colors flex items-center gap-2">
-                  <LayoutDashboard className="w-4 h-4" />
+                <Link href="/dashboard" className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.04] border border-white/10 hover:border-brand-cyan/50 hover:bg-white/[0.08] transition-all text-sm font-medium text-white shadow-sm">
+                  <LayoutDashboard className="w-4 h-4 text-brand-cyan" />
                   Dashboard
                 </Link>
                 <form action={signOut}>
-                  <button className="gradient-btn px-5 py-2.5 rounded-full text-white font-medium text-sm hover:opacity-90 transition-opacity glow-violet flex items-center gap-2">
+                  <button className="gradient-btn px-5 py-2.5 rounded-full text-white font-medium text-sm hover:opacity-90 transition-opacity glow-violet flex items-center gap-2 shadow-md">
                     <LogOut className="w-4 h-4" />
                     Cerrar sesión
                   </button>
@@ -93,11 +93,11 @@ export function Header() {
               </>
             ) : (
               <>
-                <Link href="/login" className="text-sm font-medium text-text-secondary hover:text-text-main transition-colors">
+                <Link href="/login" className="text-sm font-medium text-text-secondary hover:text-white transition-colors">
                   Iniciar sesión
                 </Link>
-                <Link href="/register" className="gradient-btn px-4 py-2 lg:px-5 lg:py-2.5 rounded-full text-white font-medium text-xs lg:text-sm hover:opacity-90 transition-opacity glow-violet">
-                  Comenzar ahora
+                <Link href="/register" className="gradient-btn px-5 py-2.5 rounded-full text-white font-medium text-sm hover:opacity-90 transition-opacity glow-violet shadow-md">
+                  Comenzar gratis
                 </Link>
               </>
             )}
@@ -126,21 +126,22 @@ export function Header() {
               <Link
                 key={link.name}
                 href={link.href}
-                className="text-text-main font-medium p-2"
+                className="text-text-secondary hover:text-white font-medium p-2 transition-colors"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 {link.name}
               </Link>
             ))}
-            <div className="border-t border-card-border pt-4 flex flex-col gap-4">
+            <div className="border-t border-white/10 pt-4 flex flex-col gap-4 mt-2">
               {user ? (
                 <>
-                  <Link href="/dashboard" className="text-text-main font-medium p-2 flex items-center gap-2">
-                    <LayoutDashboard className="w-4 h-4" />
-                    Dashboard
+                  <p className="text-xs font-semibold text-text-soft uppercase tracking-wider px-2">Cuenta</p>
+                  <Link href="/dashboard" className="text-white font-medium p-3 flex items-center gap-2 bg-white/[0.04] border border-white/10 rounded-xl hover:bg-white/[0.08] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
+                    <LayoutDashboard className="w-4 h-4 text-brand-cyan" />
+                    Entrar al Dashboard
                   </Link>
                   <form action={signOut}>
-                    <button className="gradient-btn w-full py-3 rounded-xl text-white font-medium glow-violet flex items-center justify-center gap-2">
+                    <button className="gradient-btn w-full py-3 rounded-xl text-white font-medium glow-violet flex items-center justify-center gap-2 shadow-md">
                       <LogOut className="w-4 h-4" />
                       Cerrar sesión
                     </button>
@@ -148,11 +149,12 @@ export function Header() {
                 </>
               ) : (
                 <>
-                  <Link href="/login" className="text-text-main font-medium p-2 text-center">
+                  <p className="text-xs font-semibold text-text-soft uppercase tracking-wider px-2">Cuenta</p>
+                  <Link href="/login" className="text-white font-medium p-3 flex items-center justify-center gap-2 bg-white/[0.04] border border-white/10 rounded-xl hover:bg-white/[0.08] transition-colors" onClick={() => setIsMobileMenuOpen(false)}>
                     Iniciar sesión
                   </Link>
-                  <Link href="/register" className="gradient-btn w-full py-3 rounded-xl text-white font-medium glow-violet text-center">
-                    Comenzar ahora
+                  <Link href="/register" className="gradient-btn w-full py-3 rounded-xl text-white font-medium glow-violet text-center shadow-md" onClick={() => setIsMobileMenuOpen(false)}>
+                    Comenzar gratis
                   </Link>
                 </>
               )}

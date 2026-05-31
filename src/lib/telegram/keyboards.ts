@@ -8,7 +8,7 @@ const REGISTER_URL  = safeUrl("https://conversaai.store/register");
 const PLANS_URL     = safeUrl("https://conversaai.store/#precios");
 const CONTACT_URL   = safeUrl("https://conversaai.store/contact");
 const FEATURES_URL  = safeUrl("https://conversaai.store/#funciones");
-const WHATSAPP_URL  = safeUrl(CONTACT_INFO.whatsapp, CONTACT_URL);
+const WHATSAPP_URL  = safeUrl(CONTACT_INFO.whatsapp || undefined, CONTACT_URL);
 const TELEGRAM_URL  = safeUrl(CONTACT_INFO.telegram, CONTACT_URL);
 
 // ─── Main Menu ────────────────────────────────────────────────────────────────

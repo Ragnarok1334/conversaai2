@@ -3,10 +3,12 @@ export const CONTACT_INFO = {
   email: "contacto@conversaai.store",
 
   // WhatsApp — must be https://wa.me/PHONENUMBER (no spaces, no dashes)
-  whatsapp: "https://wa.me/56948650824?text=Hola,%20quiero%20información%20sobre%20ConversaAI",
+  whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER 
+    ? `https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER}`
+    : null,
 
   // Telegram bot — must be https://t.me/USERNAME (no @ symbol)
-  telegram: "https://t.me/ConversaAIChatBot",
+  telegram: process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || "https://t.me/ConversaAIChatBot",
 
   // Schedule text (displayed in messages, not as a URL)
   schedule: "Lunes a viernes, 8:00 a 18:00"

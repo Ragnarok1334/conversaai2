@@ -8,6 +8,9 @@ import {
   TrendingUp,
   Sparkles,
   Send,
+  CheckCircle2,
+  Users,
+  Globe,
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
@@ -53,13 +56,13 @@ export function Hero() {
         <div className="grid lg:grid-cols-2 gap-14 items-center">
 
           {/* LEFT SIDE */}
-          <div className="flex flex-col gap-7">
+          <div className="flex flex-col gap-5">
             <BlurFade delay={0.1}>
               {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] backdrop-blur-xl border border-white/10 w-fit shadow-[0_0_30px_rgba(124,58,237,0.15)]">
-                <Sparkles className="w-4 h-4 text-[#06B6D4]" />
-                <span className="text-sm font-medium text-[#CBD5E1]">
-                  IA para ventas y atención
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] backdrop-blur-xl border border-white/10 w-fit shadow-[0_0_20px_rgba(124,58,237,0.1)]">
+                <Sparkles className="w-3.5 h-3.5 text-[#06B6D4]" />
+                <span className="text-xs font-semibold text-white/80">
+                  IA para ventas y atención 24/7
                 </span>
               </div>
             </BlurFade>
@@ -67,12 +70,12 @@ export function Hero() {
             <BlurFade delay={0.2}>
               {/* Title */}
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-7xl">
-                 Convierte cada mensaje en una{" "}
+                 Atiende clientes al instante y convierte cada conversación{" "}
                  <AuroraText
                    colors={["#8b5cf6", "#06b6d4", "#3b82f6", "#a855f7"]}
                    speed={1}
                 >
-                   oportunidad de venta
+                   en una oportunidad
                  </AuroraText>
                </h1>
             </BlurFade>
@@ -80,8 +83,7 @@ export function Hero() {
             <BlurFade delay={0.3}>
               {/* Description */}
               <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-                Atiende consultas, captura datos de clientes y responde al instante desde Web
-                Chat, Telegram y WhatsApp, incluso fuera de horario.
+                ConversaAI automatiza respuestas, captura leads y ayuda a tu negocio a responder desde Web Chat, Telegram y próximamente WhatsApp, incluso fuera de horario.
               </p>
             </BlurFade>
 
@@ -90,26 +92,36 @@ export function Hero() {
               <div className="flex flex-wrap items-center gap-4 mt-2">
                 <Link href={isLoggedIn ? "/dashboard/create-assistant" : "/register"}>
                   <ShimmerButton className="font-semibold text-lg" shimmerColor="#A855F7" background="linear-gradient(90deg, #7C3AED, #2563EB, #06B6D4)">
-                    Comenzar ahora
+                    Crear asistente
                   </ShimmerButton>
                 </Link>
-                <Link href="/#funciones" className="px-8 py-4 rounded-[100px] bg-white/[0.06] border border-white/10 text-white font-semibold text-lg hover:bg-white/10 transition-colors">
-                  Ver demo
+                <Link href="/#como-funciona" className="px-8 py-4 rounded-[100px] bg-white/[0.06] border border-white/10 text-white font-semibold text-lg hover:bg-white/10 transition-colors">
+                  Ver cómo funciona
                 </Link>
               </div>
+              <p className="mt-4 text-sm text-[#94A3B8]">
+                Instala tu Web Chat en minutos. Telegram disponible según tu plan. WhatsApp próximamente.
+              </p>
             </BlurFade>
 
             <BlurFade delay={0.5}>
               {/* Small Info */}
-              <div className="flex flex-wrap items-center gap-6 mt-4">
-                <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
-                  <Clock className="w-4 h-4 text-[#A855F7]" />
-                  <span>Disponible 24/7</span>
+              <div className="flex flex-wrap items-center gap-4 mt-6 border-t border-white/10 pt-6">
+                <div className="flex items-center gap-1.5 text-sm text-[#94A3B8]">
+                  <CheckCircle2 className="w-4 h-4 text-[#22C55E]" />
+                  <span>Sin código complejo</span>
                 </div>
-
-                <div className="flex items-center gap-2 text-sm text-[#94A3B8]">
-                  <MessageSquare className="w-4 h-4 text-[#06B6D4]" />
-                  <span>Atención automática</span>
+                <div className="flex items-center gap-1.5 text-sm text-[#94A3B8]">
+                  <Clock className="w-4 h-4 text-[#22C55E]" />
+                  <span>Respuestas 24/7</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-[#94A3B8]">
+                  <Users className="w-4 h-4 text-[#22C55E]" />
+                  <span>Captura de leads</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-[#94A3B8]">
+                  <Globe className="w-4 h-4 text-[#22C55E]" />
+                  <span>Instalación Web Chat</span>
                 </div>
               </div>
             </BlurFade>
