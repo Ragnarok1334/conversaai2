@@ -22,7 +22,13 @@
 
   let config = null;
   let isOpen = false;
-  let conversationId = null;
+  let conversationId = localStorage.getItem(`conversaai_conversation_${assistantId}`) || null;
+  let visitorId = localStorage.getItem('conversaai_visitor_id');
+  
+  if (!visitorId) {
+    visitorId = 'vis_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
+    localStorage.setItem('conversaai_visitor_id', visitorId);
+  }
 
   // Wait for DOM to be ready
   if (document.readyState === 'loading') {
@@ -473,7 +479,8 @@
         body: JSON.stringify({
           assistantId: assistantId,
           message: message,
-          conversationId: conversationId
+          conversationId: conversationId,
+          visitorId: visitorId
         })
       });
 
@@ -488,6 +495,7 @@
 
       if (data.conversationId) {
         conversationId = data.conversationId;
+        localStorage.setItem(`conversaai_conversation_${assistantId}`, conversationId);
       }
 
       // 4. Add bot response

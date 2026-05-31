@@ -16,7 +16,7 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { assistantId, message, conversationId } = body
+    const { assistantId, message, conversationId, visitorId } = body
 
     if (!assistantId) {
       return NextResponse.json({ error: 'Missing assistantId' }, { status: 400, headers: corsHeaders })
@@ -68,7 +68,62 @@ export async function POST(request: NextRequest) {
       }, { status: 403, headers: corsHeaders })
     }
 
-    // 4. Generate AI Reply
+    // 4. Conversation Handling
+    let currentConversationId = conversationId
+
+    if (currentConversationId) {
+      // Reutilizar y actualizar
+      const { data: conv, error: convError } = await supabaseAdmin
+        .from('conversations')
+        .update({
+          last_message: message.substring(0, 100),
+          last_message_at: new Date().toISOString(),
+          status: 'open'
+        })
+        .eq('id', currentConversationId)
+        .eq('assistant_id', assistantId)
+        .select()
+        .single()
+
+      if (convError || !conv) {
+        currentConversationId = null // Forzamos nueva si no se pudo actualizar
+      }
+    }
+
+    if (!currentConversationId) {
+      // Crear nueva
+      const { data: conv, error: convError } = await supabaseAdmin
+        .from('conversations')
+        .insert({
+          user_id: ownerId,
+          assistant_id: assistantId,
+          channel: 'webchat',
+          visitor_id: visitorId || null,
+          status: 'open',
+          last_message: message.substring(0, 100),
+          last_message_at: new Date().toISOString(),
+        })
+        .select()
+        .single()
+
+      if (convError || !conv) {
+        console.error('[POST /api/widget/message] Error creating conversation', convError)
+        return NextResponse.json({ error: 'Error interno guardando conversación.' }, { status: 500, headers: corsHeaders })
+      }
+      currentConversationId = conv.id
+    }
+
+    // Guardar mensaje del usuario
+    await supabaseAdmin.from('messages').insert({
+      conversation_id: currentConversationId,
+      user_id: ownerId,
+      assistant_id: assistantId,
+      channel: 'webchat',
+      role: 'user',
+      content: message
+    })
+
+    // 5. Generate AI Reply
     const config: AssistantConfig = {
       assistantName: assistant.assistant_name || '',
       businessName: assistant.business_name || '',
@@ -86,13 +141,80 @@ export async function POST(request: NextRequest) {
 
     const reply = await generateAssistantReply(config, message.trim())
 
-    // 5. Update message usage
+    // Guardar respuesta del asistente
+    await supabaseAdmin.from('messages').insert({
+      conversation_id: currentConversationId,
+      user_id: ownerId,
+      assistant_id: assistantId,
+      channel: 'webchat',
+      role: 'assistant',
+      content: reply
+    })
+
+    // 6. Detección Automática de Leads
+    const emailRegex = /[\w.-]+@[\w.-]+\.\w+/i
+    const phoneRegexSimple = /\b\+?[0-9][0-9\s\-\(\)]{7,15}\b/
+    const nameRegex = /(?:me llamo|soy|mi nombre es)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)/i
+
+    const extractedEmail = message.match(emailRegex)?.[0]
+    const extractedPhone = message.match(phoneRegexSimple)?.[0]
+    const extractedName = message.match(nameRegex)?.[1]
+
+    if (extractedEmail || extractedPhone || extractedName) {
+      // Check si ya existe lead para esta conversación
+      const { data: existingLead } = await supabaseAdmin
+        .from('leads')
+        .select('*')
+        .eq('conversation_id', currentConversationId)
+        .single()
+
+      if (existingLead) {
+        // Actualizar solo los campos que falten
+        const updates: Record<string, string> = {}
+        if (extractedEmail && !existingLead.email) updates.email = extractedEmail
+        if (extractedPhone && !existingLead.phone) updates.phone = extractedPhone
+        if (extractedName && !existingLead.name) updates.name = extractedName
+
+        if (Object.keys(updates).length > 0) {
+          await supabaseAdmin.from('leads').update(updates).eq('id', existingLead.id)
+        }
+      } else {
+        // Crear nuevo lead
+        const { data: newLead } = await supabaseAdmin.from('leads').insert({
+          user_id: ownerId,
+          assistant_id: assistantId,
+          conversation_id: currentConversationId,
+          source: 'webchat',
+          status: 'new',
+          email: extractedEmail || null,
+          phone: extractedPhone || null,
+          name: extractedName || null
+        }).select().single()
+
+        // Crear notificación de manera segura (fallar silenciosamente)
+        if (newLead) {
+          try {
+            await supabaseAdmin.from('notifications').insert({
+              user_id: ownerId,
+              title: 'Nuevo lead capturado',
+              message: 'Un visitante dejó sus datos desde Web Chat.',
+              type: 'lead',
+              metadata: { leadId: newLead.id, assistantId, conversationId: currentConversationId }
+            })
+          } catch (notifError) {
+            // ignorar error de notificaciones si no existe la tabla o algo falla
+          }
+        }
+      }
+    }
+
+    // 7. Update message usage
     await supabaseAdmin.from('subscriptions')
       .update({ current_messages_used: sub.current_messages_used + 1 })
       .eq('user_id', ownerId)
 
-    // 6. Return response
-    return NextResponse.json({ reply, conversationId: conversationId || `conv_${Date.now()}` }, { headers: corsHeaders })
+    // 8. Return response
+    return NextResponse.json({ reply, conversationId: currentConversationId }, { headers: corsHeaders })
 
   } catch (error) {
     console.error('[POST /api/widget/message]', error)
