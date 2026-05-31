@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { AssistantForm } from '@/components/dashboard/AssistantForm'
+import { AssistantBuilder } from '@/components/dashboard/create-assistant/AssistantBuilder'
+import { getPlanLimits, normalizePlan } from '@/lib/plans'
 
 export default async function CreateAssistantPage() {
   const supabase = await createClient()
@@ -24,18 +25,21 @@ export default async function CreateAssistantPage() {
     .single()
 
   const isActiveSub = sub && sub.status === 'active'
-  const currentPlan = isActiveSub ? sub.plan : 'free'
-  const planLimit = isActiveSub ? sub.assistants_limit : 1
+  const rawPlan = isActiveSub ? sub.plan : 'free'
+  const currentPlan = normalizePlan(rawPlan)
+  const planLimits = getPlanLimits(currentPlan)
+  
+  // Usar el límite real del plan normalizado (si es Infinity en enterprise, pasarlo como null al frontend)
+  const planLimit = planLimits.assistants === Infinity ? null : planLimits.assistants
+  
+  // Contar solo asistentes activos (sin deleted_at si existiera, aunque count ya filtra)
   const currentUsage = count || 0
   const hasReachedLimit = planLimit !== null && currentUsage >= planLimit
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Crear asistente de IA</h1>
-        <p className="text-text-soft">Configura tu asistente y pruébalo en tiempo real antes de guardarlo.</p>
-      </div>
-      <AssistantForm 
+    <div className="w-full h-full p-4 lg:p-8">
+      <AssistantBuilder 
+        userId={user.id}
         hasReachedLimit={hasReachedLimit} 
         currentUsage={currentUsage} 
         planLimit={planLimit} 

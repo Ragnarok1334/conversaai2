@@ -7,13 +7,16 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 })
 
-export interface AssistantConfig {
-  assistantName: string
-  businessName: string
+import { buildAssistantSystemPrompt, type Assistant } from './assistant/buildPrompt'
+
+export interface AssistantConfig extends Partial<Assistant> {
+  // Legacy fields for backward compatibility during transition
+  assistantName?: string
+  businessName?: string
   businessType?: string
+  mainGoal?: string
   channel?: string
   tone?: string
-  mainGoal?: string
   instructions?: string
   faqs?: string
   services?: string
@@ -22,64 +25,29 @@ export interface AssistantConfig {
   language?: string
 }
 
-function buildSystemPrompt(config: AssistantConfig): string {
-  const tone = config.tone || 'profesional'
-  const language = config.language || 'es'
-  const goal = config.mainGoal || 'asistir a los clientes'
-  const fallback = config.fallbackMessage || 'En este momento no tengo esa información, pero puedo contactarte con un asesor.'
-
-  const languageInstruction = language === 'es'
-    ? 'Siempre responde en español.'
-    : `Responde en el idioma: ${language}.`
-
-  let systemPrompt = `Eres ${config.assistantName}, el asistente virtual de ${config.businessName}.`
-
-  if (config.businessType) {
-    systemPrompt += ` Somos una empresa del sector: ${config.businessType}.`
-  }
-
-  systemPrompt += `
-
-Tu objetivo principal es: ${goal}.
-${languageInstruction}
-Mantén un tono ${tone} en todas tus respuestas.
-
-INSTRUCCIONES CRÍTICAS:
-- Sé conciso, claro y útil. Evita respuestas largas innecesarias.
-- NO inventes información sobre productos, precios o datos que no se te hayan proporcionado.
-- Si no sabes algo, di: "${fallback}"
-- Nunca digas que eres un modelo de lenguaje o AI de OpenAI. Eres el asistente de ${config.businessName}.
-- Sé comercialmente orientado pero sin ser agresivo.
-`
-
-  if (config.instructions) {
-    systemPrompt += `\nINSTRUCCIONES ESPECÍFICAS DEL NEGOCIO:\n${config.instructions}\n`
-  }
-
-  if (config.services) {
-    systemPrompt += `\nPRODUCTOS / SERVICIOS QUE OFRECEMOS:\n${config.services}\n`
-  }
-
-  if (config.faqs) {
-    systemPrompt += `\nPREGUNTAS FRECUENTES Y RESPUESTAS:\n${config.faqs}\n`
-  }
-
-  if (config.schedule) {
-    systemPrompt += `\nHORARIO DE ATENCIÓN:\n${config.schedule}\n`
-  }
-
-  if (config.channel === 'telegram' || config.channel === 'whatsapp') {
-    systemPrompt += `\nEstás respondiendo en ${config.channel === 'telegram' ? 'Telegram' : 'WhatsApp'}. Usa un formato de texto simple, sin markdown complejo.`
-  }
-
-  return systemPrompt
-}
+// Se reemplazó buildSystemPrompt por buildAssistantSystemPrompt
 
 export async function generateAssistantReply(
   config: AssistantConfig,
   userMessage: string
 ): Promise<string> {
-  const systemPrompt = buildSystemPrompt(config)
+  const systemPrompt = buildAssistantSystemPrompt({
+    assistant_name: config.assistantName || config.assistant_name,
+    business_name: config.businessName || config.business_name,
+    business_type: config.businessType || config.business_type,
+    channel: config.channel,
+    instructions: config.instructions,
+    faqs: config.faqs,
+    services: config.services,
+    business_hours: config.schedule || config.business_hours,
+    fallback_message: config.fallbackMessage || config.fallback_message,
+    language: config.language,
+    behavior: config.behavior || {
+      tone: config.tone,
+      goal: config.mainGoal,
+      salesLevel: 'Medium'
+    }
+  })
 
   const response = await openai.responses.create({
     model: DEFAULT_OPENAI_MODEL,
@@ -90,7 +58,7 @@ export async function generateAssistantReply(
   const text = response.output_text?.trim()
 
   if (!text) {
-    return config.fallbackMessage || 'Lo siento, no pude procesar tu mensaje. Por favor intenta de nuevo.'
+    return config.fallbackMessage || config.fallback_message || 'Lo siento, no pude procesar tu mensaje. Por favor intenta de nuevo.'
   }
 
   return text

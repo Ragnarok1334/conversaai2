@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { CONTACT_INFO } from '@/lib/contact'
 import { signOut } from '@/app/auth/actions'
+import { useProfile } from '@/providers/ProfileProvider'
 import type { PlanKey } from '@/lib/plans'
 import { PLAN_LIMITS } from '@/lib/plans'
 
@@ -290,6 +291,8 @@ function EditProfileModal({
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export function SettingsClient({ userName, email, joinDate, assistantCount }: Props) {
+  const { refreshProfile } = useProfile()
+
   // ── Toast state ────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
@@ -401,6 +404,7 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
       if (res.ok && data.success) {
         setProfileValues(values)
         showToast('Perfil actualizado correctamente')
+        refreshProfile()
       } else {
         const errMsg = data.error || 'No se pudo guardar el perfil'
         showToast(errMsg, 'error')

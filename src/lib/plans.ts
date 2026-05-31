@@ -179,8 +179,11 @@ export function getPlanLimits(plan: PlanKey) {
 }
 
 export function normalizePlan(plan: unknown): PlanKey {
-  if (plan === 'pro' || plan === 'business' || plan === 'enterprise') return plan
-  return 'free'
+  const value = String(plan || "free").toLowerCase().trim()
+  if (value.includes("enterprise")) return "enterprise"
+  if (value.includes("business")) return "business"
+  if (value.includes("pro")) return "pro"
+  return "free"
 }
 
 export function getRemainingAssistants(plan: PlanKey, currentCount: number): number | null {
