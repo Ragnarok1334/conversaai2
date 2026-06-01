@@ -11,7 +11,8 @@ export function ContactForm() {
     company: "",
     phone: "",
     subject: "",
-    message: ""
+    message: "",
+    website: "" // honeypot
   })
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle")
   const [errorMessage, setErrorMessage] = useState("")
@@ -44,7 +45,7 @@ export function ContactForm() {
       }
 
       setStatus("success")
-      setForm({ name: "", email: "", company: "", phone: "", subject: "", message: "" })
+      setForm({ name: "", email: "", company: "", phone: "", subject: "", message: "", website: "" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error(err)
@@ -83,6 +84,20 @@ export function ContactForm() {
       <div className="absolute bottom-0 left-0 w-64 h-64 bg-brand-cyan/5 blur-[100px] rounded-full pointer-events-none" />
       
       <form onSubmit={handleSubmit} className="relative z-10 space-y-6">
+        {/* Honeypot field - visually hidden to trick bots */}
+        <div className="hidden" aria-hidden="true" style={{ display: 'none' }}>
+          <label htmlFor="website">Website</label>
+          <input
+            id="website"
+            name="website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={form.website}
+            onChange={handleChange}
+          />
+        </div>
+
         {status === "error" && (
           <div className="flex items-center gap-3 p-4 rounded-xl bg-brand-pink/10 border border-brand-pink/20 text-brand-pink text-sm">
             <AlertCircle className="w-5 h-5 flex-shrink-0" />

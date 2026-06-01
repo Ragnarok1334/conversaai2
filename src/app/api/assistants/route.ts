@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       throw countErr
     }
 
-    if (assistantsLimit !== Infinity && (count || 0) >= assistantsLimit) {
+    if (assistantsLimit !== null && (count || 0) >= assistantsLimit) {
       return NextResponse.json(
         {
           error: 'Alcanzaste el límite de asistentes de tu plan actual.',

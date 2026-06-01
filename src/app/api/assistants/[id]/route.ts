@@ -49,9 +49,47 @@ export async function PATCH(
 
     const body = await request.json()
 
+    // Whitelist allowed fields
+    const allowedFields = [
+      'assistant_name', 'name', 'business_name', 'business_type',
+      'instructions', 'behavior', 'channel', 'tone',
+      'objective', 'main_goal', 'fallback_message', 'welcome_message',
+      'status'
+    ]
+
+    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+
+    for (const key of allowedFields) {
+      if (key in body) {
+        updates[key] = body[key]
+      }
+    }
+
+    // Validate behavior structure if it's being updated
+    if ('behavior' in updates && updates.behavior !== null) {
+      const b = updates.behavior
+      if (typeof b !== 'object' || Array.isArray(b)) {
+        return NextResponse.json({ error: 'El campo behavior debe ser un objeto válido.' }, { status: 400 })
+      }
+      
+      // Enforce specific boolean rules structure if rules object exists
+      if (b.rules && typeof b.rules === 'object') {
+        const allowedRules = ['askName', 'askContact', 'offerPricesWhenAsked', 'suggestAppointment', 'escalateIfUnknown', 'doNotInvent', 'alwaysSpanish']
+        for (const rule in b.rules) {
+          if (!allowedRules.includes(rule) || typeof b.rules[rule] !== 'boolean') {
+            return NextResponse.json({ error: `La regla de behavior '${rule}' no es válida o no es boolean.` }, { status: 400 })
+          }
+        }
+      }
+    }
+
+    if (Object.keys(updates).length === 1) { // only updated_at
+      return NextResponse.json({ error: 'No hay campos válidos para actualizar.' }, { status: 400 })
+    }
+
     const { data, error } = await supabase
       .from('assistants')
-      .update({ ...body, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', id)
       .eq('user_id', user.id)
       .select()

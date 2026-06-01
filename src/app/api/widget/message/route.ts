@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
+import { checkRateLimit, consumeMessageCredit, extractDomain } from '@/lib/security'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,7 +46,50 @@ export async function POST(request: NextRequest) {
 
     const ownerId = assistant.user_id
 
-    // 2. Fetch owner subscription limits
+    // 2. Validate Domain
+    const origin = request.headers.get('origin')
+    const referer = request.headers.get('referer')
+    const extractedDomain = extractDomain(origin || referer)
+    
+    // In dev, we might want to allow localhost
+    const isDev = process.env.NODE_ENV === 'development'
+    const isLocalhost = extractedDomain === 'localhost' || extractedDomain === '127.0.0.1'
+    
+    if (!(isDev && isLocalhost) && !assistant.allow_all_domains) {
+      if (!extractedDomain) {
+        return NextResponse.json({ error: 'No se pudo verificar el origen.' }, { status: 403, headers: corsHeaders })
+      }
+      
+      const { data: domainRec } = await supabaseAdmin
+        .from('assistant_domains')
+        .select('id')
+        .eq('assistant_id', assistantId)
+        .eq('domain', extractedDomain)
+        .eq('is_active', true)
+        .single()
+        
+      if (!domainRec) {
+        return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
+      }
+    }
+
+    // 3. Rate Limit Checks
+    const ip = request.headers.get('x-forwarded-for') || 'unknown-ip'
+    
+    // Max 60 messages per minute per IP per assistant
+    const ipRateLimitOk = await checkRateLimit(`widget-ip-${assistantId}-${ip}`, 'widget-message-ip-minute', 60, 60)
+    if (!ipRateLimitOk) {
+      return NextResponse.json({ error: 'Demasiados mensajes desde tu red. Intenta nuevamente en unos minutos.' }, { status: 429, headers: corsHeaders })
+    }
+    
+    // Max 20 messages per minute per VisitorID per assistant
+    const visId = visitorId || ip
+    const visitorRateLimitOk = await checkRateLimit(`widget-vis-${assistantId}-${visId}`, 'widget-message-vis-minute', 20, 60)
+    if (!visitorRateLimitOk) {
+      return NextResponse.json({ error: 'Estás enviando mensajes muy rápido. Intenta nuevamente.' }, { status: 429, headers: corsHeaders })
+    }
+
+    // 4. Fetch owner subscription limits
     const { data: sub } = await supabaseAdmin
       .from('subscriptions')
       .select('plan, current_messages_used, messages_limit, status')
@@ -60,19 +104,19 @@ export async function POST(request: NextRequest) {
     const planConfig = getPlanConfig(normalizedPlan)
     const effectiveLimit = planConfig.messagesLimit
 
-    // 3. Verify message limit
-    if (!isUnlimited(effectiveLimit) && sub.current_messages_used >= (effectiveLimit ?? 0)) {
+    // 5. Consume credit atomically
+    const consumed = await consumeMessageCredit(ownerId, effectiveLimit)
+    if (!consumed) {
       return NextResponse.json({
         error: 'El asistente alcanzó el límite mensual de mensajes.',
         code: 'MESSAGE_LIMIT_REACHED'
       }, { status: 403, headers: corsHeaders })
     }
 
-    // 4. Conversation Handling
+    // 6. Conversation Handling
     let currentConversationId = conversationId
 
     if (currentConversationId) {
-      // Reutilizar y actualizar
       const { data: conv, error: convError } = await supabaseAdmin
         .from('conversations')
         .update({
@@ -86,12 +130,11 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (convError || !conv) {
-        currentConversationId = null // Forzamos nueva si no se pudo actualizar
+        currentConversationId = null
       }
     }
 
     if (!currentConversationId) {
-      // Crear nueva
       const { data: conv, error: convError } = await supabaseAdmin
         .from('conversations')
         .insert({
@@ -123,7 +166,7 @@ export async function POST(request: NextRequest) {
       content: message
     })
 
-    // 5. Generate AI Reply
+    // 7. Generate AI Reply
     const config: AssistantConfig = {
       assistantName: assistant.assistant_name || '',
       businessName: assistant.business_name || '',
@@ -152,7 +195,7 @@ export async function POST(request: NextRequest) {
       content: reply
     })
 
-    // 6. Detección Automática de Leads
+    // 8. Detección Automática de Leads
     const emailRegex = /[\w.-]+@[\w.-]+\.\w+/i
     const phoneRegexSimple = /\b\+?[0-9][0-9\s\-\(\)]{7,15}\b/
     const nameRegex = /(?:me llamo|soy|mi nombre es)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)/i
@@ -162,7 +205,6 @@ export async function POST(request: NextRequest) {
     const extractedName = message.match(nameRegex)?.[1]
 
     if (extractedEmail || extractedPhone || extractedName) {
-      // Check si ya existe lead para esta conversación
       const { data: existingLead } = await supabaseAdmin
         .from('leads')
         .select('*')
@@ -170,7 +212,6 @@ export async function POST(request: NextRequest) {
         .single()
 
       if (existingLead) {
-        // Actualizar solo los campos que falten
         const updates: Record<string, string> = {}
         if (extractedEmail && !existingLead.email) updates.email = extractedEmail
         if (extractedPhone && !existingLead.phone) updates.phone = extractedPhone
@@ -180,7 +221,6 @@ export async function POST(request: NextRequest) {
           await supabaseAdmin.from('leads').update(updates).eq('id', existingLead.id)
         }
       } else {
-        // Crear nuevo lead
         const { data: newLead } = await supabaseAdmin.from('leads').insert({
           user_id: ownerId,
           assistant_id: assistantId,
@@ -192,7 +232,6 @@ export async function POST(request: NextRequest) {
           name: extractedName || null
         }).select().single()
 
-        // Crear notificación de manera segura (fallar silenciosamente)
         if (newLead) {
           try {
             await supabaseAdmin.from('notifications').insert({
@@ -203,18 +242,13 @@ export async function POST(request: NextRequest) {
               metadata: { leadId: newLead.id, assistantId, conversationId: currentConversationId }
             })
           } catch (notifError) {
-            // ignorar error de notificaciones si no existe la tabla o algo falla
+            // ignorar error de notificaciones
           }
         }
       }
     }
 
-    // 7. Update message usage
-    await supabaseAdmin.from('subscriptions')
-      .update({ current_messages_used: sub.current_messages_used + 1 })
-      .eq('user_id', ownerId)
-
-    // 8. Return response
+    // 9. Return response
     return NextResponse.json({ reply, conversationId: currentConversationId }, { headers: corsHeaders })
 
   } catch (error) {

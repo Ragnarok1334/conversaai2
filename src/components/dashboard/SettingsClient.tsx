@@ -645,7 +645,7 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                     <span className="text-xs font-semibold text-white">
                       {(usage?.messagesUsed ?? 0).toLocaleString()}
                       <span className="text-text-soft font-normal">
-                        {' '}/ {planLimits.messagesPerMonth === Infinity ? '∞' : planLimits.messagesPerMonth.toLocaleString()}
+                        / {planLimits.messagesPerMonth === null ? '∞' : planLimits.messagesPerMonth.toLocaleString()}
                       </span>
                     </span>
                   </div>

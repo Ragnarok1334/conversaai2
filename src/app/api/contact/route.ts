@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server'
+import { escapeHtml } from '@/lib/security'
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { name, email, company, phone, subject, message } = body
+    const { name, email, company, phone, subject, message, website } = body
+
+    // Honeypot check (hidden field in frontend)
+    if (website) {
+      // If a bot fills this, reject silently to confuse it
+      return NextResponse.json({ success: true, message: "Mensaje enviado correctamente." })
+    }
 
     if (!name || !email || !subject || !message) {
       return NextResponse.json(
@@ -12,12 +19,35 @@ export async function POST(req: Request) {
       )
     }
 
-    if (message.length < 10) {
+    if (message.length < 10 || message.length > 3000) {
       return NextResponse.json(
-        { error: 'El mensaje debe tener al menos 10 caracteres' },
+        { error: 'El mensaje debe tener entre 10 y 3000 caracteres' },
         { status: 400 }
       )
     }
+
+    if (name.length > 120 || subject.length > 160) {
+      return NextResponse.json(
+        { error: 'Nombre o asunto demasiado largo' },
+        { status: 400 }
+      )
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email) || email.length > 180) {
+      return NextResponse.json(
+        { error: 'El correo electrónico no es válido' },
+        { status: 400 }
+      )
+    }
+
+    // Escape inputs
+    const safeName = escapeHtml(name)
+    const safeEmail = escapeHtml(email)
+    const safeCompany = escapeHtml(company?.substring(0, 120) || '')
+    const safePhone = escapeHtml(phone?.substring(0, 40) || '')
+    const safeSubject = escapeHtml(subject)
+    const safeMessage = escapeHtml(message)
 
     const RESEND_API_KEY = process.env.RESEND_API_KEY;
     const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'contacto@conversaai.store';
@@ -31,14 +61,14 @@ export async function POST(req: Request) {
     const htmlContent = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h2 style="color: #7C3AED;">Nuevo mensaje desde ConversaAI</h2>
-        <p><strong>Nombre:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Empresa:</strong> ${company || 'No especificada'}</p>
-        <p><strong>Teléfono:</strong> ${phone || 'No especificado'}</p>
-        <p><strong>Asunto:</strong> ${subject}</p>
+        <p><strong>Nombre:</strong> ${safeName}</p>
+        <p><strong>Email:</strong> ${safeEmail}</p>
+        <p><strong>Empresa:</strong> ${safeCompany || 'No especificada'}</p>
+        <p><strong>Teléfono:</strong> ${safePhone || 'No especificado'}</p>
+        <p><strong>Asunto:</strong> ${safeSubject}</p>
         <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #06B6D4; margin: 20px 0;">
           <p style="margin: 0;"><strong>Mensaje:</strong></p>
-          <p style="margin-top: 10px;">${message.replace(/\n/g, '<br>')}</p>
+          <p style="margin-top: 10px;">${safeMessage.replace(/\n/g, '<br>')}</p>
         </div>
         <p style="font-size: 12px; color: #888;">
           <em>Fecha: ${new Date().toLocaleString()}</em><br>
@@ -56,9 +86,9 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         from: CONTACT_FROM_EMAIL,
         to: CONTACT_TO_EMAIL,
-        subject: `Nuevo mensaje desde ConversaAI: ${subject}`,
+        subject: `Nuevo mensaje desde ConversaAI: ${safeSubject}`,
         html: htmlContent,
-        reply_to: email,
+        reply_to: safeEmail,
       })
     });
 
@@ -74,8 +104,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, message: "Mensaje enviado correctamente." })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (err: any) {
+  } catch (err) {
     console.error('API Contact Error:', err)
     return NextResponse.json(
       { error: 'Error interno del servidor' },

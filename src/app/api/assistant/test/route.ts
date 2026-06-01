@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
-import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
+import { normalizePlan, getPlanConfig } from '@/lib/plans'
+import { consumeMessageCredit } from '@/lib/security'
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     // --- Subscription Limits ---
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('plan, current_messages_used, messages_limit, status')
+      .select('plan, current_messages_used, status')
       .eq('user_id', user.id)
       .single()
 
@@ -33,15 +33,16 @@ export async function POST(request: NextRequest) {
 
     const normalizedPlan = normalizePlan(sub.plan)
     const planConfig = getPlanConfig(normalizedPlan)
-    // Use PLAN_CONFIGS as source of truth for limits
     const effectiveLimit = planConfig.messagesLimit
 
-    if (!isUnlimited(effectiveLimit) && sub.current_messages_used >= (effectiveLimit ?? 0)) {
+    // Consume credit atomically
+    const consumed = await consumeMessageCredit(user.id, effectiveLimit)
+    if (!consumed) {
       return NextResponse.json({
         error: 'Alcanzaste el límite mensual de mensajes de tu plan.',
         code: 'MESSAGE_LIMIT_REACHED',
         limit: effectiveLimit,
-        used: sub.current_messages_used,
+        used: sub.current_messages_used, // Will be updated eventually, but shows current snapshot
         plan: normalizedPlan
       }, { status: 403 })
     }
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
         schedule: assistant.schedule,
         fallbackMessage: assistant.fallback_message,
         language: assistant.language,
+        behavior: assistant.behavior
       }
     } else if (assistantConfig) {
       // Preview mode — use provided config without saving
@@ -84,12 +86,6 @@ export async function POST(request: NextRequest) {
     }
 
     const reply = await generateAssistantReply(config, userMessage.trim())
-
-    // Update message count — use admin client to bypass RLS on UPDATE
-    const supabaseAdmin = createSupabaseAdmin()
-    await supabaseAdmin.from('subscriptions')
-      .update({ current_messages_used: sub.current_messages_used + 1 })
-      .eq('user_id', user.id)
 
     // Save test message if assistantId exists
     if (assistantId) {

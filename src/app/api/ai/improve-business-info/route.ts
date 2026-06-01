@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit, consumeMessageCredit } from '@/lib/security'
+import { normalizePlan, getPlanConfig } from '@/lib/plans'
 
-// This will initialize the OpenAI client only if the key is present.
-// It will not throw during build time if the key is missing in CI.
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
@@ -13,14 +14,46 @@ const getOpenAIClient = () => {
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Debes iniciar sesión para usar esta función.' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { text } = body
 
-    if (!text || typeof text !== 'string' || text.trim().length < 10) {
+    if (!text || typeof text !== 'string' || text.trim().length < 20 || text.length > 5000) {
       return NextResponse.json(
-        { error: 'Escribe más información de tu negocio antes de mejorar la redacción.' },
+        { error: 'El texto debe tener entre 20 y 5000 caracteres.' },
         { status: 400 }
       )
+    }
+
+    // Rate limit: 10 peticiones por minuto por usuario
+    const isRateLimited = !(await checkRateLimit(`improve-info-${user.id}`, 'improve-business-info', 10, 60))
+    if (isRateLimited) {
+      return NextResponse.json({ error: 'Demasiados intentos. Espera un minuto e intenta nuevamente.' }, { status: 429 })
+    }
+
+    // Check plan and consume credit atomically
+    const { data: sub } = await supabase
+      .from('subscriptions')
+      .select('plan, status')
+      .eq('user_id', user.id)
+      .single()
+
+    if (!sub || sub.status !== 'active') {
+      return NextResponse.json({ error: 'Suscripción inactiva.' }, { status: 403 })
+    }
+
+    const planConfig = getPlanConfig(normalizePlan(sub.plan))
+    const limit = planConfig.messagesLimit
+
+    const consumed = await consumeMessageCredit(user.id, limit)
+    if (!consumed) {
+      return NextResponse.json({ error: 'Alcanzaste el límite de mensajes de tu plan.' }, { status: 403 })
     }
 
     const openai = getOpenAIClient()
@@ -32,7 +65,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Economical and fast model
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'system',
@@ -42,7 +75,7 @@ export async function POST(request: NextRequest) {
         {
           role: 'user',
           content:
-            'Mejora y organiza este texto para entrenar un asistente de atención al cliente. No inventes información. Conserva precios, horarios, ubicación, servicios y formas de pago si aparecen:\n\n' + text,
+            'Mejora y organiza este texto para entrenar un asistente de atención al cliente. No inventes información. Conserva precios, horarios, ubicación, servicios y formas de pago si aparecen:\n\n' + text.trim(),
         },
       ],
       temperature: 0.7,
@@ -57,7 +90,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ improvedText })
   } catch (error: unknown) {
-    // Determine specific errors if possible
     let errorMessage = 'No se pudo mejorar la redacción. Intenta de nuevo.'
     let statusCode = 500
     
@@ -74,7 +106,6 @@ export async function POST(request: NextRequest) {
       errorMessage = 'El servicio de IA no tiene saldo o cuota disponible.'
       statusCode = 429
     } else {
-       // Only log full error details in development mode
        if (process.env.NODE_ENV === 'development') {
            console.error('[POST /api/ai/improve-business-info] Unhandled error:', error)
        }

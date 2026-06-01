@@ -133,7 +133,7 @@ export interface UserSubscription {
   updated_at: string
 }
 
-// ─── PLAN_LIMITS: source of truth with Infinity for enterprise ───────────────
+// ─── PLAN_LIMITS: source of truth with null for unlimited ───────────────
 export const PLAN_LIMITS = {
   free: {
     assistants: 1,
@@ -156,16 +156,16 @@ export const PLAN_LIMITS = {
   business: {
     assistants: 20,
     messagesPerMonth: 50000,
-    channels: { webchat: true, telegram: true, whatsapp: true },
+    channels: { webchat: true, telegram: true, whatsapp: false },
     features: {
       playground: true, leadCapture: true, conversationHistory: true,
       advancedAnalytics: true, customBranding: true, apiWebhooks: true,
     },
   },
   enterprise: {
-    assistants: Infinity,
-    messagesPerMonth: Infinity,
-    channels: { webchat: true, telegram: true, whatsapp: true },
+    assistants: null,
+    messagesPerMonth: null,
+    channels: { webchat: true, telegram: true, whatsapp: false },
     features: {
       playground: true, leadCapture: true, conversationHistory: true,
       advancedAnalytics: true, customBranding: true, apiWebhooks: true,
@@ -188,19 +188,19 @@ export function normalizePlan(plan: unknown): PlanKey {
 
 export function getRemainingAssistants(plan: PlanKey, currentCount: number): number | null {
   const limit = getPlanLimits(plan).assistants
-  if (limit === Infinity) return null
+  if (limit === null) return null
   return Math.max(0, limit - currentCount)
 }
 
 export function canSendMessage(plan: PlanKey, usedMessagesThisMonth: number): boolean {
   const limit = getPlanLimits(plan).messagesPerMonth
-  if (limit === Infinity) return true
+  if (limit === null) return true
   return usedMessagesThisMonth < limit
 }
 
 export function getRemainingMessages(plan: PlanKey, usedMessagesThisMonth: number): number | null {
   const limit = getPlanLimits(plan).messagesPerMonth
-  if (limit === Infinity) return null
+  if (limit === null) return null
   return Math.max(0, limit - usedMessagesThisMonth)
 }
 
@@ -220,20 +220,21 @@ export function getUsagePercentage(used: number, limit: number | null): number {
 }
 
 export function canUseChannel(plan: PlanKey, channel: string): boolean {
-  const config = getPlanConfig(plan)
-  return config.channels.includes(channel as ChannelKey)
+  const limits = getPlanLimits(plan)
+  // Ensure we fallback to false if channel is unknown
+  return (limits.channels as Record<string, boolean>)[channel] ?? false
 }
 
 export function canCreateAssistant(plan: PlanKey, currentAssistantCount: number): boolean {
-  const config = getPlanConfig(plan)
-  if (config.assistantsLimit === null) return true
-  return currentAssistantCount < config.assistantsLimit
+  const limit = getPlanLimits(plan).assistants
+  if (limit === null) return true
+  return currentAssistantCount < limit
 }
 
 export function hasMessagesRemaining(plan: PlanKey, currentMessagesUsed: number): boolean {
-  const config = getPlanConfig(plan)
-  if (config.messagesLimit === null) return true
-  return currentMessagesUsed < config.messagesLimit
+  const limit = getPlanLimits(plan).messagesPerMonth
+  if (limit === null) return true
+  return currentMessagesUsed < limit
 }
 
 export function formatLimit(limit: number | null): string {

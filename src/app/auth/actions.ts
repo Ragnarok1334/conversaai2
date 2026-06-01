@@ -76,6 +76,8 @@ export async function signup(formData: FormData) {
     try {
       const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
       const admin = createSupabaseAdmin()
+
+      // 1. Create/Update Profile
       await admin.from('profiles').upsert(
         {
           id: userId,
@@ -92,14 +94,35 @@ export async function signup(formData: FormData) {
         },
         { onConflict: 'id' }
       )
-    } catch (profileErr) {
-      // Profile save failure is non-fatal — auth user was created
-      console.error('[signup] profile upsert error:', profileErr)
+
+      // 2. Create Free Subscription if it doesn't exist
+      // First check if user already has a subscription
+      const { data: existingSub } = await admin
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+      if (!existingSub) {
+        await admin.from('subscriptions').insert({
+          user_id: userId,
+          plan: 'free',
+          status: 'active',
+          current_messages_used: 0
+        })
+      }
+    } catch (dbErr) {
+      // Profile/Subscription save failure is non-fatal for returning success (user was created in auth)
+      console.error('[signup] profile/subscription error:', dbErr)
     }
   }
 
-  revalidatePath('/', 'layout')
-  redirect('/dashboard/create-assistant')
+  // If there is no session returned, email confirmation is required.
+  const requiresEmailConfirmation = !signUpData?.session
+
+  // Return success to the frontend instead of directly redirecting
+  // The frontend will handle the redirection or show the success screen
+  return { success: true, requiresEmailConfirmation }
 }
 
 export async function resetPassword(formData: FormData) {

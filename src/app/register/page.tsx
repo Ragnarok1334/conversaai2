@@ -8,6 +8,7 @@ import {
   Loader2, CheckCircle2, Target, Zap,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { signup } from '@/app/auth/actions'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 import { AuthInput } from '@/components/auth/AuthInput'
@@ -92,6 +93,7 @@ function ChipSelector<T extends string>({
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function RegisterPage() {
+  const router = useRouter()
   const [step, setStep] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -172,8 +174,15 @@ export default function RegisterPage() {
     if (result?.error) {
       setError(result.error)
       setIsLoading(false)
-    } else {
-      setIsSuccess(true)
+    } else if (result?.success) {
+      // Si requiere confirmación (Supabase lo indica sin devolver sesión)
+      if (result.requiresEmailConfirmation) {
+        setIsSuccess(true)
+        setIsLoading(false)
+      } else {
+        // Si no requiere confirmación, hay sesión activa, vamos al dashboard
+        router.push('/dashboard/create-assistant')
+      }
     }
   }
 

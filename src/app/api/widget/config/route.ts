@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { extractDomain } from '@/lib/security'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,8 +21,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing assistantId' }, { status: 400, headers: corsHeaders })
     }
 
-    // Usar admin porque esta llamada es pública y RLS bloquea select anónimo si no hay policy pública.
-    // Solo devolvemos datos seguros.
     const supabaseAdmin = createSupabaseAdmin()
 
     const { data: assistant, error } = await supabaseAdmin
@@ -36,6 +35,32 @@ export async function GET(request: NextRequest) {
 
     if (assistant.status !== 'active') {
       return NextResponse.json({ error: 'El asistente no está activo' }, { status: 403, headers: corsHeaders })
+    }
+
+    // Domain validation
+    const origin = request.headers.get('origin')
+    const referer = request.headers.get('referer')
+    const extractedDomain = extractDomain(origin || referer)
+    
+    const isDev = process.env.NODE_ENV === 'development'
+    const isLocalhost = extractedDomain === 'localhost' || extractedDomain === '127.0.0.1'
+    
+    if (!(isDev && isLocalhost) && !assistant.allow_all_domains) {
+      if (!extractedDomain) {
+        return NextResponse.json({ error: 'No se pudo verificar el origen.' }, { status: 403, headers: corsHeaders })
+      }
+      
+      const { data: domainRec } = await supabaseAdmin
+        .from('assistant_domains')
+        .select('id')
+        .eq('assistant_id', assistantId)
+        .eq('domain', extractedDomain)
+        .eq('is_active', true)
+        .single()
+        
+      if (!domainRec) {
+        return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
+      }
     }
 
     return NextResponse.json({
