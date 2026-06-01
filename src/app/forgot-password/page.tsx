@@ -2,10 +2,11 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mail, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react'
+import { Mail, ArrowLeft, Loader2, CheckCircle2, ShieldCheck } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { resetPassword } from '@/app/auth/actions'
+import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
+import { AuthInput } from '@/components/auth/AuthInput'
 
 export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null)
@@ -16,30 +17,32 @@ export default function ForgotPasswordPage() {
     setIsLoading(true)
     setError(null)
     const result = await resetPassword(formData)
-    
     if (result?.error) {
-      setError(result.error)
+      setError('No pudimos procesar tu solicitud. Verifica el correo e intenta nuevamente.')
     } else if (result?.success) {
-      setSuccessMsg(result.success)
+      setSuccessMsg('Revisa tu correo. Si existe una cuenta con ese email, recibirás un enlace para restablecer tu contraseña en breve.')
     }
     setIsLoading(false)
   }
 
   if (successMsg) {
     return (
-      <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-[#050816] flex items-center justify-center p-6 relative overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-violet/20 rounded-full blur-[120px] pointer-events-none" />
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 shadow-2xl text-center glow-violet"
+          className="w-full max-w-md bg-white/[0.03] border border-white/[0.08] rounded-2xl p-8 text-center backdrop-blur-xl shadow-2xl"
         >
-          <div className="w-16 h-16 bg-brand-success/20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 bg-brand-success/15 border border-brand-success/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="w-8 h-8 text-brand-success" />
           </div>
-          <h2 className="text-2xl font-bold text-text-main mb-2">Correo enviado</h2>
-          <p className="text-text-secondary mb-8">{successMsg}</p>
-          <Link href="/login" className="gradient-btn w-full py-3.5 rounded-xl text-white font-semibold inline-block">
+          <h2 className="text-2xl font-bold text-white mb-2">Correo enviado</h2>
+          <p className="text-slate-400 text-sm mb-8 leading-relaxed">{successMsg}</p>
+          <Link
+            href="/login"
+            className="gradient-btn w-full py-3.5 rounded-xl text-white font-semibold inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+          >
             Volver al inicio de sesión
           </Link>
         </motion.div>
@@ -48,75 +51,83 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-dark-bg flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-blue/20 rounded-full blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-[#050816] flex">
+      <div className="w-[45%] xl:w-[40%] flex-shrink-0">
+        <AuthBrandPanel />
+      </div>
 
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
-      >
-        <Link href="/" className="flex items-center gap-2.5 mb-8 justify-center hover:opacity-80 transition-opacity">
-          <Image src="/logo.png" alt="ConversaAI logo" width={38} height={38} className="rounded-lg shadow-[0_0_15px_rgba(124,58,237,0.5)]" priority />
-          <span className="text-2xl font-bold text-text-main tracking-tight">
-            ConversaAI
-          </span>
-        </Link>
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 relative overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-brand-violet/15 rounded-full blur-[120px] pointer-events-none lg:hidden" />
 
-        <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 shadow-2xl relative">
-          <h1 className="text-2xl font-bold text-text-main mb-2">Recuperar contraseña</h1>
-          <p className="text-text-soft mb-8">Ingresa tu correo y te enviaremos un enlace para restablecerla.</p>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-md relative z-10"
+        >
+          {/* Mobile logo */}
+          <Link href="/" className="flex items-center gap-2.5 mb-8 lg:hidden">
+            <img src="/logo.png" alt="ConversaAI" className="w-9 h-9 rounded-xl shadow-[0_0_15px_rgba(124,58,237,0.5)]" />
+            <span className="text-xl font-bold text-white tracking-tight">ConversaAI</span>
+          </Link>
 
-          <form action={handleSubmit} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-text-secondary" htmlFor="email">
-                Correo electrónico
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-soft" />
-                <input 
-                  id="email"
-                  name="email"
-                  type="email" 
-                  required
-                  placeholder="tu@email.com"
-                  className="w-full bg-dark-secondary border border-card-border rounded-xl py-3 pl-11 pr-4 text-text-main placeholder:text-text-soft/50 focus:outline-none focus:border-brand-blue/50 focus:ring-1 focus:ring-brand-blue/50 transition-all"
-                />
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-violet/10 border border-brand-violet/20 flex items-center justify-center">
+                <ShieldCheck className="w-5 h-5 text-brand-violet" />
               </div>
+              <h1 className="text-2xl font-bold text-white">Recupera tu acceso</h1>
             </div>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              Te enviaremos un enlace seguro para restablecer tu contraseña.
+            </p>
+          </div>
 
-            {error && (
-              <motion.p 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="text-brand-pink text-sm font-medium bg-brand-pink/10 p-3 rounded-lg border border-brand-pink/20"
-              >
-                {error}
-              </motion.p>
-            )}
+          <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+            <form action={handleSubmit} className="space-y-5">
+              <AuthInput
+                id="email"
+                name="email"
+                type="email"
+                label="Correo electrónico"
+                placeholder="tu@email.com"
+                required
+                icon={<Mail className="w-4 h-4" />}
+                autoComplete="email"
+                accentColor="violet"
+              />
 
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full gradient-btn py-3.5 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity glow-violet flex items-center justify-center gap-2 disabled:opacity-70 mt-4"
-            >
-              {isLoading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                "Enviar enlace"
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="bg-brand-pink/10 border border-brand-pink/20 rounded-xl p-3 text-sm text-brand-pink"
+                >
+                  {error}
+                </motion.div>
               )}
-            </button>
-          </form>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full gradient-btn py-3.5 rounded-xl text-white font-semibold hover:opacity-90 transition-all glow-violet flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Enviando...</>
+                ) : (
+                  'Enviar enlace seguro'
+                )}
+              </button>
+            </form>
+          </div>
 
           <div className="mt-6 text-center">
-            <Link href="/login" className="inline-flex items-center gap-2 text-sm text-text-soft hover:text-text-main transition-colors">
-              <ArrowLeft className="w-4 h-4" />
-              Volver al login
+            <Link href="/login" className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-300 transition-colors">
+              <ArrowLeft className="w-4 h-4" /> Volver al inicio de sesión
             </Link>
           </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   )
 }

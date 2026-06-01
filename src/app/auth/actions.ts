@@ -31,35 +31,75 @@ export async function signup(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
-  const name = formData.get('name') as string
+  const name = (formData.get('name') as string)?.trim()
+
+  // Extended profile fields from step 2 & 3
+  const company_name = (formData.get('company_name') as string)?.trim() || null
+  const phone = (formData.get('phone') as string)?.trim() || null
+  const country = (formData.get('country') as string)?.trim() || null
+  const business_type = (formData.get('business_type') as string)?.trim() || null
+  const preferred_channel = (formData.get('preferred_channel') as string)?.trim() || null
+  const onboarding_goal = (formData.get('onboarding_goal') as string)?.trim() || null
+  const marketing_opt_in = formData.get('marketing_opt_in') === 'true'
 
   if (!email || !password || !confirmPassword || !name) {
-    return { error: 'Por favor completa todos los campos' }
+    return { error: 'Por favor completa todos los campos obligatorios.' }
   }
 
   if (password !== confirmPassword) {
-    return { error: 'Las contraseñas no coinciden' }
+    return { error: 'Las contraseñas no coinciden.' }
+  }
+
+  if (password.length < 8) {
+    return { error: 'La contraseña debe tener al menos 8 caracteres.' }
   }
 
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signUp({
+  const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      data: {
-        name,
-      },
+      data: { name },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
     },
   })
 
-  if (error) {
-    return { error: error.message }
+  if (signUpError) {
+    return { error: signUpError.message }
+  }
+
+  // Save profile using the user.id returned by signUp (works even without email confirmation)
+  // Use admin client to bypass RLS — user_id comes from Supabase response, never from frontend body
+  const userId = signUpData?.user?.id
+  if (userId) {
+    try {
+      const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
+      const admin = createSupabaseAdmin()
+      await admin.from('profiles').upsert(
+        {
+          id: userId,
+          full_name: name,
+          email,
+          company_name,
+          phone,
+          country,
+          business_type,
+          preferred_channel,
+          onboarding_goal,
+          marketing_opt_in,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      )
+    } catch (profileErr) {
+      // Profile save failure is non-fatal — auth user was created
+      console.error('[signup] profile upsert error:', profileErr)
+    }
   }
 
   revalidatePath('/', 'layout')
-  redirect('/dashboard')
+  redirect('/dashboard/create-assistant')
 }
 
 export async function resetPassword(formData: FormData) {
