@@ -13,26 +13,10 @@ import { signup } from '@/app/auth/actions'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 import { AuthInput } from '@/components/auth/AuthInput'
 import { PasswordStrength } from '@/components/auth/PasswordStrength'
+import { BusinessTypeSelect } from '@/components/auth/BusinessTypeSelect'
+import { CountrySelect } from '@/components/auth/CountrySelect'
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const BUSINESS_TYPES = [
-  'Restaurante / Comida',
-  'Clínica / Salud',
-  'Tienda online / E-commerce',
-  'Barbería / Belleza',
-  'Inmobiliaria',
-  'Servicios profesionales',
-  'Educación',
-  'Logística / Transporte',
-  'Otro',
-]
 
-const COUNTRIES = [
-  'Argentina', 'Bolivia', 'Chile', 'Colombia', 'Costa Rica', 'Cuba',
-  'Ecuador', 'El Salvador', 'España', 'Guatemala', 'Honduras', 'México',
-  'Nicaragua', 'Panamá', 'Paraguay', 'Perú', 'Puerto Rico', 'República Dominicana',
-  'Uruguay', 'Venezuela', 'Otro',
-]
 
 const CHANNELS = [
   { key: 'webchat', label: 'Web Chat', icon: Globe, available: true },
@@ -120,6 +104,22 @@ export default function RegisterPage() {
   const [marketingOptIn, setMarketingOptIn] = useState(false)
   const [step3Errors, setStep3Errors] = useState<Record<string, string>>({})
 
+  function handleCountryChange(newCountry: string, newDialCode: string) {
+    setCountry(newCountry)
+    if (!newDialCode) return
+
+    setPhone(prevPhone => {
+      const trimmed = prevPhone.trim()
+      if (!trimmed) return newDialCode + ' '
+      
+      if (/^\+\d+/.test(trimmed)) {
+        return trimmed.replace(/^\+\d+/, newDialCode)
+      }
+      
+      return newDialCode + ' ' + trimmed
+    })
+  }
+
   // ── Validation ──
   function validateStep1() {
     const errs: Record<string, string> = {}
@@ -169,6 +169,7 @@ export default function RegisterPage() {
     formData.set('preferred_channel', channel)
     formData.set('onboarding_goal', goal)
     formData.set('marketing_opt_in', String(marketingOptIn))
+    formData.set('terms_accepted', String(acceptTerms))
 
     const result = await signup(formData)
     if (result?.error) {
@@ -376,43 +377,28 @@ export default function RegisterPage() {
                   />
 
                   {/* Business type select */}
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-300" htmlFor="business_type">
+                  <div className="space-y-1.5 relative z-20">
+                    <label className="text-sm font-medium text-slate-300">
                       Tipo de negocio <span className="text-brand-pink">*</span>
                     </label>
-                    <select
-                      id="business_type"
-                      value={businessType}
-                      onChange={(e) => setBusinessType(e.target.value)}
-                      className="w-full bg-[#0a0f1e] border border-white/[0.08] rounded-xl py-3 px-4 text-sm text-white focus:outline-none focus:border-brand-violet/60 focus:ring-2 focus:ring-brand-violet/20 transition-all appearance-none"
-                    >
-                      <option value="" disabled>Selecciona una opción</option>
-                      {BUSINESS_TYPES.map((t) => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
+                    <BusinessTypeSelect 
+                      value={businessType} 
+                      onChange={setBusinessType} 
+                      error={step2Errors.businessType}
+                    />
                     {step2Errors.businessType && <p className="text-xs text-brand-pink">{step2Errors.businessType}</p>}
                   </div>
 
                   {/* Country select */}
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium text-slate-300" htmlFor="country">
+                  <div className="space-y-1.5 relative z-10">
+                    <label className="text-sm font-medium text-slate-300">
                       País <span className="text-brand-pink">*</span>
                     </label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                      <select
-                        id="country"
-                        value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        className="w-full bg-[#0a0f1e] border border-white/[0.08] rounded-xl py-3 pl-11 pr-4 text-sm text-white focus:outline-none focus:border-brand-violet/60 focus:ring-2 focus:ring-brand-violet/20 transition-all appearance-none"
-                      >
-                        <option value="" disabled>Selecciona tu país</option>
-                        {COUNTRIES.map((c) => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <CountrySelect 
+                      value={country} 
+                      onChange={handleCountryChange} 
+                      error={step2Errors.country}
+                    />
                     {step2Errors.country && <p className="text-xs text-brand-pink">{step2Errors.country}</p>}
                   </div>
 

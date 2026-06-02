@@ -41,9 +41,18 @@ export async function signup(formData: FormData) {
   const preferred_channel = (formData.get('preferred_channel') as string)?.trim() || null
   const onboarding_goal = (formData.get('onboarding_goal') as string)?.trim() || null
   const marketing_opt_in = formData.get('marketing_opt_in') === 'true'
+  const terms_accepted = formData.get('terms_accepted') === 'true'
 
   if (!email || !password || !confirmPassword || !name) {
-    return { error: 'Por favor completa todos los campos obligatorios.' }
+    return { error: 'Por favor completa todos los campos de acceso.' }
+  }
+
+  if (!terms_accepted) {
+    return { error: 'Debes aceptar los términos y condiciones.' }
+  }
+
+  if (!company_name || !business_type || !country || !preferred_channel || !onboarding_goal) {
+    return { error: 'Por favor completa todos los datos del negocio y objetivos.' }
   }
 
   if (password !== confirmPassword) {
