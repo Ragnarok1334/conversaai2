@@ -42,41 +42,39 @@ export async function checkRateLimit(key: string, route: string, limit: number, 
 
     if (error) {
       console.error('[checkRateLimit] RPC Error:', error)
-      // Si falla la DB de rate limit temporalmente, por seguridad podríamos permitirlo
-      // o denegarlo. Lo más seguro es permitir si es un fallo interno temporal para no botar la app.
-      return true
+      // Si falla la DB de rate limit, por seguridad bloqueamos o registramos. 
+      // Según requerimiento: "debe bloquear o devolver error controlado, no permitir por defecto"
+      return false
     }
 
     return !!data
   } catch (error) {
     console.error('[checkRateLimit] Error:', error)
-    return true 
+    return false 
   }
 }
 
 /**
- * Extrae y normaliza el dominio a partir de un header Origin o Referer.
+ * Extrae y normaliza el dominio a partir de un string (Origin, Referer, o input manual).
+ * Quita protocolo, path, slash final, www y lo pasa a minúsculas.
  * Ej: "https://www.midominio.com/path" -> "midominio.com"
  */
 export function extractDomain(urlStr: string | null): string | null {
   if (!urlStr) return null
-  try {
-    const url = new URL(urlStr.startsWith('http') ? urlStr : `https://${urlStr}`)
-    let hostname = url.hostname.toLowerCase()
-    if (hostname.startsWith('www.')) {
-      hostname = hostname.substring(4)
-    }
-    return hostname
-  } catch {
-    // Intento manual si URL constructor falla
-    let raw = urlStr.toLowerCase()
-    raw = raw.replace(/^https?:\/\//, '')
-    raw = raw.replace(/^www\./, '')
-    raw = raw.split('/')[0]
-    raw = raw.split(':')[0] // quitar puerto
-    return raw || null
-  }
+  let normalized = urlStr.toLowerCase().trim()
+  normalized = normalized.replace(/^https?:\/\//, '') // Quita protocolo
+  normalized = normalized.replace(/^www\./, '')       // Quita www.
+  normalized = normalized.split('/')[0]               // Quita path y slash final
+  normalized = normalized.split('?')[0]               // Quita query params
+  normalized = normalized.split(':')[0]               // Quita puerto
+  
+  return normalized || null
 }
+
+/**
+ * Alias semántico para usar al guardar dominios en la base de datos.
+ */
+export const normalizeDomainForStorage = extractDomain
 
 /**
  * Escapa entidades HTML básicas para evitar XSS simple.

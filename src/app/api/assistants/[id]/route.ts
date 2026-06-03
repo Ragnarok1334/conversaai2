@@ -60,8 +60,31 @@ export async function PATCH(
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
 
     for (const key of allowedFields) {
-      if (key in body) {
-        updates[key] = body[key]
+      if (key in body && body[key] !== undefined) {
+        let val = body[key]
+        
+        // Validation for string fields
+        if (typeof val === 'string') {
+          val = val.trim()
+          if (['assistant_name', 'name', 'business_name', 'channel', 'tone', 'objective'].includes(key) && val.length > 100) {
+            return NextResponse.json({ error: `El campo ${key} excede la longitud máxima permitida (100).` }, { status: 400 })
+          }
+          if (['fallback_message', 'welcome_message'].includes(key) && val.length > 500) {
+            return NextResponse.json({ error: `El campo ${key} excede la longitud máxima permitida (500).` }, { status: 400 })
+          }
+          if (key === 'instructions' && val.length > 2000) {
+            return NextResponse.json({ error: `Las instrucciones exceden la longitud máxima permitida (2000).` }, { status: 400 })
+          }
+        }
+
+        // Validation for status whitelist
+        if (key === 'status') {
+          if (!['active', 'inactive', 'draft'].includes(val)) {
+            return NextResponse.json({ error: `El estado '${val}' no es válido.` }, { status: 400 })
+          }
+        }
+
+        updates[key] = val
       }
     }
 
