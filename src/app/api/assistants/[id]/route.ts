@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
 
 // GET /api/assistants/[id]
 export async function GET(
@@ -44,6 +45,7 @@ export async function PATCH(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      await logSecurityEvent({ eventType: 'unauthorized_api_access', severity: 'warning', message: 'Intento de actualizar asistente sin auth', req: request })
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
@@ -119,8 +121,11 @@ export async function PATCH(
       .single()
 
     if (error || !data) {
+      await logSecurityEvent({ userId: user.id, eventType: 'assistant_update_forbidden', severity: 'warning', message: `No se pudo actualizar el asistente ${id}. ¿Permisos o inexistente?`, req: request })
       return NextResponse.json({ error: 'No se pudo actualizar' }, { status: 404 })
     }
+
+    await logAuditEvent({ userId: user.id, action: 'assistant_updated', entityType: 'assistant', entityId: id, description: 'Asistente actualizado', metadata: { updates: Object.keys(updates) }, req: request })
 
     return NextResponse.json({ assistant: data })
   } catch (error) {
@@ -140,6 +145,7 @@ export async function DELETE(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      await logSecurityEvent({ eventType: 'unauthorized_api_access', severity: 'warning', message: 'Intento de eliminar asistente sin auth', req: _request })
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
@@ -149,7 +155,12 @@ export async function DELETE(
       .eq('id', id)
       .eq('user_id', user.id)
 
-    if (error) throw error
+    if (error) {
+      await logSecurityEvent({ userId: user.id, eventType: 'assistant_delete_forbidden', severity: 'warning', message: `No se pudo eliminar el asistente ${id}`, req: _request })
+      throw error
+    }
+
+    await logAuditEvent({ userId: user.id, action: 'assistant_deleted', entityType: 'assistant', entityId: id, description: 'Asistente eliminado', req: _request })
 
     return NextResponse.json({ success: true })
   } catch (error) {

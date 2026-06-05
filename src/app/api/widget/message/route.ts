@@ -3,6 +3,7 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
 import { checkRateLimit, consumeMessageCredit, extractDomain } from '@/lib/security'
+import { logSecurityEvent } from '@/lib/audit'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -57,6 +58,7 @@ export async function POST(request: NextRequest) {
     
     if (!(isDev && isLocalhost) && !assistant.allow_all_domains) {
       if (!extractedDomain) {
+        await logSecurityEvent({ userId: ownerId, eventType: 'widget_domain_blocked', severity: 'warning', message: `Widget domain block (no origin) for assistant ${assistantId}`, req: request })
         return NextResponse.json({ error: 'No se pudo verificar el origen.' }, { status: 403, headers: corsHeaders })
       }
       
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest) {
         .single()
         
       if (!domainRec) {
+        await logSecurityEvent({ userId: ownerId, eventType: 'widget_domain_blocked', severity: 'warning', message: `Widget domain block (${extractedDomain}) for assistant ${assistantId}`, req: request })
         return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
       }
     }
@@ -79,6 +82,7 @@ export async function POST(request: NextRequest) {
     // Max 60 messages per minute per IP per assistant
     const ipRateLimitOk = await checkRateLimit(`widget-ip-${assistantId}-${ip}`, 'widget-message-ip-minute', 60, 60)
     if (!ipRateLimitOk) {
+      await logSecurityEvent({ userId: ownerId, eventType: 'widget_rate_limited', severity: 'warning', message: `Widget IP rate limit para asistente ${assistantId}`, req: request })
       return NextResponse.json({ error: 'Demasiados mensajes desde tu red. Intenta nuevamente en unos minutos.' }, { status: 429, headers: corsHeaders })
     }
     
@@ -86,6 +90,7 @@ export async function POST(request: NextRequest) {
     const visId = visitorId || ip
     const visitorRateLimitOk = await checkRateLimit(`widget-vis-${assistantId}-${visId}`, 'widget-message-vis-minute', 20, 60)
     if (!visitorRateLimitOk) {
+      await logSecurityEvent({ userId: ownerId, eventType: 'widget_rate_limited', severity: 'warning', message: `Widget visitor rate limit para asistente ${assistantId}`, req: request })
       return NextResponse.json({ error: 'Estás enviando mensajes muy rápido. Intenta nuevamente.' }, { status: 429, headers: corsHeaders })
     }
 
@@ -107,6 +112,7 @@ export async function POST(request: NextRequest) {
     // 5. Consume credit atomically
     const consumed = await consumeMessageCredit(ownerId, effectiveLimit)
     if (!consumed) {
+      await logSecurityEvent({ userId: ownerId, eventType: 'message_limit_reached', severity: 'info', message: `Límite de mensajes alcanzado para asistente ${assistantId}`, req: request })
       return NextResponse.json({
         error: 'El asistente alcanzó el límite mensual de mensajes.',
         code: 'MESSAGE_LIMIT_REACHED'

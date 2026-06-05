@@ -104,6 +104,9 @@ export default function RegisterPage() {
   const [marketingOptIn, setMarketingOptIn] = useState(false)
   const [step3Errors, setStep3Errors] = useState<Record<string, string>>({})
 
+  // Honeypot
+  const [website, setWebsite] = useState('')
+
   function handleCountryChange(newCountry: string, newDialCode: string) {
     setCountry(newCountry)
     if (!newDialCode) return
@@ -170,6 +173,7 @@ export default function RegisterPage() {
     formData.set('onboarding_goal', goal)
     formData.set('marketing_opt_in', String(marketingOptIn))
     formData.set('terms_accepted', String(acceptTerms))
+    formData.set('website', website)
 
     const result = await signup(formData)
     if (result?.error) {
@@ -286,6 +290,18 @@ export default function RegisterPage() {
                   className="space-y-4"
                 >
                   <p className="text-xs font-semibold text-brand-cyan uppercase tracking-wider mb-4">Paso 1 · Datos de acceso</p>
+
+                  {/* Honeypot field - visually hidden */}
+                  <input
+                    type="text"
+                    name="website"
+                    id="website"
+                    className="hidden"
+                    autoComplete="off"
+                    tabIndex={-1}
+                    value={website}
+                    onChange={(e) => setWebsite(e.target.value)}
+                  />
 
                   <AuthInput
                     id="name"

@@ -1,13 +1,25 @@
 import { NextResponse } from 'next/server'
-import { escapeHtml } from '@/lib/security'
+import { escapeHtml, checkRateLimit } from '@/lib/security'
+import { logSecurityEvent } from '@/lib/audit'
 
 export async function POST(req: Request) {
   try {
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'unknown'
+    
+    // Rate limit: 5 envíos por 10 minutos
+    const rlKey = `contact-${ip}`
+    const isAllowed = await checkRateLimit(rlKey, 'contact', 5, 600)
+    if (!isAllowed) {
+      await logSecurityEvent({ eventType: 'contact_rate_limited', severity: 'warning', message: 'Rate limit excedido para contacto', ip_address: ip, req })
+      return NextResponse.json({ error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }, { status: 429 })
+    }
+
     const body = await req.json()
     const { name, email, company, phone, subject, message, website } = body
 
     // Honeypot check (hidden field in frontend)
     if (website) {
+      await logSecurityEvent({ eventType: 'suspicious_input', severity: 'critical', message: 'Honeypot llenado en contact', ip_address: ip, req })
       // If a bot fills this, reject silently to confuse it
       return NextResponse.json({ success: true, message: "Mensaje enviado correctamente." })
     }

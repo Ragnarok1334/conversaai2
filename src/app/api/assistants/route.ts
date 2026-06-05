@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plans'
+import { logAuditEvent } from '@/lib/audit'
 
 // GET /api/assistants — list user's assistants
 export async function GET() {
@@ -316,6 +317,8 @@ export async function POST(request: NextRequest) {
     }
 
     // PASO 8: Respuesta de éxito
+    await logAuditEvent({ userId: user.id, action: 'assistant_created', entityType: 'assistant', entityId: assistant.id, description: `Asistente creado: ${assistant.assistant_name}`, req: request })
+
     return NextResponse.json(
       {
         success: true,

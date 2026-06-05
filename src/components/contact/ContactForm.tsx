@@ -107,6 +107,18 @@ export function ContactForm() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
+            {/* Honeypot field - visually hidden */}
+            <input
+              type="text"
+              name="website"
+              id="website"
+              className="hidden"
+              autoComplete="off"
+              tabIndex={-1}
+              value={form.website}
+              onChange={handleChange}
+            />
+
             <label htmlFor="name" className="text-sm font-medium text-text-secondary">Nombre *</label>
             <input
               id="name"

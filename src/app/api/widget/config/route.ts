@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { extractDomain } from '@/lib/security'
+import { logSecurityEvent } from '@/lib/audit'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
     
     if (!(isDev && isLocalhost) && !assistant.allow_all_domains) {
       if (!extractedDomain) {
+        await logSecurityEvent({ userId: assistant.user_id, eventType: 'widget_domain_blocked', severity: 'warning', message: `Widget config domain block (no origin) for assistant ${assistantId}`, req: request })
         return NextResponse.json({ error: 'No se pudo verificar el origen.' }, { status: 403, headers: corsHeaders })
       }
       
@@ -59,6 +61,7 @@ export async function GET(request: NextRequest) {
         .single()
         
       if (!domainRec) {
+        await logSecurityEvent({ userId: assistant.user_id, eventType: 'widget_domain_blocked', severity: 'warning', message: `Widget config domain block (${extractedDomain}) for assistant ${assistantId}`, req: request })
         return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
       }
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAuditEvent } from '@/lib/audit'
 
 /**
  * GET /api/profile
@@ -97,6 +98,8 @@ export async function PATCH(req: NextRequest) {
         { status: 500 }
       )
     }
+
+    await logAuditEvent({ userId: user.id, action: 'profile_updated', entityType: 'profile', entityId: user.id, description: 'Perfil de usuario actualizado', metadata: { updates: Object.keys(patch) }, req })
 
     return NextResponse.json({ success: true, profile })
   } catch (err) {

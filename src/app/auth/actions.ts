@@ -2,7 +2,17 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/security'
+import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
+
+async function getIpFromHeaders(): Promise<string> {
+  const headersList = await headers()
+  return headersList.get('x-forwarded-for')?.split(',')[0] || 
+         headersList.get('x-real-ip') || 
+         'unknown-ip'
+}
 
 export async function login(formData: FormData) {
   const email = formData.get('email') as string
@@ -12,16 +22,29 @@ export async function login(formData: FormData) {
     return { error: 'Por favor completa todos los campos' }
   }
 
+  const ip = await getIpFromHeaders()
+  
+  // Rate limit: 5 intentos por 10 minutos por IP + email
+  const rlKey = `login-${ip}-${email}`
+  const isAllowed = await checkRateLimit(rlKey, 'login', 5, 600)
+  if (!isAllowed) {
+    await logSecurityEvent({ eventType: 'login_rate_limited', severity: 'warning', message: `Rate limit excedido para: ${email}`, ip_address: ip })
+    return { error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }
+  }
+
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
 
   if (error) {
-    return { error: error.message }
+    await logSecurityEvent({ eventType: 'login_failed', severity: 'info', message: 'Credenciales inválidas', ip_address: ip })
+    return { error: 'Correo o contraseña incorrectos.' } // Mensaje genérico profesional
   }
+
+  await logAuditEvent({ userId: data.user.id, action: 'login_success', description: 'Inicio de sesión exitoso', ip_address: ip })
 
   revalidatePath('/', 'layout')
   redirect('/dashboard')
@@ -42,6 +65,28 @@ export async function signup(formData: FormData) {
   const onboarding_goal = (formData.get('onboarding_goal') as string)?.trim() || null
   const marketing_opt_in = formData.get('marketing_opt_in') === 'true'
   const terms_accepted = formData.get('terms_accepted') === 'true'
+  const website_honeypot = (formData.get('website') as string) || ''
+
+  const ip = await getIpFromHeaders()
+
+  if (website_honeypot) {
+    await logSecurityEvent({ eventType: 'suspicious_input', severity: 'critical', message: 'Honeypot llenado en registro', ip_address: ip })
+    // Return fake success
+    return { success: true, requiresEmailConfirmation: true }
+  }
+
+  // Rate limit: 5 registros por hora por IP
+  const rlKeyIp = `signup-${ip}`
+  // Rate limit: 3 registros por hora por email
+  const rlKeyEmail = `signup-${email}`
+
+  const isAllowedIp = await checkRateLimit(rlKeyIp, 'signup-ip', 5, 3600)
+  const isAllowedEmail = await checkRateLimit(rlKeyEmail, 'signup-email', 3, 3600)
+
+  if (!isAllowedIp || !isAllowedEmail) {
+    await logSecurityEvent({ eventType: 'signup_rate_limited', severity: 'warning', message: `Rate limit excedido para registro IP/Email`, ip_address: ip })
+    return { error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }
+  }
 
   if (!email || !password || !confirmPassword || !name) {
     return { error: 'Por favor completa todos los campos de acceso.' }
@@ -75,7 +120,8 @@ export async function signup(formData: FormData) {
   })
 
   if (signUpError) {
-    return { error: signUpError.message }
+    await logSecurityEvent({ eventType: 'signup_failed', severity: 'info', message: 'Fallo al registrar usuario en Supabase', ip_address: ip })
+    return { error: 'No pudimos crear la cuenta. Revisa los datos o intenta iniciar sesión.' }
   }
 
   // Save profile using the user.id returned by signUp (works even without email confirmation)
@@ -124,6 +170,8 @@ export async function signup(formData: FormData) {
       // Profile/Subscription save failure is non-fatal for returning success (user was created in auth)
       console.error('[signup] profile/subscription error:', dbErr)
     }
+
+    await logAuditEvent({ userId, action: 'signup_success', description: 'Registro de cuenta exitoso', ip_address: ip })
   }
 
   // If there is no session returned, email confirmation is required.
@@ -141,6 +189,17 @@ export async function resetPassword(formData: FormData) {
     return { error: 'Por favor ingresa tu correo' }
   }
 
+  const ip = await getIpFromHeaders()
+  
+  // Rate limit: 3 intentos por 15 minutos por IP + email
+  const rlKey = `reset-${ip}-${email}`
+  const isAllowed = await checkRateLimit(rlKey, 'reset-password', 3, 900)
+  if (!isAllowed) {
+    await logSecurityEvent({ eventType: 'forgot_password_rate_limited', severity: 'warning', message: `Rate limit excedido para: ${email}`, ip_address: ip })
+    // Return neutral message
+    return { success: 'Si existe una cuenta con ese correo, recibirás un enlace.' }
+  }
+
   const supabase = await createClient()
 
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
@@ -148,10 +207,14 @@ export async function resetPassword(formData: FormData) {
   })
 
   if (error) {
-    return { error: error.message }
+    // Logueamos pero devolvemos mensaje neutro
+    await logSecurityEvent({ eventType: 'forgot_password_failed', severity: 'info', message: 'Fallo al resetear password', ip_address: ip })
+    return { success: 'Si existe una cuenta con ese correo, recibirás un enlace.' }
   }
 
-  return { success: 'Te enviamos un enlace para restablecer tu contraseña.' }
+  await logAuditEvent({ action: 'password_reset_requested', description: `Solicitud de restablecimiento para: ${email}`, ip_address: ip })
+
+  return { success: 'Si existe una cuenta con ese correo, recibirás un enlace.' }
 }
 
 export async function updatePassword(formData: FormData) {
@@ -168,7 +231,7 @@ export async function updatePassword(formData: FormData) {
 
   const supabase = await createClient()
 
-  const { error } = await supabase.auth.updateUser({
+  const { data, error } = await supabase.auth.updateUser({
     password: password
   })
 
@@ -176,11 +239,21 @@ export async function updatePassword(formData: FormData) {
     return { error: error.message }
   }
 
+  const ip = await getIpFromHeaders()
+  await logAuditEvent({ userId: data.user?.id, action: 'password_updated', description: 'Contraseña actualizada exitosamente', ip_address: ip })
+
   redirect('/login')
 }
 
 export async function signOut() {
   const supabase = await createClient()
+  const { data } = await supabase.auth.getUser()
+  
+  if (data.user) {
+    const ip = await getIpFromHeaders()
+    await logAuditEvent({ userId: data.user.id, action: 'logout', description: 'Cierre de sesión', ip_address: ip })
+  }
+
   await supabase.auth.signOut()
   
   revalidatePath('/', 'layout')

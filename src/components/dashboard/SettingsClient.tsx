@@ -34,6 +34,15 @@ interface SubscriptionData {
   usage: { assistantsUsed: number; messagesUsed: number }
 }
 
+interface AuditLog {
+  id: string
+  action: string
+  description: string
+  created_at: string
+  ip_address: string | null
+  user_agent: string | null
+}
+
 interface Props {
   userName: string
   email: string
@@ -289,14 +298,13 @@ function EditProfileModal({
 }
 
 // ─── Main component ──────────────────────────────────────────────────────────
-
 export function SettingsClient({ userName, email, joinDate, assistantCount }: Props) {
   const { refreshProfile } = useProfile()
 
   // ── Toast state ────────────────────────────────────────────────────────────
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
-  const showToast = useCallback((msg: string, type: 'success' | 'error' = 'success') => {
-    setToast({ msg, type })
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' })
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ show: true, message, type })
   }, [])
 
   // ── Modal states ───────────────────────────────────────────────────────────
@@ -310,6 +318,10 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   // ── Settings data ──────────────────────────────────────────────────────────
   const [settings, setSettings] = useState<UserSettings | null>(null)
   const [settingsLoading, setSettingsLoading] = useState(true)
+
+  // ── Audit logs ─────────────────────────────────────────────────────────────
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
+  const [loadingLogs, setLoadingLogs] = useState(true)
 
   // ── Notification toggles loading ────────────────────────────────────────────
   const [togglingKey, setTogglingKey] = useState<string | null>(null)
@@ -325,41 +337,53 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   const [profileValues, setProfileValues] = useState({ full_name: userName, company_name: '', phone: '', country: '' })
   const [profileLoading, setProfileLoading] = useState(true)
 
-  // ── Fetch subscription ─────────────────────────────────────────────────────
+  // ── Initial Fetching ───────────────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/subscription')
-      .then(r => r.json())
-      .then(d => { if (!d.error) setSubData(d) })
-      .catch(() => null)
-      .finally(() => setSubLoading(false))
-  }, [])
-
-  // ── Fetch profile ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    fetch('/api/profile')
-      .then(r => r.json())
-      .then(d => {
-        if (!d.error) {
+    async function fetchInitialData() {
+      try {
+        const [subRes, profileRes, settingsRes] = await Promise.all([
+          fetch('/api/subscription'),
+          fetch('/api/profile'),
+          fetch('/api/settings')
+        ])
+        const [sub, prof, sett] = await Promise.all([subRes.json(), profileRes.json(), settingsRes.json()])
+        
+        if (!sub.error) setSubData(sub)
+        if (!prof.error) {
           setProfileValues({
-            full_name: d.full_name || userName,
-            company_name: d.company_name || '',
-            phone: d.phone || '',
-            country: d.country || '',
+            full_name: prof.full_name || userName,
+            company_name: prof.company_name || '',
+            phone: prof.phone || '',
+            country: prof.country || '',
           })
         }
-      })
-      .catch(() => null)
-      .finally(() => setProfileLoading(false))
-  }, [userName])
+        if (!sett.error) setSettings(sett)
+      } catch (err) {
+        console.error('Error fetching settings/sub:', err)
+      } finally {
+        setSubLoading(false)
+        setSettingsLoading(false)
+        setProfileLoading(false)
+      }
+    }
 
-  // ── Fetch notification settings ────────────────────────────────────────────
-  useEffect(() => {
-    fetch('/api/settings')
-      .then(r => r.json())
-      .then(d => { if (!d.error) setSettings(d) })
-      .catch(() => null)
-      .finally(() => setSettingsLoading(false))
-  }, [])
+    async function fetchAuditLogs() {
+      try {
+        const res = await fetch('/api/audit-logs')
+        const data = await res.json()
+        if (res.ok && data.logs) {
+          setAuditLogs(data.logs)
+        }
+      } catch (err) {
+        console.error('Error fetching audit logs:', err)
+      } finally {
+        setLoadingLogs(false)
+      }
+    }
+
+    fetchInitialData()
+    fetchAuditLogs()
+  }, [userName])
 
   // ── Toggle notification setting ────────────────────────────────────────────
   async function toggleSetting(key: keyof UserSettings, value: boolean) {
@@ -493,8 +517,8 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
     <>
       {/* Toast */}
       <AnimatePresence>
-        {toast && (
-          <Toast key="toast" message={toast.msg} type={toast.type} onClose={() => setToast(null)} />
+        {toast.show && (
+          <Toast key="toast" message={toast.message} type={toast.type} onClose={() => setToast(prev => ({ ...prev, show: false }))} />
         )}
       </AnimatePresence>
 
@@ -842,6 +866,40 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
             >
               {copied ? <><Check className="w-4 h-4 text-brand-success" /> Copiado</> : <><Copy className="w-4 h-4" /> Copiar enlace</>}
             </button>
+          </div>
+        </SectionCard>
+
+        {/* ── 6.5 Actividad de Seguridad ────────────────────────────────────── */}
+        <SectionCard>
+          <SectionHeader
+            icon={<Shield className="w-4.5 h-4.5 text-brand-purple" />}
+            title="Actividad de Seguridad"
+            subtitle="Tus registros de actividad reciente (inicios de sesión, cambios, etc.)."
+          />
+          <div className="mt-4">
+            {loadingLogs ? (
+              <div className="flex items-center gap-2 text-text-soft text-sm">
+                <Loader2 className="w-4 h-4 animate-spin" /> Cargando actividad...
+              </div>
+            ) : auditLogs.length === 0 ? (
+              <p className="text-sm text-text-soft">No hay actividad registrada aún.</p>
+            ) : (
+              <div className="space-y-3">
+                {auditLogs.map(log => (
+                  <div key={log.id} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                    <div className="mt-0.5"><Shield className="w-4 h-4 text-brand-cyan/60" /></div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white">{log.action}</p>
+                      <p className="text-xs text-text-soft mt-0.5">{log.description}</p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-text-soft/60">
+                        <span>{new Date(log.created_at).toLocaleString('es-ES')}</span>
+                        {log.ip_address && <span>• IP: {log.ip_address}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </SectionCard>
 

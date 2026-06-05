@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
 import { getPlanConfig, normalizePlan } from '@/lib/plans';
+import { logAuditEvent, logSecurityEvent } from '@/lib/audit';
 
 export async function POST(req: Request) {
   try {
@@ -27,6 +28,7 @@ export async function POST(req: Request) {
 
     if (!payment) {
       console.error('Webhook Flow: Pago no encontrado:', token);
+      await logSecurityEvent({ eventType: 'flow_webhook_invalid', severity: 'warning', message: `Webhook de Flow para token no encontrado: ${token}`, req })
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
 
@@ -36,7 +38,6 @@ export async function POST(req: Request) {
     else if (flowStatus.status === 3) newStatus = 'rejected';
     else if (flowStatus.status === 4) newStatus = 'cancelled';
 
-    // 3. Update billing_payments
     await supabase
       .from('billing_payments')
       .update({
@@ -44,6 +45,15 @@ export async function POST(req: Request) {
         raw_response: flowStatus
       })
       .eq('id', payment.id);
+
+    // Auditar cambios de pago (independiente de si es el primer webhook de success o no, para mantener historial)
+    if (newStatus !== payment.status) {
+      if (newStatus === 'paid') {
+        await logAuditEvent({ userId: payment.user_id, action: 'payment_confirmed', description: `Pago confirmado para el plan ${payment.plan}`, req })
+      } else if (newStatus === 'rejected' || newStatus === 'cancelled') {
+        await logAuditEvent({ userId: payment.user_id, action: 'payment_failed', description: `Pago fallido o cancelado (${newStatus})`, req })
+      }
+    }
 
     // 4. Update subscription if paid (avoid double-processing)
     if (newStatus === 'paid' && payment.status !== 'paid') {
@@ -78,6 +88,8 @@ export async function POST(req: Request) {
             current_messages_used: 0
           });
       }
+
+      await logAuditEvent({ userId: payment.user_id, action: 'subscription_updated', description: `Suscripción actualizada a plan ${planKey}`, req })
     }
 
     return NextResponse.json({ success: true });
