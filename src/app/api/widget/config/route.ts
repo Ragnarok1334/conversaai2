@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
-import { extractDomain } from '@/lib/security'
+import { validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
 
 const corsHeaders = {
@@ -39,31 +39,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Domain validation
-    const origin = request.headers.get('origin')
-    const referer = request.headers.get('referer')
-    const extractedDomain = extractDomain(origin || referer)
+    const domainValidation = await validateWidgetDomain({ assistantId, req: request })
     
-    const isDev = process.env.NODE_ENV === 'development'
-    const isLocalhost = extractedDomain === 'localhost' || extractedDomain === '127.0.0.1'
-    
-    if (!(isDev && isLocalhost) && !assistant.allow_all_domains) {
-      if (!extractedDomain) {
-        await logSecurityEvent({ userId: assistant.user_id, eventType: 'widget_domain_blocked', severity: 'warning', message: `Widget config domain block (no origin) for assistant ${assistantId}`, req: request })
-        return NextResponse.json({ error: 'No se pudo verificar el origen.' }, { status: 403, headers: corsHeaders })
-      }
-      
-      const { data: domainRec } = await supabaseAdmin
-        .from('assistant_domains')
-        .select('id')
-        .eq('assistant_id', assistantId)
-        .eq('domain', extractedDomain)
-        .eq('is_active', true)
-        .single()
-        
-      if (!domainRec) {
-        await logSecurityEvent({ userId: assistant.user_id, eventType: 'widget_domain_blocked', severity: 'warning', message: `Widget config domain block (${extractedDomain}) for assistant ${assistantId}`, req: request })
-        return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
-      }
+    if (!domainValidation.isValid) {
+      await logSecurityEvent({ userId: assistant.user_id, eventType: 'widget_config_domain_blocked', severity: 'warning', message: `Widget config domain block (${domainValidation.normalizedDomain || 'no-origin'}) for assistant ${assistantId}`, req: request })
+      return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
     }
 
     return NextResponse.json({

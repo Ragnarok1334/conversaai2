@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
-import { checkRateLimit, consumeMessageCredit, extractDomain } from '@/lib/security'
+import { checkRateLimit, consumeMessageCredit, validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
 
 const corsHeaders = {
@@ -48,32 +48,11 @@ export async function POST(request: NextRequest) {
     const ownerId = assistant.user_id
 
     // 2. Validate Domain
-    const origin = request.headers.get('origin')
-    const referer = request.headers.get('referer')
-    const extractedDomain = extractDomain(origin || referer)
+    const domainValidation = await validateWidgetDomain({ assistantId, req: request })
     
-    // In dev, we might want to allow localhost
-    const isDev = process.env.NODE_ENV === 'development'
-    const isLocalhost = extractedDomain === 'localhost' || extractedDomain === '127.0.0.1'
-    
-    if (!(isDev && isLocalhost) && !assistant.allow_all_domains) {
-      if (!extractedDomain) {
-        await logSecurityEvent({ userId: ownerId, eventType: 'widget_domain_blocked', severity: 'warning', message: `Widget domain block (no origin) for assistant ${assistantId}`, req: request })
-        return NextResponse.json({ error: 'No se pudo verificar el origen.' }, { status: 403, headers: corsHeaders })
-      }
-      
-      const { data: domainRec } = await supabaseAdmin
-        .from('assistant_domains')
-        .select('id')
-        .eq('assistant_id', assistantId)
-        .eq('domain', extractedDomain)
-        .eq('is_active', true)
-        .single()
-        
-      if (!domainRec) {
-        await logSecurityEvent({ userId: ownerId, eventType: 'widget_domain_blocked', severity: 'warning', message: `Widget domain block (${extractedDomain}) for assistant ${assistantId}`, req: request })
-        return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
-      }
+    if (!domainValidation.isValid) {
+      await logSecurityEvent({ userId: ownerId, eventType: 'widget_message_domain_blocked', severity: 'warning', message: `Widget message domain block (${domainValidation.normalizedDomain || 'no-origin'}) for assistant ${assistantId}`, req: request })
+      return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
     }
 
     // 3. Rate Limit Checks

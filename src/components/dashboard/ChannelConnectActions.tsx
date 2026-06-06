@@ -43,7 +43,7 @@ export default function ChannelConnectActions({ assistants, currentPlan }: Chann
                 href={`/dashboard/assistants/${primaryAssistant.id}?tab=install&channel=webchat`}
                 className="block w-full text-center px-4 py-2 rounded-lg bg-white/[0.05] border border-white/[0.1] hover:bg-white/[0.1] transition-colors text-xs font-medium"
               >
-                Instalar Web Chat
+                Instalar o verificar
               </Link>
             ) : (
               <Link 

@@ -40,7 +40,51 @@
   function initWidget() {
     injectStyles();
     buildUI();
-    fetchConfig();
+    verifyInstallation().then(verified => {
+      if (verified) {
+        fetchConfig();
+      }
+    });
+  }
+
+  async function verifyInstallation() {
+    const pingKey = `conversaai_widget_ping_${assistantId}`;
+    const lastPing = sessionStorage.getItem(pingKey);
+    const now = Date.now();
+    
+    // Solo omitir el ping si fue exitoso en los últimos 5 minutos
+    if (lastPing && (now - parseInt(lastPing)) < 300000) {
+      return true;
+    }
+
+    try {
+      const res = await fetch(`${baseUrl}/api/widget/ping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assistantId: assistantId,
+          pageUrl: window.location.href,
+          visitorId: visitorId
+        })
+      });
+
+      if (res.status === 403) {
+        // Bloquear carga y mostrar error
+        const messagesEl = document.getElementById('conversaai-messages');
+        if (messagesEl) {
+          messagesEl.innerHTML = `<div class="conversaai-widget-error">Este dominio no está autorizado para usar este asistente.</div>`;
+        }
+        return false;
+      }
+
+      if (res.ok) {
+        sessionStorage.setItem(pingKey, now.toString());
+      }
+      return true; // Permitir continuar incluso si hay otros errores de red
+    } catch (error) {
+      console.warn('[ConversaAI Widget] Ping falló, continuando...', error);
+      return true; // No bloquear si hay error de red
+    }
   }
 
   function injectStyles() {

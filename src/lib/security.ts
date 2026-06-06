@@ -56,19 +56,31 @@ export async function checkRateLimit(key: string, route: string, limit: number, 
 
 /**
  * Extrae y normaliza el dominio a partir de un string (Origin, Referer, o input manual).
- * Quita protocolo, path, slash final, www y lo pasa a minúsculas.
+ * Usa URL.hostname para eliminar el puerto correctamente.
+ * Quita www y pasa a minúsculas.
  * Ej: "https://www.midominio.com/path" -> "midominio.com"
+ * Ej: "http://localhost:3000/test" -> "localhost"
+ * Ej: "http://127.0.0.1:3000/path" -> "127.0.0.1"
  */
 export function extractDomain(urlStr: string | null): string | null {
   if (!urlStr) return null
-  let normalized = urlStr.toLowerCase().trim()
-  normalized = normalized.replace(/^https?:\/\//, '') // Quita protocolo
-  normalized = normalized.replace(/^www\./, '')       // Quita www.
-  normalized = normalized.split('/')[0]               // Quita path y slash final
-  normalized = normalized.split('?')[0]               // Quita query params
-  normalized = normalized.split(':')[0]               // Quita puerto
-  
-  return normalized || null
+  const trimmed = urlStr.trim()
+  // Añadir protocolo si falta para que URL() lo parsee correctamente
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+  try {
+    const hostname = new URL(withProtocol).hostname.toLowerCase()
+    // Quitar www.
+    return hostname.replace(/^www\./, '') || null
+  } catch {
+    // Fallback: strip manual
+    let normalized = trimmed.toLowerCase()
+    normalized = normalized.replace(/^https?:\/\//, '')
+    normalized = normalized.replace(/^www\./, '')
+    normalized = normalized.split('/')[0]
+    normalized = normalized.split('?')[0]
+    normalized = normalized.split(':')[0]
+    return normalized || null
+  }
 }
 
 /**
@@ -87,4 +99,73 @@ export function escapeHtml(unsafe: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;")
+}
+
+/**
+ * Valida un dominio consultando assistant_domains.
+ * Retorna true si es localhost (en dev), si allow_all_domains está activo o si el dominio está registrado.
+ * Siempre intenta devolver dbDomainId cuando el dominio tiene registro en la base de datos,
+ * incluso para localhost en modo desarrollo.
+ */
+export async function validateWidgetDomain(params: {
+  assistantId: string
+  req: Request | any // NextRequest or Request
+  pageUrl?: string
+}): Promise<{ isValid: boolean; normalizedDomain: string | null; dbDomainId?: string; isAllowAll?: boolean; isLocalhost?: boolean; isMissingDomain?: boolean }> {
+  const { assistantId, req, pageUrl } = params
+  
+  // Fuente de verdad: Origin primero, Referer como fallback, pageUrl solo de apoyo
+  const origin = req.headers.get('origin')
+  const referer = req.headers.get('referer')
+  
+  const rawDomain = origin || referer || pageUrl || ''
+  const normalizedDomain = extractDomain(rawDomain)
+  
+  if (!normalizedDomain) {
+    return { isValid: false, normalizedDomain: null, isMissingDomain: true }
+  }
+
+  const isLocalhost = normalizedDomain === 'localhost' || normalizedDomain === '127.0.0.1'
+
+  // Siempre consultar Supabase para obtener el dbDomainId real
+  const admin = createSupabaseAdmin()
+
+  // Verificar allow_all_domains (solo para no-localhost o si la fila existe igual)
+  if (!isLocalhost) {
+    const { data: assistant } = await admin
+      .from('assistants')
+      .select('allow_all_domains')
+      .eq('id', assistantId)
+      .single()
+
+    if (assistant?.allow_all_domains) {
+      return { isValid: true, normalizedDomain, isAllowAll: true }
+    }
+  }
+
+  // Buscar fila en assistant_domains (funciona para localhost y dominios reales)
+  const { data: domainRows } = await admin
+    .from('assistant_domains')
+    .select('id, verification_status')
+    .eq('assistant_id', assistantId)
+    .eq('domain', normalizedDomain)
+    .eq('is_active', true)
+    .limit(1)
+
+  const domainRow = domainRows?.[0] ?? null
+
+  if (domainRow) {
+    // Bloquear si está bloqueado
+    if (domainRow.verification_status === 'blocked') {
+      return { isValid: false, normalizedDomain, isMissingDomain: false }
+    }
+    return { isValid: true, normalizedDomain, dbDomainId: domainRow.id, isLocalhost }
+  }
+
+  // En desarrollo, si es localhost y no hay fila en DB: permitir carga del widget pero sin actualizar DB
+  if (process.env.NODE_ENV === 'development' && isLocalhost) {
+    return { isValid: true, normalizedDomain, isLocalhost: true }
+  }
+
+  return { isValid: false, normalizedDomain, isMissingDomain: false }
 }

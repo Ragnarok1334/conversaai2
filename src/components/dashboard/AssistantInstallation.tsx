@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Copy, CheckCircle2, Globe, Send, MessageCircle } from 'lucide-react'
 
+import { AssistantDomainsPanel } from './AssistantDomainsPanel'
+
 export function AssistantInstallation({
   assistantId,
   channel,
@@ -65,6 +67,8 @@ export function AssistantInstallation({
   }
 
   return (
+    <>
+    <AssistantDomainsPanel assistantId={assistantId} />
     <div className="grid lg:grid-cols-2 gap-8">
       {/* Instructions Side */}
       <div className="space-y-6">
@@ -159,5 +163,6 @@ export function AssistantInstallation({
         </div>
       </div>
     </div>
+    </>
   )
 }

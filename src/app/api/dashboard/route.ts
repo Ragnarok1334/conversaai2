@@ -29,6 +29,7 @@ export async function GET() {
       recentAssistantsResult,
       recentConversationsResult,
       recentLeadsResult,
+      assistantDomainsResult,
     ] = await Promise.all([
       // Profile
       supabase.from('profiles').select('full_name, email').eq('id', user.id).single(),
@@ -56,6 +57,8 @@ export async function GET() {
       supabase.from('conversations').select('id, created_at, status, last_message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       // Recent leads (for activity fallback)
       supabase.from('leads').select('id, created_at, name, email, source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+      // Assistant domains for real webchat verification
+      supabase.from('assistant_domains').select('is_verified, verification_status, last_seen_at').eq('user_id', user.id),
     ])
 
     // --- Plan & Usage ---
@@ -88,16 +91,32 @@ export async function GET() {
     const assistantsLimit = planLimits.assistants === Infinity ? null : planLimits.assistants
 
     // --- Channel Status ---
-    // Only mark as active if assistant_channels has real enabled rows
     const channelRows = assistantChannelsResult.data ?? []
-    const hasWebchatActive = channelRows.some(
-      (r) => r.channel === 'webchat' && r.is_enabled === true && (r.config as any)?.status === 'active'
-    )
-    // If no assistant_channels data at all, mark webchat as "pending" (not "connected")
-    const hasAnyChannelData = channelRows.length > 0
-    const webchatStatus = hasAnyChannelData
-      ? (hasWebchatActive ? 'connected' : 'pending')
-      : 'pending'
+    
+    // Web Chat Status derivation
+    const domains = assistantDomainsResult.data ?? []
+    let webchatStatus = 'missing_domain'
+
+    if (assistantsUsed > 0) {
+      if (domains.length === 0) {
+        webchatStatus = 'missing_domain'
+      } else {
+        // Find if any domain is blocked
+        const hasBlocked = domains.some(d => d.verification_status === 'blocked')
+        // Find if any is verified and has last_seen_at
+        const hasVerified = domains.some(d => d.is_verified && d.last_seen_at)
+        
+        if (hasBlocked && !hasVerified) {
+          webchatStatus = 'blocked'
+        } else if (hasVerified) {
+          webchatStatus = 'installed'
+        } else {
+          webchatStatus = 'pending'
+        }
+      }
+    } else {
+      webchatStatus = 'missing_domain' // Will show "crea tu primer asistente"
+    }
 
     const hasTelegramActive = channelRows.some(
       (r) => r.channel === 'telegram' && r.is_enabled === true && (r.config as any)?.telegram_token

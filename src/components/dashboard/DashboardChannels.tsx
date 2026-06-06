@@ -37,13 +37,28 @@ export function DashboardChannels({ channels, planKey, firstAssistantId }: Props
       iconColor: 'text-brand-cyan',
       description: 'Widget para integrar en tu sitio web.',
       status: channels.webchat,
-      statusLabel: channels.webchat === 'connected' ? 'Activo' : 'Listo para instalar',
-      statusColor: channels.webchat === 'connected' ? 'text-brand-success' : 'text-amber-400',
-      statusIcon: channels.webchat === 'connected' ? CheckCircle2 : Clock,
-      ctaLabel: channels.webchat === 'connected' ? 'Ver configuración' : 'Instalar ahora',
+      statusLabel:
+        channels.webchat === 'installed' ? 'Instalado'
+        : channels.webchat === 'pending' ? 'Pendiente de instalación'
+        : channels.webchat === 'blocked' ? 'Dominio bloqueado'
+        : 'Falta agregar dominio',
+      statusColor:
+        channels.webchat === 'installed' ? 'text-brand-success'
+        : channels.webchat === 'pending' ? 'text-amber-400'
+        : channels.webchat === 'blocked' ? 'text-rose-500'
+        : 'text-slate-400',
+      statusIcon:
+        channels.webchat === 'installed' ? CheckCircle2
+        : channels.webchat === 'blocked' ? Lock
+        : Clock,
+      ctaLabel:
+        channels.webchat === 'installed' ? 'Ver detalles'
+        : channels.webchat === 'pending' ? 'Copiar script'
+        : channels.webchat === 'blocked' ? 'Revisar dominios'
+        : 'Agregar dominio',
       ctaHref: firstAssistantId
         ? `/dashboard/assistants/${firstAssistantId}?tab=install&channel=webchat`
-        : '/dashboard/assistants',
+        : '/dashboard/create-assistant',
     },
     {
       key: 'telegram',
