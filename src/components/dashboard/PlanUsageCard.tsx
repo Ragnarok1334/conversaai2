@@ -92,14 +92,14 @@ export function PlanUsageCard({ plan, usage }: Props) {
                   <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                   Mensajes del ciclo
                 </div>
-                <span className={`text-xs font-semibold whitespace-nowrap ${messagesPct > 90 ? 'text-brand-pink' : 'text-white'}`}>
+                <span className={`text-xs font-semibold whitespace-nowrap ${messagesPct >= 90 ? 'text-brand-pink' : messagesPct >= 80 ? 'text-amber-400' : 'text-white'}`}>
                   {messagesUsed.toLocaleString()}
                   <span className="text-text-soft font-normal"> / {formatLimit(messagesLimit)}</span>
                 </span>
               </div>
               <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-700 ease-out ${messagesPct > 90 ? 'bg-brand-pink' : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'}`}
+                  className={`h-full rounded-full transition-all duration-700 ease-out ${messagesPct >= 90 ? 'bg-brand-pink' : messagesPct >= 80 ? 'bg-amber-400' : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'}`}
                   style={{ width: `${Math.min(messagesPct, 100)}%` }}
                 />
               </div>
@@ -112,14 +112,14 @@ export function PlanUsageCard({ plan, usage }: Props) {
                   <Bot className="w-3.5 h-3.5 shrink-0" />
                   Asistentes creados
                 </div>
-                <span className={`text-xs font-semibold whitespace-nowrap ${assistantsPct > 90 ? 'text-brand-pink' : 'text-white'}`}>
+                <span className={`text-xs font-semibold whitespace-nowrap ${assistantsPct >= 90 ? 'text-brand-pink' : assistantsPct >= 80 ? 'text-amber-400' : 'text-white'}`}>
                   {assistantsUsed}
                   <span className="text-text-soft font-normal"> / {formatLimit(assistantsLimit)}</span>
                 </span>
               </div>
               <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-700 ease-out ${assistantsPct > 90 ? 'bg-brand-pink' : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'}`}
+                  className={`h-full rounded-full transition-all duration-700 ease-out ${assistantsPct >= 90 ? 'bg-brand-pink' : assistantsPct >= 80 ? 'text-amber-400' : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'}`}
                   style={{ width: `${Math.min(assistantsPct, 100)}%` }}
                 />
               </div>

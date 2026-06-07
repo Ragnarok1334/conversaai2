@@ -64,6 +64,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         .eq('user_id', user.id)
 
       if (updateError) throw updateError
+      
+      if (status !== undefined) {
+        await supabaseAdmin.from('audit_logs').insert({
+          user_id: user.id,
+          action: 'lead_status_updated',
+          details: { lead_id: id, new_status: status },
+          ip_address: request.headers.get('x-forwarded-for') || '127.0.0.1'
+        })
+      }
     }
 
     return NextResponse.json({ success: true })

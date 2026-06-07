@@ -1,6 +1,37 @@
 import { useState, useEffect } from 'react'
 import { BuilderFormData, initialBuilderForm } from './types'
 
+function mergeWithInitialBuilderForm(storedForm: any): BuilderFormData {
+  return {
+    ...initialBuilderForm,
+    ...storedForm,
+    behavior: {
+      ...initialBuilderForm.behavior,
+      ...storedForm?.behavior,
+      rules: {
+        ...initialBuilderForm.behavior.rules,
+        ...storedForm?.behavior?.rules
+      }
+    },
+    channels: {
+      ...initialBuilderForm.channels,
+      ...storedForm?.channels,
+      webchat: {
+        ...initialBuilderForm.channels.webchat,
+        ...storedForm?.channels?.webchat
+      },
+      telegram: {
+        ...initialBuilderForm.channels.telegram,
+        ...storedForm?.channels?.telegram
+      },
+      whatsapp: {
+        ...initialBuilderForm.channels.whatsapp,
+        ...storedForm?.channels?.whatsapp
+      }
+    }
+  }
+}
+
 export function useAssistantDraft(userId: string) {
   const draftKey = `conversaai_create_assistant_draft_${userId}`
   
@@ -15,7 +46,9 @@ export function useAssistantDraft(userId: string) {
       const stored = localStorage.getItem(draftKey)
       if (stored) {
         const parsed = JSON.parse(stored)
-        if (parsed.form) setForm(parsed.form)
+        if (parsed.form) {
+          setForm(mergeWithInitialBuilderForm(parsed.form))
+        }
         if (parsed.currentStep) setCurrentStep(parsed.currentStep)
         if (parsed.timestamp) setSavedAt(new Date(parsed.timestamp))
       }

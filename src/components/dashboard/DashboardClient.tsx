@@ -68,6 +68,13 @@ interface DashboardData {
     priority: 'high' | 'medium' | 'low'
   }
   executiveSummary: ExecutiveSummary
+  timestamps?: {
+    lastUpdatedAt: string
+    lastConversationAt?: string
+    lastLeadAt?: string
+    lastAssistantCreatedAt?: string
+    webchatLastSeenAt?: string
+  }
   alerts: { type: string; message: string; action?: string; href?: string }[]
   activity: { id: string; type: string; title: string; description: string; created_at: string; href?: string }[]
 }
@@ -98,18 +105,32 @@ export function DashboardClient({ initialData, userId }: Props) {
   // Name priority: profile.full_name > email > 'Usuario'
   const userName = profile?.full_name || data?.profile?.full_name || profile?.email?.split('@')[0] || data?.profile?.email?.split('@')[0] || 'Usuario'
 
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
   const refreshDashboard = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true)
     try {
       const res = await fetch('/api/dashboard', { cache: 'no-store' })
-      if (!res.ok) throw new Error('Error cargando datos')
+      const contentType = res.headers.get("content-type") || ""
+
+      if (!contentType.includes("application/json")) {
+        const text = await res.text()
+        console.error("[dashboard] Expected JSON, received:", text.slice(0, 300))
+        throw new Error("No se pudo actualizar el dashboard. Formato incorrecto.")
+      }
+
       const json = await res.json()
+
+      if (!res.ok) {
+        throw new Error(json?.error || "Error cargando datos")
+      }
+
       if (isMounted.current) {
         setData(json)
         setError(null)
       }
-    } catch (err) {
-      if (!silent && isMounted.current) setError('No se pudo actualizar el dashboard. Intenta nuevamente.')
+    } catch (err: any) {
+      if (!silent && isMounted.current) setError(err.message || 'No se pudo actualizar el dashboard. Intenta nuevamente.')
     } finally {
       if (isMounted.current) {
         setRefreshing(false)
@@ -117,6 +138,13 @@ export function DashboardClient({ initialData, userId }: Props) {
       }
     }
   }, [])
+
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current)
+    refreshTimeoutRef.current = setTimeout(() => {
+      refreshDashboard(true)
+    }, 400)
+  }, [refreshDashboard])
 
   useEffect(() => {
     isMounted.current = true
@@ -129,19 +157,20 @@ export function DashboardClient({ initialData, userId }: Props) {
     const supabase = createClient()
 
     const channel = supabase.channel(`dashboard-realtime-${userId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'assistants', filter: `user_id=eq.${userId}` }, () => refreshDashboard(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations', filter: `user_id=eq.${userId}` }, () => refreshDashboard(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads', filter: `user_id=eq.${userId}` }, () => refreshDashboard(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, () => refreshDashboard(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'assistant_domains', filter: `user_id=eq.${userId}` }, () => refreshDashboard(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, () => refreshDashboard(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions', filter: `user_id=eq.${userId}` }, () => refreshDashboard(true))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assistants', filter: `user_id=eq.${userId}` }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations', filter: `user_id=eq.${userId}` }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'leads', filter: `user_id=eq.${userId}` }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'assistant_domains', filter: `user_id=eq.${userId}` }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` }, debouncedRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscriptions', filter: `user_id=eq.${userId}` }, debouncedRefresh)
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
+      if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current)
     }
-  }, [userId, refreshDashboard])
+  }, [userId, debouncedRefresh])
 
   if (loading) {
     return (
@@ -172,6 +201,12 @@ export function DashboardClient({ initialData, userId }: Props) {
 
   const firstAssistantId = data.recentAssistants[0]?.id
 
+  const formatUpdateTime = (isoStr?: string) => {
+    if (!isoStr) return ''
+    const d = new Date(isoStr)
+    return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
 
@@ -179,7 +214,18 @@ export function DashboardClient({ initialData, userId }: Props) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <p className="text-text-soft text-sm mb-0.5 font-medium">{greeting} 👋</p>
-          <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white">{userName}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white">{userName}</h1>
+            {data.timestamps?.lastUpdatedAt && (
+              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-success/10 border border-brand-success/20 text-brand-success text-[10px] font-semibold mt-1">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-success opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-success"></span>
+                </span>
+                En vivo - Actualizado {formatUpdateTime(data.timestamps.lastUpdatedAt)}
+              </div>
+            )}
+          </div>
           <p className="text-text-soft text-sm mt-1">Este es el estado actual de tu automatización.</p>
         </div>
         <div className="flex items-center gap-3">

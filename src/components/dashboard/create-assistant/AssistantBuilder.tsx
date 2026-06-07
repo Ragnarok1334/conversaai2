@@ -10,7 +10,7 @@ import { BehaviorStep } from './BehaviorStep'
 import { ChannelsStep } from './ChannelsStep'
 import { ReviewStep } from './ReviewStep'
 import { AssistantLivePreview } from './AssistantLivePreview'
-import { Loader2 } from 'lucide-react'
+import { Loader2, ShoppingCart, HeadphonesIcon, Calendar, MapPin } from 'lucide-react'
 
 interface Props {
   userId: string
@@ -111,6 +111,33 @@ export function AssistantBuilder({ userId, hasReachedLimit, currentUsage, planLi
         </div>
         <BuilderProgress currentStep={currentStep} setCurrentStep={setCurrentStep} />
       </div>
+
+      {/* Educational card — visible only on step 1 */}
+      {currentStep === 1 && (
+        <div className="bg-gradient-to-br from-brand-violet/5 to-brand-cyan/5 border border-brand-violet/20 rounded-2xl p-5">
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold text-white mb-0.5">Un asistente para cada área de tu negocio</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Cada asistente funciona mejor cuando tiene una tarea clara. Puedes crear uno para ventas, otro para soporte, otro para reservas o uno por sucursal.
+              Así evitas mezclar información y logras respuestas más precisas.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { icon: '🛒', title: 'Ventas', desc: 'Precios, promociones y cierre de clientes.' },
+              { icon: '🎧', title: 'Soporte', desc: 'Dudas frecuentes, pedidos y seguimiento.' },
+              { icon: '📅', title: 'Reservas', desc: 'Horarios, citas y datos del cliente.' },
+              { icon: '📍', title: 'Sucursales', desc: 'Ubicación, horarios y atención local.' },
+            ].map((item) => (
+              <div key={item.title} className="bg-black/20 border border-white/[0.06] rounded-xl p-3">
+                <span className="text-xl">{item.icon}</span>
+                <p className="text-xs font-semibold text-white mt-1 mb-0.5">{item.title}</p>
+                <p className="text-[10px] text-slate-500 leading-tight">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-8 items-start relative">

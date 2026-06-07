@@ -15,6 +15,7 @@ import { signOut } from '@/app/auth/actions'
 import { useProfile } from '@/providers/ProfileProvider'
 import type { PlanKey } from '@/lib/plans'
 import { PLAN_LIMITS } from '@/lib/plans'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -22,15 +23,20 @@ interface UserSettings {
   weekly_summary: boolean
   lead_alerts: boolean
   conversation_alerts: boolean
-  message_limit_alerts: boolean
-  payment_alerts: boolean
+  usage_limit_alerts: boolean
+  billing_alerts: boolean
+  security_alerts: boolean
+  product_updates: boolean
+  email_notifications: boolean
+  dashboard_notifications: boolean
+  telegram_notifications: boolean
   dashboard_density: 'comfortable' | 'compact'
   default_dashboard_page: string
 }
 
 interface SubscriptionData {
   subscription: { plan: string; status: string }
-  planConfig: { label: string; assistantsLimit: number | null; messagesLimit: number | null; channels: string[] }
+  planConfig: { label: string; assistantsLimit: number | null; messagesLimit: number | null; channels: string[]; features: string[] }
   usage: { assistantsUsed: number; messagesUsed: number }
 }
 
@@ -96,26 +102,29 @@ function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title
 }
 
 function SettingSwitch({
-  label, description, checked, loading, onChange,
+  label, description, checked, loading, onChange, disabled, badge
 }: {
-  label: string; description: string; checked: boolean; loading: boolean; onChange: (v: boolean) => void
+  label: string; description: string; checked: boolean; loading: boolean; onChange: (v: boolean) => void; disabled?: boolean; badge?: string
 }) {
   return (
-    <div className="flex items-center justify-between py-3 border-b border-white/[0.05] last:border-0">
+    <div className={`flex items-center justify-between py-3 border-b border-white/[0.05] last:border-0 ${disabled ? 'opacity-60 grayscale' : ''}`}>
       <div className="flex-1 min-w-0 pr-4">
-        <p className="text-sm font-medium text-white">{label}</p>
+        <p className="text-sm font-medium text-white flex items-center gap-2">
+          {label}
+          {badge && <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.1] text-text-soft uppercase tracking-wider">{badge}</span>}
+        </p>
         <p className="text-xs text-text-soft mt-0.5">{description}</p>
       </div>
       <button
         role="switch"
         aria-checked={checked}
-        onClick={() => !loading && onChange(!checked)}
-        disabled={loading}
+        onClick={() => !loading && !disabled && onChange(!checked)}
+        disabled={loading || disabled}
         className={`relative w-11 h-6 rounded-full transition-all duration-300 border focus:outline-none focus:ring-2 focus:ring-brand-violet/50 shrink-0
-          ${checked
+          ${checked && !disabled
             ? 'bg-brand-violet/30 border-brand-violet/50'
             : 'bg-white/[0.06] border-white/[0.1]'
-          } ${loading ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+          } ${(loading || disabled) ? 'cursor-not-allowed' : 'cursor-pointer'}`}
       >
         {loading ? (
           <Loader2 className="w-3 h-3 animate-spin text-text-soft absolute top-1.5 left-4" />
@@ -208,14 +217,14 @@ function EditProfileModal({
   open, initialValues, onClose, onSave,
 }: {
   open: boolean
-  initialValues: { full_name: string; company_name: string; phone: string; country: string }
+  initialValues: { full_name: string }
   onClose: () => void
-  onSave: (values: typeof initialValues) => Promise<void>
+  onSave: (values: Partial<typeof initialValues>) => Promise<void>
 }) {
-  const [values, setValues] = useState(initialValues)
+  const [values, setValues] = useState({ full_name: initialValues.full_name })
   const [saving, setSaving] = useState(false)
 
-  useEffect(() => { setValues(initialValues) }, [initialValues])
+  useEffect(() => { setValues({ full_name: initialValues.full_name }) }, [initialValues])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -262,9 +271,6 @@ function EditProfileModal({
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               {field('Nombre visible', 'full_name', 'Tu nombre')}
-              {field('Empresa (opcional)', 'company_name', 'Nombre de tu empresa')}
-              {field('Teléfono (opcional)', 'phone', '+56 9 1234 5678')}
-              {field('País (opcional)', 'country', 'Chile')}
               <div className="pt-1 rounded-xl bg-white/[0.02] border border-white/[0.06] px-3 py-2.5">
                 <p className="text-xs text-text-soft">
                   <Mail className="w-3 h-3 inline mr-1 mb-0.5" />
@@ -290,6 +296,278 @@ function EditProfileModal({
   )
 }
 
+function EditCompanyModal({
+  open, initialValues, onClose, onSave,
+}: {
+  open: boolean
+  initialValues: { 
+    company_name: string; country: string; phone: string; 
+    business_type: string; preferred_channel: string; onboarding_goal: string;
+    city: string; website: string; support_email: string; address: string; business_hours: string;
+  }
+  onClose: () => void
+  onSave: (values: Partial<typeof initialValues>) => Promise<void>
+}) {
+  const [values, setValues] = useState({ 
+    company_name: initialValues.company_name, country: initialValues.country, phone: initialValues.phone, 
+    business_type: initialValues.business_type, preferred_channel: initialValues.preferred_channel, onboarding_goal: initialValues.onboarding_goal,
+    city: initialValues.city || '', website: initialValues.website || '', support_email: initialValues.support_email || '', address: initialValues.address || '', business_hours: initialValues.business_hours || '',
+    showCustomCity: false
+  })
+  const [customCity, setCustomCity] = useState('')
+  const [errorMsg, setErrorMsg] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Opciones de configuración
+  const countryOptions = [
+    'Chile', 'México', 'Colombia', 'Argentina', 'Perú', 'Ecuador', 'Bolivia', 'Paraguay', 'Uruguay', 
+    'Brasil', 'Costa Rica', 'Cuba', 'El Salvador', 'Guatemala', 'Honduras', 'Nicaragua', 'Panamá', 
+    'Puerto Rico', 'República Dominicana', 'España', 'Estados Unidos', 'Otro'
+  ].map(c => ({ value: c, label: c }))
+
+  const cityOptionsByCountry: Record<string, string[]> = {
+    'Chile': ['Santiago', 'Valparaíso', 'Viña del Mar', 'Concepción', 'La Serena', 'Antofagasta', 'Temuco', 'Puerto Montt', 'Otra ciudad / región'],
+    'México': ['Ciudad de México', 'Guadalajara', 'Monterrey', 'Puebla', 'Querétaro', 'Tijuana', 'Mérida', 'Cancún', 'Otra ciudad / región'],
+    'Colombia': ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Bucaramanga', 'Otra ciudad / región'],
+    'Argentina': ['Buenos Aires', 'Córdoba', 'Rosario', 'Mendoza', 'La Plata', 'Otra ciudad / región'],
+    'Perú': ['Lima', 'Arequipa', 'Trujillo', 'Cusco', 'Piura', 'Otra ciudad / región'],
+    'España': ['Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Málaga', 'Otra ciudad / región'],
+    'Estados Unidos': ['Miami', 'Los Angeles', 'New York', 'Houston', 'Chicago', 'Otra ciudad / región']
+  }
+
+  const getCityOptions = (country: string) => {
+    if (!country) return []
+    const cities = cityOptionsByCountry[country]
+    if (cities) return cities.map(c => ({ value: c, label: c }))
+    return [
+      { value: 'Capital / ciudad principal', label: 'Capital / ciudad principal' },
+      { value: 'Otra ciudad / región', label: 'Otra ciudad / región' }
+    ]
+  }
+
+  const channelOptions = [
+    { value: 'webchat', label: 'Web Chat en mi sitio' },
+    { value: 'telegram', label: 'Telegram', disabled: true, badge: 'Próximamente' },
+    { value: 'whatsapp', label: 'WhatsApp', disabled: true, badge: 'Próximamente' }
+  ]
+
+  const goalOptions = [
+    { value: 'captar_leads', label: 'Captar y calificar leads', description: 'Solicita datos y detecta intención de compra.' },
+    { value: 'soporte', label: 'Dar soporte y responder FAQs', description: 'Responde dudas frecuentes y seguimiento.' },
+    { value: 'agendar', label: 'Agendar citas / reuniones', description: 'Conecta con tu calendario para agendar.' },
+    { value: 'vender', label: 'Aumentar ventas directas', description: 'Orienta hacia productos, precios y cierre.' },
+    { value: 'guiar', label: 'Guiar al cliente a comprar', description: 'Asistencia en el proceso de compra.' },
+    { value: 'reservas', label: 'Atender reservas', description: 'Gestión de reservas para restaurantes/hoteles.' },
+    { value: 'derivar', label: 'Derivar a un asesor humano', description: 'Filtra y asigna conversaciones al equipo.' }
+  ]
+
+  useEffect(() => { 
+    const c = initialValues.city || ''
+    const currentCountryCities = getCityOptions(initialValues.country).map(opt => opt.value)
+    const isCustomCity = Boolean(c && !currentCountryCities.includes(c))
+
+    setValues({ 
+      company_name: initialValues.company_name, country: initialValues.country, phone: initialValues.phone, 
+      business_type: initialValues.business_type, preferred_channel: initialValues.preferred_channel, onboarding_goal: initialValues.onboarding_goal,
+      city: isCustomCity ? 'Otra ciudad / región' : c, 
+      website: initialValues.website || '', support_email: initialValues.support_email || '', address: initialValues.address || '', business_hours: initialValues.business_hours || '',
+      showCustomCity: isCustomCity
+    })
+  }, [initialValues])
+
+  useEffect(() => {
+    if (initialValues.city && initialValues.city !== 'Otra ciudad / región') {
+      const currentCountryCities = getCityOptions(initialValues.country).map(opt => opt.value)
+      if (!currentCountryCities.includes(initialValues.city)) {
+        setCustomCity(initialValues.city)
+      } else {
+        setCustomCity('')
+      }
+    } else {
+      setCustomCity('')
+    }
+  }, [initialValues.city, initialValues.country])
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    setErrorMsg('')
+
+    let finalCity = values.city
+    if (values.showCustomCity || values.city === 'Otra ciudad / región') {
+      const trimmed = customCity.trim()
+      if (!trimmed) {
+        setErrorMsg('Por favor especifica tu ciudad.')
+        return
+      }
+      finalCity = trimmed
+    }
+
+    setSaving(true)
+    try {
+      const { showCustomCity, ...restValues } = values
+      await onSave({ ...restValues, city: finalCity })
+      onClose()
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error al guardar los datos.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const field = (label: string, key: keyof typeof values, placeholder: string) => (
+    <div>
+      <label className="block text-xs text-text-soft mb-1.5 font-medium">{label}</label>
+      <input
+        type="text"
+        value={(values[key] as string) || ''}
+        onChange={(e) => setValues(v => ({ ...v, [key]: e.target.value }))}
+        placeholder={placeholder}
+        className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm text-white placeholder-text-soft focus:outline-none focus:border-brand-blue/50 focus:ring-1 focus:ring-brand-blue/30 transition-all"
+      />
+    </div>
+  )
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[9997] flex items-center justify-center p-4"
+          style={{ background: 'rgba(5,8,22,0.75)', backdropFilter: 'blur(8px)' }}
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-[#080f28]/95 border border-white/10 rounded-2xl p-7 max-w-md w-full shadow-2xl"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-semibold text-white text-base">Perfil del negocio</h3>
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-text-soft hover:text-white transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {errorMsg && (
+              <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm rounded-xl">
+                {errorMsg}
+              </div>
+            )}
+            <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+              
+              {/* Sección 1: Datos del negocio */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-white flex items-center gap-2 border-b border-white/[0.05] pb-2">
+                  <Building className="w-4 h-4 text-brand-blue" />
+                  Datos principales
+                </h4>
+                {field('Nombre comercial *', 'company_name', 'Ej. Tienda Fashion')}
+                {field('Tipo de negocio *', 'business_type', 'Ej. E-commerce, Clínica, etc.')}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-text-soft mb-1.5 font-medium">País *</label>
+                    <CustomSelect
+                      options={countryOptions}
+                      value={values.country}
+                      onChange={(v) => {
+                        setValues(prev => ({ ...prev, country: v, city: '', showCustomCity: false }))
+                      }}
+                      placeholder="Seleccionar país"
+                      searchable={true}
+                    />
+                  </div>
+                  {field('Teléfono / WhatsApp *', 'phone', 'Ej. +52 55 1234')}
+                </div>
+              </div>
+              
+              {/* Sección 2: Configuración inicial */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-white flex items-center gap-2 border-b border-white/[0.05] pb-2">
+                  <MessageCircle className="w-4 h-4 text-brand-cyan" />
+                  Configuración inicial
+                </h4>
+                <div>
+                  <label className="block text-xs text-text-soft mb-1.5 font-medium">Canal principal de contacto *</label>
+                  <CustomSelect
+                    options={channelOptions}
+                    value={values.preferred_channel}
+                    onChange={(v) => setValues(prev => ({ ...prev, preferred_channel: v }))}
+                    placeholder="Seleccionar canal"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs text-text-soft mb-1.5 font-medium">Objetivo principal del asistente *</label>
+                  <CustomSelect
+                    options={goalOptions}
+                    value={values.onboarding_goal}
+                    onChange={(v) => setValues(prev => ({ ...prev, onboarding_goal: v }))}
+                    placeholder="Seleccionar un objetivo"
+                  />
+                </div>
+              </div>
+
+              {/* Sección 3: Datos adicionales */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-white flex items-center gap-2 border-b border-white/[0.05] pb-2">
+                  <Globe2 className="w-4 h-4 text-brand-violet" />
+                  Datos adicionales (Opcional)
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-text-soft mb-1.5 font-medium">Ciudad / Región</label>
+                    <CustomSelect
+                      options={getCityOptions(values.country)}
+                      value={values.city}
+                      onChange={(v) => {
+                        setValues(prev => ({ ...prev, city: v, showCustomCity: v === 'Otra ciudad / región' }))
+                      }}
+                      placeholder="Seleccionar ciudad"
+                      disabled={!values.country}
+                      searchable={true}
+                    />
+                  </div>
+                  {values.showCustomCity ? (
+                    <div>
+                      <label className="block text-xs text-text-soft mb-1.5 font-medium">Especificar ciudad</label>
+                      <input
+                        id="custom_city"
+                        type="text"
+                        value={customCity || ''}
+                        onChange={(e) => setCustomCity(e.target.value)}
+                        placeholder="Escribe tu ciudad o región"
+                        className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm text-white focus:outline-none focus:border-brand-blue/50 focus:ring-1 focus:ring-brand-blue/30 transition-all"
+                      />
+                    </div>
+                  ) : (
+                    field('Sitio web', 'website', 'Ej. www.mitienda.com')
+                  )}
+                </div>
+                {values.showCustomCity && field('Sitio web', 'website', 'Ej. www.mitienda.com')}
+                {field('Correo de atención', 'support_email', 'Ej. ayuda@mitienda.com')}
+                {field('Dirección física', 'address', 'Ej. Av. Principal 123')}
+                {field('Horario general', 'business_hours', 'Ej. Lunes a Viernes 9:00 - 18:00')}
+              </div>
+
+              <div className="flex gap-3 pt-4 sticky bottom-0 bg-[#080f28] pb-2">
+                <button type="button" onClick={onClose}
+                  className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white transition-all">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl bg-brand-blue/20 text-brand-blue border border-brand-blue/30 text-sm font-semibold hover:bg-brand-blue/30 transition-all flex items-center justify-center gap-2 disabled:opacity-60">
+                  {saving ? <><Loader2 className="w-4 h-4 animate-spin" /> Guardando…</> : 'Guardar perfil'}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 export function SettingsClient({ userName, email, joinDate, assistantCount }: Props) {
   const { refreshProfile } = useProfile()
@@ -305,6 +583,7 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   // ── Modal states ───────────────────────────────────────────────────────────
   const [showLogout, setShowLogout] = useState(false)
   const [showEditProfile, setShowEditProfile] = useState(false)
+  const [showEditCompany, setShowEditCompany] = useState(false)
 
   // ── Subscription data ──────────────────────────────────────────────────────
   const [subData, setSubData] = useState<SubscriptionData | null>(null)
@@ -329,7 +608,11 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   const [copied, setCopied] = useState(false)
 
   // ── Profile edit initial values ─────────────────────────────────────────────
-  const [profileValues, setProfileValues] = useState({ full_name: userName, company_name: '', phone: '', country: '' })
+  const [profileValues, setProfileValues] = useState({ 
+    full_name: userName, company_name: '', phone: '', country: '', 
+    business_type: '', preferred_channel: '', onboarding_goal: '',
+    city: '', website: '', support_email: '', address: '', business_hours: ''
+  })
   const [profileLoading, setProfileLoading] = useState(true)
 
   // ── Initial Fetching ───────────────────────────────────────────────────────
@@ -350,6 +633,14 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
             company_name: prof.company_name || '',
             phone: prof.phone || '',
             country: prof.country || '',
+            business_type: prof.business_type || '',
+            preferred_channel: prof.preferred_channel || '',
+            onboarding_goal: prof.onboarding_goal || '',
+            city: prof.city || '',
+            website: prof.website || '',
+            support_email: prof.support_email || '',
+            address: prof.address || '',
+            business_hours: prof.business_hours || '',
           })
         }
         if (!sett.error) setSettings(sett)
@@ -407,21 +698,16 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   }
 
   // ── Save profile ───────────────────────────────────────────────────────────
-  async function handleSaveProfile(values: typeof profileValues) {
+  async function handleSaveProfile(values: Partial<typeof profileValues>) {
     try {
       const res = await fetch('/api/profile', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          full_name: values.full_name,
-          company_name: values.company_name,
-          phone: values.phone,
-          country: values.country,
-        }),
+        body: JSON.stringify(values),
       })
       const data = await res.json()
       if (res.ok && data.success) {
-        setProfileValues(values)
+        setProfileValues(prev => ({ ...prev, ...values }))
         showToast('Información actualizada correctamente')
         refreshProfile()
       } else {
@@ -527,6 +813,12 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
         open={showEditProfile}
         initialValues={profileValues}
         onClose={() => setShowEditProfile(false)}
+        onSave={handleSaveProfile}
+      />
+      <EditCompanyModal
+        open={showEditCompany}
+        initialValues={profileValues}
+        onClose={() => setShowEditCompany(false)}
         onSave={handleSaveProfile}
       />
 
@@ -642,37 +934,139 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
             {/* ── EMPRESA ─────────────────────────────────────────────────────── */}
             {activeTab === 'company' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                
+                {/* A. Tarjeta Datos comerciales */}
                 <SectionCard>
-                  <SectionHeader
-                    icon={<Building className="w-4.5 h-4.5 text-brand-blue" />}
-                    title="Detalles de la empresa"
-                    subtitle="Información comercial asociada a tu cuenta."
-                  />
+                  <div className="flex sm:items-center justify-between gap-4 mb-6 flex-col sm:flex-row">
+                    <SectionHeader
+                      icon={<Building className="w-4.5 h-4.5 text-brand-blue" />}
+                      title="Datos comerciales"
+                      subtitle="Información principal de tu negocio en ConversaAI."
+                    />
+                    <button
+                      onClick={() => setShowEditCompany(true)}
+                      className="shrink-0 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-brand-blue/40 transition-all flex items-center gap-2"
+                    >
+                      Editar perfil del negocio
+                    </button>
+                  </div>
                   
-                  <div className="space-y-4">
+                  <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                      <p className="text-xs text-text-soft mb-1">Nombre de la empresa</p>
+                      <p className="text-xs text-text-soft mb-1">Nombre comercial</p>
                       <p className="text-sm font-medium text-white flex items-center gap-2">
-                        <Building className="w-4 h-4 text-text-soft" />
-                        {profileValues.company_name || <span className="text-text-soft italic">No especificado</span>}
+                        <Building className="w-4 h-4 text-text-soft shrink-0" />
+                        <span className="truncate">{profileValues.company_name || <span className="text-brand-pink/80 text-xs font-normal">Pendiente de completar</span>}</span>
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <p className="text-xs text-text-soft mb-1">Tipo de negocio</p>
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        <Briefcase className="w-4 h-4 text-text-soft shrink-0" />
+                        <span className="truncate capitalize">{profileValues.business_type || <span className="text-brand-pink/80 text-xs font-normal">Pendiente de completar</span>}</span>
                       </p>
                     </div>
                     <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
                       <p className="text-xs text-text-soft mb-1">País</p>
                       <p className="text-sm font-medium text-white flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-text-soft" />
-                        {profileValues.country || <span className="text-text-soft italic">No especificado</span>}
+                        <Globe2 className="w-4 h-4 text-text-soft shrink-0" />
+                        <span className="truncate">{profileValues.country || <span className="text-brand-pink/80 text-xs font-normal">Pendiente de completar</span>}</span>
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <p className="text-xs text-text-soft mb-1">Teléfono / WhatsApp</p>
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-text-soft shrink-0" />
+                        <span className="truncate">{profileValues.phone || <span className="text-brand-pink/80 text-xs font-normal">Pendiente de completar</span>}</span>
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <p className="text-xs text-text-soft mb-1">Canal preferido</p>
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        <MessageCircle className="w-4 h-4 text-text-soft shrink-0" />
+                        <span className="truncate capitalize">{profileValues.preferred_channel || <span className="text-brand-pink/80 text-xs font-normal">Pendiente de completar</span>}</span>
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <p className="text-xs text-text-soft mb-1">Objetivo principal</p>
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-text-soft shrink-0" />
+                        <span className="truncate capitalize">{profileValues.onboarding_goal?.replace('_', ' ') || <span className="text-brand-pink/80 text-xs font-normal">Pendiente de completar</span>}</span>
                       </p>
                     </div>
                   </div>
 
-                  <div className="pt-4 flex justify-end">
-                    <button
-                      onClick={() => setShowEditProfile(true)}
-                      className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-brand-blue/40 transition-all"
-                    >
-                      Editar detalles de empresa
-                    </button>
+                  {(profileValues.city || profileValues.website || profileValues.support_email || profileValues.address || profileValues.business_hours) && (
+                    <>
+                      <h4 className="text-sm font-medium text-white mt-6 mb-3 flex items-center gap-2">
+                        <Globe2 className="w-4 h-4 text-text-soft" /> Datos adicionales
+                      </h4>
+                      <div className="grid sm:grid-cols-2 gap-4">
+                        {profileValues.city && (
+                          <div className="p-3 rounded-xl bg-white/[0.01] border border-white/[0.05] flex justify-between items-center">
+                            <span className="text-xs text-text-soft">Ciudad</span>
+                            <span className="text-sm font-medium text-white truncate max-w-[60%]">{profileValues.city}</span>
+                          </div>
+                        )}
+                        {profileValues.website && (
+                          <div className="p-3 rounded-xl bg-white/[0.01] border border-white/[0.05] flex justify-between items-center">
+                            <span className="text-xs text-text-soft">Sitio web</span>
+                            <span className="text-sm font-medium text-brand-cyan truncate max-w-[60%]">{profileValues.website}</span>
+                          </div>
+                        )}
+                        {profileValues.support_email && (
+                          <div className="p-3 rounded-xl bg-white/[0.01] border border-white/[0.05] flex justify-between items-center">
+                            <span className="text-xs text-text-soft">Correo</span>
+                            <span className="text-sm font-medium text-white truncate max-w-[60%]">{profileValues.support_email}</span>
+                          </div>
+                        )}
+                        {profileValues.business_hours && (
+                          <div className="p-3 rounded-xl bg-white/[0.01] border border-white/[0.05] flex justify-between items-center">
+                            <span className="text-xs text-text-soft">Horario</span>
+                            <span className="text-sm font-medium text-white truncate max-w-[60%]">{profileValues.business_hours}</span>
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </SectionCard>
+
+                {/* B. Tarjeta Preparación del perfil */}
+                <SectionCard>
+                  <SectionHeader
+                    icon={<CheckCircle2 className="w-4.5 h-4.5 text-brand-success" />}
+                    title="Preparación del perfil"
+                    subtitle="Progreso de tu configuración comercial inicial."
+                  />
+                  <div className="grid sm:grid-cols-2 gap-3 mt-4">
+                    {[
+                      { label: 'Nombre comercial configurado', done: !!profileValues.company_name },
+                      { label: 'Tipo de negocio configurado', done: !!profileValues.business_type },
+                      { label: 'País configurado', done: !!profileValues.country },
+                      { label: 'Ciudad / región configurada', done: !!profileValues.city },
+                      { label: 'Teléfono agregado', done: !!profileValues.phone },
+                      { label: 'Canal preferido configurado', done: !!profileValues.preferred_channel },
+                      { label: 'Objetivo principal configurado', done: !!profileValues.onboarding_goal },
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                        <div className={`w-5 h-5 rounded-full flex items-center justify-center border shrink-0 ${item.done ? 'bg-brand-success/20 border-brand-success/50' : 'bg-white/[0.04] border-white/[0.1]'}`}>
+                          {item.done && <Check className="w-3.5 h-3.5 text-brand-success" />}
+                        </div>
+                        <span className={`text-sm truncate ${item.done ? 'text-white' : 'text-text-soft'}`}>{item.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+
+                {/* C. Tarjeta Cómo se usa esta información */}
+                <SectionCard>
+                  <SectionHeader
+                    icon={<Bot className="w-4.5 h-4.5 text-brand-violet" />}
+                    title="Cómo se usa esta información"
+                    subtitle="El impacto de tu perfil en la plataforma"
+                  />
+                  <div className="p-4 rounded-xl bg-brand-violet/5 border border-brand-violet/10 text-sm text-text-soft leading-relaxed">
+                    Estos datos ayudan a crear plantillas, sugerir configuraciones y preparar asistentes más precisos para tu tipo de negocio. <strong className="text-white font-medium">No reemplazan la información específica que agregas en cada asistente individual.</strong>
                   </div>
                 </SectionCard>
               </motion.div>
@@ -786,44 +1180,126 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
             {/* ── NOTIFICACIONES ──────────────────────────────────────────────── */}
             {activeTab === 'notifications' && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-                <SectionCard>
-                  <SectionHeader
-                    icon={<Bell className="w-4.5 h-4.5 text-brand-violet" />}
-                    title="Preferencias de alertas"
-                    subtitle="Elige qué avisos quieres recibir para no perder leads ni conversaciones importantes."
-                  />
-                  {settingsLoading ? (
-                    <div className="flex items-center gap-2 text-text-soft text-sm py-2">
-                      <Loader2 className="w-4 h-4 animate-spin" /> Cargando preferencias…
+                
+                {settingsLoading ? (
+                  <SectionCard>
+                    <div className="flex items-center gap-2 text-text-soft text-sm py-4 justify-center">
+                      <Loader2 className="w-5 h-5 animate-spin" /> Cargando preferencias…
                     </div>
-                  ) : settings ? (
-                    <>
-                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] mb-1">
-                        <p className="text-xs text-text-soft">
-                          Estas preferencias se usarán para tus avisos dentro del dashboard y futuras notificaciones por correo.
-                        </p>
-                      </div>
-                      {([
-                        { key: 'weekly_summary', label: 'Resumen semanal', desc: 'Recibe un resumen de tu actividad cada semana' },
-                        { key: 'lead_alerts', label: 'Alertas de leads', desc: 'Notificación cuando un nuevo lead es captado' },
-                        { key: 'conversation_alerts', label: 'Nuevas conversaciones', desc: 'Aviso cuando tu asistente inicia una nueva conversación' },
-                        { key: 'message_limit_alerts', label: 'Límite de mensajes', desc: 'Alerta cuando alcances el 80% de tu cuota mensual' },
-                        { key: 'payment_alerts', label: 'Pagos y suscripción', desc: 'Confirmaciones de pago y cambios en tu plan' },
-                      ] as { key: keyof UserSettings; label: string; desc: string }[]).map(({ key, label, desc }) => (
-                        <SettingSwitch
-                          key={key}
-                          label={label}
-                          description={desc}
-                          checked={!!settings[key]}
-                          loading={togglingKey === key}
-                          onChange={(v) => toggleSetting(key, v)}
-                        />
-                      ))}
-                    </>
-                  ) : (
-                    <p className="text-sm text-text-soft">No se pudieron cargar las preferencias.</p>
-                  )}
-                </SectionCard>
+                  </SectionCard>
+                ) : settings ? (
+                  <>
+                    <SectionCard>
+                      <SectionHeader
+                        icon={<MessageSquare className="w-4.5 h-4.5 text-brand-cyan" />}
+                        title="Actividad comercial"
+                        subtitle="Avisos sobre la interacción con tus clientes"
+                      />
+                      <SettingSwitch
+                        label="Alertas de leads"
+                        description="Notificación cuando se captura un nuevo lead con datos"
+                        checked={!!settings.lead_alerts}
+                        loading={togglingKey === 'lead_alerts'}
+                        onChange={(v) => toggleSetting('lead_alerts', v)}
+                      />
+                      <SettingSwitch
+                        label="Nuevas conversaciones"
+                        description="Aviso cuando tu asistente inicia una nueva conversación"
+                        checked={!!settings.conversation_alerts}
+                        loading={togglingKey === 'conversation_alerts'}
+                        onChange={(v) => toggleSetting('conversation_alerts', v)}
+                      />
+                    </SectionCard>
+
+                    <SectionCard>
+                      <SectionHeader
+                        icon={<Shield className="w-4.5 h-4.5 text-brand-violet" />}
+                        title="Uso, cuenta y seguridad"
+                        subtitle="Alertas sobre límites, facturación y accesos"
+                      />
+                      <SettingSwitch
+                        label="Límite de mensajes"
+                        description="Alerta cuando alcances el 80%, 90% y límite de tu plan"
+                        checked={!!settings.usage_limit_alerts}
+                        loading={togglingKey === 'usage_limit_alerts'}
+                        onChange={(v) => toggleSetting('usage_limit_alerts', v)}
+                      />
+                      <SettingSwitch
+                        label="Pagos y suscripción"
+                        description="Confirmaciones de pago y actualizaciones de tu plan"
+                        checked={!!settings.billing_alerts}
+                        loading={togglingKey === 'billing_alerts'}
+                        onChange={(v) => toggleSetting('billing_alerts', v)}
+                      />
+                      <SettingSwitch
+                        label="Alertas de seguridad"
+                        description="Inicios de sesión y cambios importantes en tu cuenta"
+                        checked={!!settings.security_alerts}
+                        loading={togglingKey === 'security_alerts'}
+                        onChange={(v) => toggleSetting('security_alerts', v)}
+                      />
+                    </SectionCard>
+
+                    <SectionCard>
+                      <SectionHeader
+                        icon={<BarChart3 className="w-4.5 h-4.5 text-brand-blue" />}
+                        title="Resúmenes y Novedades"
+                        subtitle="Mantente al día con métricas y actualizaciones"
+                      />
+                      <SettingSwitch
+                        label="Resumen semanal"
+                        description="Recibe un reporte de tu rendimiento cada semana"
+                        checked={!!settings.weekly_summary}
+                        loading={togglingKey === 'weekly_summary'}
+                        onChange={(v) => toggleSetting('weekly_summary', v)}
+                      />
+                      <SettingSwitch
+                        label="Actualizaciones de producto"
+                        description="Nuevas funciones y mejoras en ConversaAI"
+                        checked={!!settings.product_updates}
+                        loading={togglingKey === 'product_updates'}
+                        onChange={(v) => toggleSetting('product_updates', v)}
+                      />
+                    </SectionCard>
+
+                    <SectionCard>
+                      <SectionHeader
+                        icon={<Bell className="w-4.5 h-4.5 text-text-soft" />}
+                        title="Canales de notificación"
+                        subtitle="Dónde quieres recibir estas alertas"
+                      />
+                      <SettingSwitch
+                        label="Dashboard"
+                        description="Alertas integradas dentro de la plataforma"
+                        checked={!!settings.dashboard_notifications}
+                        loading={togglingKey === 'dashboard_notifications'}
+                        onChange={(v) => toggleSetting('dashboard_notifications', v)}
+                      />
+                      <SettingSwitch
+                        label="Correo electrónico"
+                        description="Próximamente disponible"
+                        checked={false}
+                        loading={false}
+                        onChange={() => {}}
+                        disabled={true}
+                        badge="Próximamente"
+                      />
+                      <SettingSwitch
+                        label="Telegram"
+                        description="Próximamente disponible"
+                        checked={false}
+                        loading={false}
+                        onChange={() => {}}
+                        disabled={true}
+                        badge="Próximamente"
+                      />
+                    </SectionCard>
+                  </>
+                ) : (
+                  <SectionCard>
+                    <p className="text-sm text-text-soft text-center py-4">No se pudieron cargar las preferencias.</p>
+                  </SectionCard>
+                )}
               </motion.div>
             )}
 
@@ -936,15 +1412,18 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                             <span className="text-sm font-semibold text-white">
                               {usage?.assistantsUsed ?? 0}
                               <span className="text-text-soft font-normal">
-                                {' '}/ {planLimits.assistants === Infinity ? 'Ilimitado' : planLimits.assistants}
+                                {' '}/ {planLimits.assistants === null ? 'Ilimitado' : planLimits.assistants}
                               </span>
                             </span>
                           </div>
                           <UsageBar
                             used={usage?.assistantsUsed ?? 0}
-                            limit={planLimits.assistants === Infinity ? null : planLimits.assistants}
+                            limit={planLimits.assistants}
                             color="bg-gradient-to-r from-brand-violet to-brand-blue"
                           />
+                          <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                            Tener más asistentes te permite automatizar más áreas (ventas, soporte, reservas) sin mezclar información. No es necesario poner todo en uno solo.
+                          </p>
                         </div>
 
                         <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
@@ -961,23 +1440,55 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                           </div>
                           <UsageBar
                             used={usage?.messagesUsed ?? 0}
-                            limit={planLimits.messagesPerMonth === Infinity ? null : planLimits.messagesPerMonth}
+                            limit={planLimits.messagesPerMonth}
                             color="bg-gradient-to-r from-brand-cyan to-brand-blue"
                           />
                         </div>
                       </div>
 
-                      {plan !== 'enterprise' && (
-                        <div className="pt-3">
-                          <Link
-                            href="/dashboard/billing"
-                            className="inline-flex items-center gap-2 text-sm font-medium text-brand-violet hover:text-brand-purple transition-colors px-4 py-2.5 rounded-xl bg-brand-violet/10 border border-brand-violet/20"
-                          >
-                            <Zap className="w-4 h-4" />
-                            {plan === 'free' ? 'Mejorar mi plan a Pro' : 'Gestionar mi suscripción'}
+                      <div className="pt-4">
+                        <div className="bg-gradient-to-r from-brand-violet/5 to-brand-cyan/5 border border-brand-violet/20 rounded-xl p-4 flex flex-col sm:flex-row items-center gap-4 justify-between">
+                          <div>
+                            <h4 className="text-sm font-semibold text-white mb-1 flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-brand-violet" /> Recomendación para ti
+                            </h4>
+                            <p className="text-xs text-text-soft">
+                              {plan === 'free' && (usage?.messagesUsed ?? 0) > 80 ? 'Estás cerca del límite. Mejora a Pro para más asistentes y mensajes.' :
+                               plan === 'free' ? 'El plan Free es perfecto para empezar. Mejora a Pro cuando necesites Telegram y más mensajes.' :
+                               plan === 'pro' && (usage?.messagesUsed ?? 0) > 4000 ? 'Tu volumen está creciendo rápido. Considera el plan Business.' :
+                               plan === 'business' ? 'Tu plan está preparado para mayor volumen. ¡Excelente trabajo!' :
+                               'Plan personalizado y adaptado a tus necesidades.'}
+                            </p>
+                          </div>
+                          {plan !== 'enterprise' && plan !== 'business' && (
+                            <Link
+                              href="/dashboard/billing"
+                              className="shrink-0 px-4 py-2 rounded-lg bg-brand-violet text-white text-xs font-semibold hover:bg-brand-violet/90 transition-all"
+                            >
+                              Mejorar plan
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="pt-4 mt-4 border-t border-white/[0.05]">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-sm font-semibold text-white">Qué incluye tu plan {planConfig?.label}</h4>
+                          <Link href="/dashboard/billing" className="text-xs font-medium text-brand-violet hover:text-brand-purple">
+                            Ver detalles
                           </Link>
                         </div>
-                      )}
+                        <div className="grid sm:grid-cols-2 gap-3">
+                           {planConfig?.features.map((feat, i) => (
+                             <div key={i} className="flex items-center gap-2 text-xs text-text-soft">
+                               <CheckCircle2 className="w-3.5 h-3.5 text-brand-success" />
+                               {feat}
+                             </div>
+                           ))}
+                        </div>
+                      </div>
+
+
                     </>
                   )}
                 </SectionCard>

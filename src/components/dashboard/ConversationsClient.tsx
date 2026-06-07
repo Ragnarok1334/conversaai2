@@ -132,10 +132,27 @@ export default function ConversationsClient({ user, assistants, currentPlan }: {
   // Filtrado local básico para UI fluida
   const filteredConversations = conversations.filter(c => {
     const matchesSearch = c.visitor_name?.toLowerCase().includes(search.toLowerCase()) || 
-                          c.last_message?.toLowerCase().includes(search.toLowerCase())
+                          c.last_message?.toLowerCase().includes(search.toLowerCase()) ||
+                          c.visitor_email?.toLowerCase().includes(search.toLowerCase()) ||
+                          c.visitor_phone?.toLowerCase().includes(search.toLowerCase()) ||
+                          c.assistant?.assistant_name?.toLowerCase().includes(search.toLowerCase())
     const matchesStatus = statusFilter === 'all' || c.status === statusFilter
     return matchesSearch && matchesStatus
   })
+
+  // Selección automática
+  useEffect(() => {
+    if (filteredConversations.length > 0) {
+      if (!selectedConv || !filteredConversations.find(c => c.id === selectedConv.id)) {
+        handleSelectConversation(filteredConversations[0])
+      }
+    } else {
+      if (selectedConv && conversations.length > 0) {
+        // Search hid everything, don't necessarily clear it, or clear it if strict
+        setSelectedConv(null)
+      }
+    }
+  }, [filteredConversations, selectedConv])
 
   if (loading) {
     return <div className="p-8 text-center text-text-soft">Cargando conversaciones...</div>
@@ -226,8 +243,11 @@ export default function ConversationsClient({ user, assistants, currentPlan }: {
                     <span className="text-[10px] text-text-soft shrink-0">{getTimeAgo(conv.last_message_at)}</span>
                   </div>
                   <div className="flex justify-between items-end">
-                    <p className="text-xs text-text-soft truncate flex-1 pr-2">{conv.last_message || 'Sin mensajes'}</p>
-                    <span className="shrink-0">{channelIcon[conv.channel] || channelIcon.webchat}</span>
+                    <p className={`text-xs truncate flex-1 pr-2 ${selectedConv?.id === conv.id ? 'text-brand-violet/80' : 'text-text-soft'}`}>{conv.last_message || 'Sin mensajes'}</p>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {conv.lead && conv.lead.length > 0 && <Users className="w-3.5 h-3.5 text-brand-cyan" />}
+                      <span className={`${selectedConv?.id === conv.id ? 'text-brand-violet' : 'text-text-soft'}`}>{channelIcon[conv.channel] || channelIcon.webchat}</span>
+                    </div>
                   </div>
                 </button>
               ))}
@@ -238,73 +258,138 @@ export default function ConversationsClient({ user, assistants, currentPlan }: {
           </div>
 
           {/* Right: Detail */}
-          <div className="flex-1 flex flex-col bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl overflow-hidden relative">
+          <div className="flex-1 flex bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl overflow-hidden relative">
             {selectedConv ? (
               <>
-                {/* Detail Header */}
-                <div className="p-4 border-b border-white/[0.05] flex justify-between items-center bg-white/[0.02]">
-                  <div>
-                    <h3 className="font-semibold">{selectedConv.visitor_name || selectedConv.visitor_email || 'Visitante anónimo'}</h3>
-                    <p className="text-xs text-text-soft flex items-center gap-1">
-                      {channelIcon[selectedConv.channel] || channelIcon.webchat}
-                      <span className="capitalize">{selectedConv.channel}</span> · {selectedConv.assistant?.assistant_name || 'Asistente'}
-                    </p>
+                <div className="flex-1 flex flex-col min-w-0 border-r border-white/[0.05]">
+                  {/* Detail Header */}
+                  <div className="p-4 border-b border-white/[0.05] flex justify-between items-center bg-white/[0.02]">
+                    <div className="min-w-0 pr-4">
+                      <h3 className="font-semibold truncate">{selectedConv.visitor_name || selectedConv.visitor_email || 'Visitante anónimo'}</h3>
+                      <p className="text-xs text-text-soft flex items-center gap-1.5 mt-0.5 truncate">
+                        {channelIcon[selectedConv.channel] || channelIcon.webchat}
+                        <span className="capitalize">{selectedConv.channel}</span> 
+                        <span className="w-1 h-1 rounded-full bg-white/20"></span> 
+                        <span className="truncate">{selectedConv.assistant?.assistant_name || 'Asistente general'}</span>
+                        <span className="w-1 h-1 rounded-full bg-white/20"></span>
+                        <span className={
+                          selectedConv.status === 'open' ? 'text-brand-cyan' :
+                          selectedConv.status === 'pending' ? 'text-brand-violet' : 'text-text-soft'
+                        }>
+                          {selectedConv.status === 'open' ? 'Abierta' : selectedConv.status === 'pending' ? 'Pendiente' : 'Cerrada'}
+                        </span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {selectedConv.status !== 'closed' && (
+                        <button
+                          onClick={() => handleUpdateStatus(selectedConv.id, 'closed')}
+                          className="px-3 py-1.5 bg-white/[0.05] hover:bg-white/[0.1] text-text-soft hover:text-white border border-white/[0.05] text-xs font-medium rounded-lg transition-colors"
+                        >
+                          Cerrar
+                        </button>
+                      )}
+                      {selectedConv.status === 'open' && (
+                        <button
+                          onClick={() => handleUpdateStatus(selectedConv.id, 'pending')}
+                          className="px-3 py-1.5 bg-brand-violet/10 hover:bg-brand-violet/20 text-brand-violet border border-brand-violet/20 text-xs font-medium rounded-lg transition-colors"
+                        >
+                          Marcar pendiente
+                        </button>
+                      )}
+                      {selectedConv.status !== 'open' && (
+                        <button
+                          onClick={() => handleUpdateStatus(selectedConv.id, 'open')}
+                          className="px-3 py-1.5 bg-brand-cyan/10 hover:bg-brand-cyan/20 text-brand-cyan border border-brand-cyan/20 text-xs font-medium rounded-lg transition-colors"
+                        >
+                          Reabrir
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
+
+                  {/* Messages Timeline */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#050b1a]">
+                    {loadingMessages ? (
+                      <div className="text-center text-text-soft text-sm">Cargando mensajes...</div>
+                    ) : messages.length === 0 ? (
+                      <div className="text-center text-text-soft text-sm">No hay mensajes.</div>
+                    ) : (
+                      messages.map((msg: any) => (
+                        <div key={msg.id} className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'self-end items-end ml-auto' : 'self-start items-start'}`}>
+                          <div className={`p-3.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-gradient-to-br from-brand-violet/30 to-brand-cyan/20 text-white rounded-br-sm border border-brand-violet/30 shadow-[0_4px_20px_rgba(124,58,237,0.1)]' : 'bg-white/[0.03] text-white/90 rounded-bl-sm border border-white/[0.05]'}`}>
+                            {msg.content}
+                          </div>
+                          <span className="text-[10px] text-text-soft mt-1.5 mx-1 font-medium">
+                            {new Date(msg.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Sidebar Contexto */}
+                <div className="w-64 bg-white/[0.01] flex flex-col p-5 overflow-y-auto custom-scrollbar shrink-0">
+                  <h4 className="text-xs font-semibold text-text-soft uppercase tracking-wider mb-4">Datos detectados</h4>
+                  
+                  {(!selectedConv.visitor_name && !selectedConv.visitor_email && !selectedConv.visitor_phone && (!selectedConv.lead || selectedConv.lead.length === 0)) ? (
+                    <div className="text-center py-6 px-2 bg-white/[0.02] rounded-xl border border-white/[0.05] mt-2">
+                      <p className="text-xs text-text-soft">Todavía no se detectan datos de contacto.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {selectedConv.visitor_name && (
+                        <div>
+                          <p className="text-[10px] text-text-soft uppercase">Nombre</p>
+                          <p className="text-sm font-medium truncate">{selectedConv.visitor_name}</p>
+                        </div>
+                      )}
+                      {selectedConv.visitor_email && (
+                        <div>
+                          <p className="text-[10px] text-text-soft uppercase">Email</p>
+                          <p className="text-sm font-medium text-brand-cyan truncate">{selectedConv.visitor_email}</p>
+                        </div>
+                      )}
+                      {selectedConv.visitor_phone && (
+                        <div>
+                          <p className="text-[10px] text-text-soft uppercase">Teléfono</p>
+                          <p className="text-sm font-medium truncate">{selectedConv.visitor_phone}</p>
+                        </div>
+                      )}
+                      {selectedConv.last_message && (
+                        <div>
+                          <p className="text-[10px] text-text-soft uppercase">Mensaje de interés</p>
+                          <p className="text-xs text-white/80 line-clamp-3 leading-relaxed mt-0.5">{selectedConv.last_message}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-8 pt-6 border-t border-white/[0.05]">
+                    <h4 className="text-xs font-semibold text-text-soft uppercase tracking-wider mb-4">Lead relacionado</h4>
                     {selectedConv.lead && selectedConv.lead.length > 0 ? (
                       <Link 
                         href={`/dashboard/leads?id=${selectedConv.lead[0].id}`}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-medium rounded-lg transition-colors"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-brand-cyan/10 hover:bg-brand-cyan/20 text-brand-cyan border border-brand-cyan/20 text-sm font-medium rounded-xl transition-all"
                       >
-                        <Users className="w-3.5 h-3.5" /> Ver lead
+                        <Users className="w-4 h-4" /> Ver Lead
                       </Link>
                     ) : (
                       <button
                         onClick={() => setShowConvertModal(true)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-violet/10 border border-brand-violet/20 hover:bg-brand-violet/20 text-brand-violet text-xs font-medium rounded-lg transition-colors"
+                        className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-brand-violet/10 hover:bg-brand-violet/20 text-brand-violet border border-brand-violet/20 text-sm font-medium rounded-xl transition-all"
                       >
-                        <Users className="w-3.5 h-3.5" /> Convertir a lead
+                        <Users className="w-4 h-4" /> Convertir a Lead
                       </button>
                     )}
-                    <select
-                      value={selectedConv.status}
-                      onChange={(e) => handleUpdateStatus(selectedConv.id, e.target.value)}
-                      className={`text-xs px-3 py-1.5 rounded-lg border font-medium outline-none ${
-                        selectedConv.status === 'open' ? 'bg-brand-cyan/10 text-brand-cyan border-brand-cyan/20' :
-                        selectedConv.status === 'closed' ? 'bg-white/10 text-white/70 border-white/20' :
-                        'bg-brand-violet/10 text-brand-violet border-brand-violet/20'
-                      }`}
-                    >
-                      <option value="open">Abierta</option>
-                      <option value="pending">Pendiente</option>
-                      <option value="closed">Cerrada</option>
-                    </select>
                   </div>
-                </div>
-
-                {/* Messages Timeline */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-                  {loadingMessages ? (
-                    <div className="text-center text-text-soft text-sm">Cargando mensajes...</div>
-                  ) : messages.length === 0 ? (
-                    <div className="text-center text-text-soft text-sm">No hay mensajes.</div>
-                  ) : (
-                    messages.map((msg: any) => (
-                      <div key={msg.id} className={`flex flex-col max-w-[80%] ${msg.role === 'user' ? 'self-end items-end ml-auto' : 'self-start items-start'}`}>
-                        <div className={`p-3 rounded-2xl text-sm ${msg.role === 'user' ? 'bg-brand-violet/20 text-white rounded-br-sm border border-brand-violet/30' : 'bg-white/[0.05] text-white/90 rounded-bl-sm border border-white/[0.05]'}`}>
-                          {msg.content}
-                        </div>
-                        <span className="text-[10px] text-text-soft mt-1 mx-1">
-                          {new Date(msg.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    ))
-                  )}
                 </div>
               </>
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-text-soft text-sm">
-                Selecciona una conversación para ver los detalles.
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-text-soft bg-white/[0.01]">
+                <MessageSquare className="w-12 h-12 mb-4 text-white/10" />
+                <p className="text-sm font-medium">Selecciona una conversación para ver los detalles.</p>
               </div>
             )}
           </div>

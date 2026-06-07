@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('leads')
-      .select('*, assistant:assistants(assistant_name, business_name)', { count: 'exact' })
+      .select('*, assistant:assistants(assistant_name, business_name), conversation:conversations(last_message)', { count: 'exact' })
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(limit)

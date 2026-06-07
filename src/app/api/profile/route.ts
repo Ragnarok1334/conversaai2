@@ -32,6 +32,14 @@ export async function GET() {
         phone: null,
         country: null,
         avatar_url: user.user_metadata?.avatar_url ?? null,
+        business_type: null,
+        preferred_channel: null,
+        onboarding_goal: null,
+        city: null,
+        website: null,
+        support_email: null,
+        address: null,
+        business_hours: null,
       })
     }
 
@@ -63,7 +71,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // Whitelist — never accept id or user_id from body
-    const allowedFields = ['full_name', 'company_name', 'phone', 'country']
+    const allowedFields = ['full_name', 'company_name', 'phone', 'country', 'business_type', 'preferred_channel', 'onboarding_goal', 'city', 'website', 'support_email', 'address', 'business_hours']
     const patch: Record<string, string | null> = {}
     for (const field of allowedFields) {
       if (field in body) {

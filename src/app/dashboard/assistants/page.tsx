@@ -168,8 +168,20 @@ export default function AssistantsPage() {
       </div>
 
       <div className="pt-4 border-t border-white/[0.05]">
-        <h2 className="text-xl font-bold text-white mb-2">Tus asistentes por área</h2>
-        <p className="text-sm text-text-soft mb-6">Puedes crear asistentes separados para diferentes áreas: ventas, soporte técnico, agendamiento de citas, o sucursales específicas.</p>
+        <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-8">
+          <div className="flex-1">
+            <h2 className="text-xl font-bold text-white mb-1">Organiza tu atención por áreas</h2>
+            <p className="text-sm text-text-soft">
+              Crea asistentes separados para ventas, soporte, reservas, sucursales o servicios específicos.
+              Cada asistente puede tener su propio objetivo, tono, reglas e información — sin mezclar datos ni perder precisión.
+            </p>
+          </div>
+          <div className="shrink-0 hidden sm:flex gap-3 text-[11px] text-slate-500 flex-col items-end pt-1">
+            <span className="flex items-center gap-1.5">🛒 <span className="text-slate-400">Ventas</span> → precios y cierre</span>
+            <span className="flex items-center gap-1.5">🎧 <span className="text-slate-400">Soporte</span> → dudas y seguimiento</span>
+            <span className="flex items-center gap-1.5">📅 <span className="text-slate-400">Reservas</span> → horarios y citas</span>
+          </div>
+        </div>
       </div>
 
       {/* BUSCADOR Y FILTROS */}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { logAuditEvent } from '@/lib/audit'
 
 export async function GET() {
   try {
@@ -18,17 +19,19 @@ export async function GET() {
     // If no settings row yet, return safe defaults
     if (!settings) {
       return NextResponse.json({
-        weekly_summary: true,
-        lead_alerts: false,
+        weekly_summary: false,
+        lead_alerts: true,
         conversation_alerts: true,
-        message_limit_alerts: true,
-        payment_alerts: true,
+        usage_limit_alerts: true,
+        billing_alerts: true,
+        security_alerts: true,
+        product_updates: false,
+        email_notifications: false,
+        dashboard_notifications: true,
+        telegram_notifications: false,
         dashboard_density: 'comfortable',
         default_dashboard_page: 'dashboard',
-        display_name: user.user_metadata?.name || null,
-        company_name: null,
-        phone: null,
-        country: null,
+        language: 'es'
       })
     }
 
@@ -47,19 +50,32 @@ export async function PATCH(req: NextRequest) {
 
     const body = await req.json()
 
-    // Only allow safe fields — never trust user_id from body
-    const allowed = [
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[PATCH /api/settings] User: ${user.id} | Body:`, body)
+    }
+
+    // Only allow safe boolean fields — never trust user_id from body
+    const booleanFields = [
       'weekly_summary', 'lead_alerts', 'conversation_alerts',
-      'message_limit_alerts', 'payment_alerts',
-      'dashboard_density', 'default_dashboard_page',
-      'display_name', 'company_name', 'phone', 'country',
+      'usage_limit_alerts', 'billing_alerts', 'security_alerts',
+      'product_updates', 'email_notifications', 'dashboard_notifications',
+      'telegram_notifications'
     ]
     const patch: Record<string, unknown> = {}
-    for (const key of allowed) {
-      if (key in body) patch[key] = body[key]
+    
+    for (const key of booleanFields) {
+      if (key in body) {
+        // Validate it's actually a boolean to prevent SQL type errors
+        if (typeof body[key] === 'boolean') {
+          patch[key] = body[key]
+        }
+      }
     }
 
     if (Object.keys(patch).length === 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`[PATCH /api/settings] No valid boolean fields found in body.`)
+      }
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
@@ -76,13 +92,24 @@ export async function PATCH(req: NextRequest) {
       .single()
 
     if (error) {
-      console.error('[PATCH /api/settings] upsert error:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[PATCH /api/settings] upsert error details:', error)
+      return NextResponse.json({ error: 'Error guardando preferencias' }, { status: 500 })
     }
+
+    // Only log if not just read
+    await logAuditEvent({
+      userId: user.id,
+      action: 'notification_settings_updated',
+      entityType: 'settings',
+      entityId: user.id,
+      description: 'Se actualizaron las preferencias de notificación',
+      metadata: { updates: Object.keys(patch) },
+      req
+    })
 
     return NextResponse.json(data)
   } catch (err) {
-    console.error('[PATCH /api/settings]', err)
+    console.error('[PATCH /api/settings] unexpected error:', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }

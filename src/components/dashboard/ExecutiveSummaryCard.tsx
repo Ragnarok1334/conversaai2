@@ -10,6 +10,7 @@ export interface ExecutiveSummary {
     label: string
     value: string
     status: 'success' | 'warning' | 'neutral' | 'danger' | 'attention'
+    desc?: string
   }[]
   nextStep: {
     title: string
@@ -105,11 +106,16 @@ export function ExecutiveSummaryCard({ summary }: Props) {
                   : 'bg-white/[0.04] border-white/10 text-white'
 
             return (
-              <div key={i} className="flex flex-col gap-1 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+              <div key={i} className="flex flex-col gap-1.5 p-3.5 rounded-xl bg-white/[0.02] border border-white/[0.05] relative overflow-hidden group hover:bg-white/[0.04] transition-colors">
                 <span className="text-[10px] uppercase font-bold text-text-soft tracking-wider">{h.label}</span>
-                <span className={`text-xs font-semibold px-2 py-1 rounded-lg border ${badgeColor} inline-block w-max`}>
+                <span className={`text-xs font-semibold px-2 py-1 rounded-lg border ${badgeColor} inline-block w-max mb-0.5`}>
                   {h.value}
                 </span>
+                {h.desc && (
+                  <span className="text-[10px] font-medium text-slate-400 mt-0.5">
+                    {h.desc}
+                  </span>
+                )}
               </div>
             )
           })}

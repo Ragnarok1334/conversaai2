@@ -5,6 +5,7 @@ import { Stats } from "@/components/Stats";
 import { HowItWorks } from "@/components/HowItWorks";
 import { FeaturesSection } from "@/components/home/FeaturesSection";
 import { UseCases } from "@/components/UseCases";
+import { SpecializedAssistantsSection } from "@/components/SpecializedAssistantsSection";
 import { Pricing } from "@/components/Pricing";
 import { ReviewsSection } from "@/components/ReviewsSection";
 import { FAQ } from "@/components/FAQ";
@@ -24,6 +25,7 @@ export default function Home() {
       {/* FeaturesSection: modular, con modal de detalle por feature */}
       <FeaturesSection />
       <UseCases />
+      <SpecializedAssistantsSection />
       <Pricing />
       <ReviewsSection />
       <FAQ />

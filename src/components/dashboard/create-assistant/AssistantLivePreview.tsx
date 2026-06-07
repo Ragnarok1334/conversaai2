@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Bot, Loader2, Sparkles, Trash2, AlertTriangle } from 'lucide-react'
+import { Send, Bot, Loader2, Sparkles, Trash2, AlertTriangle, MessageSquare, Zap } from 'lucide-react'
 import { BuilderFormData } from './types'
 
 interface Message {
@@ -46,18 +46,26 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
 
     if (goal === 'captar leads') {
       greeting += rules.askName ? ' Para brindarte una mejor atención, ¿me compartirías tu nombre y qué servicio buscas?' : ' Cuéntame qué servicio buscas.'
-    }
-    else if (goal === 'dar soporte') greeting += ' Por favor, indícame el detalle de tu solicitud y lo revisaré de inmediato.'
-    else if (goal === 'vender productos') greeting += ' Cuéntame qué estás buscando y te enviaré nuestras mejores opciones.'
-    else if (goal === 'agendar citas') greeting += ' Indícame qué día, horario y servicio necesitas para revisar nuestra agenda.'
-    else greeting += ' Dime cómo puedo ayudarte hoy.'
-    
-    if (rules.askContact && goal !== 'captar leads') {
-      greeting += ' (Si la consulta es compleja, te pediré un correo o teléfono para contactarte).'
+    } else if (goal === 'dar soporte') {
+      greeting += ' Por favor, indícame el detalle de tu solicitud y lo revisaré de inmediato.'
+    } else if (goal === 'vender productos') {
+      greeting += ' Cuéntame qué estás buscando y te enviaré nuestras mejores opciones.'
+    } else if (goal === 'agendar citas') {
+      greeting += ' Indícame qué día, horario y servicio necesitas para revisar nuestra agenda.'
+    } else {
+      greeting += ' Dime cómo puedo ayudarte hoy.'
     }
 
-    if (!rules.escalateIfUnknown) {
-      greeting += ' Intentaré resolver todas tus dudas por aquí.'
+    if (rules.askContact && goal !== 'captar leads') {
+      greeting += ' Si la consulta es compleja, te pediré un correo o teléfono para contactarte.'
+    }
+
+    if (rules.doNotInvent) {
+      greeting += ' Si no cuento con un dato, te lo diré con claridad.'
+    }
+
+    if (rules.escalateIfUnknown && goal !== 'dar soporte') {
+      greeting += ' Si no tengo la información exacta, puedo derivarte con alguien del equipo.'
     }
 
     return greeting
@@ -196,15 +204,35 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center py-8">
-            <Bot className="w-12 h-12 text-brand-violet/40 mb-3" />
-            <div className="bg-brand-violet/10 border border-brand-violet/20 rounded-2xl p-4 text-sm text-slate-200 mb-6 max-w-[85%] text-left italic shadow-lg">
+          <div className="h-full flex flex-col items-center justify-center text-center py-6 px-2">
+            {/* Encabezado del asistente */}
+            <div className="w-full mb-4 bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 text-left">
+              <div className="flex items-center gap-2 mb-2">
+                <Bot className="w-4 h-4 text-brand-violet" />
+                <span className="text-xs font-semibold text-white">{form.assistant_name || 'Nuevo Asistente'}</span>
+                <span className="ml-auto text-[10px] px-1.5 py-0.5 bg-amber-400/10 border border-amber-400/20 text-amber-400 rounded-full">Borrador</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">Tono: <span className="text-slate-300 capitalize">{form.behavior.tone}</span></span>
+                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">Objetivo: <span className="text-slate-300 capitalize">{form.behavior.goal}</span></span>
+                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">
+                  <span className="text-slate-300">{form.instructions.length}</span> chars
+                </span>
+              </div>
+            </div>
+
+            {/* Mensaje de bienvenida dinámico */}
+            <div className="bg-brand-violet/10 border border-brand-violet/20 rounded-2xl p-4 text-sm text-slate-200 mb-4 w-full text-left italic shadow-lg">
               "{getSimulatedGreeting()}"
             </div>
-            <div className="flex flex-wrap gap-2 justify-center">
+
+            {/* Preguntas rápidas */}
+            <p className="text-[10px] text-slate-500 mb-2">Preguntas de ejemplo</p>
+            <div className="flex flex-wrap gap-2 justify-center mb-4">
               {getQuickQuestions().map((s) => (
                 <button
                   key={s}
+                  type="button"
                   onClick={() => handleSendSimulated(s)}
                   className="text-[11px] px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:text-white hover:border-brand-violet/30 transition-all"
                 >
@@ -212,6 +240,11 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
                 </button>
               ))}
             </div>
+
+            {/* Nota inferior */}
+            <p className="text-[10px] text-slate-600 leading-relaxed max-w-[220px]">
+              Vista previa local. Las pruebas reales con IA pueden consumir mensajes de tu plan.
+            </p>
           </div>
         )}
 
