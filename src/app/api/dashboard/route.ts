@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { normalizePlan, getPlanConfig, getPlanLimits, getUsagePercentage, formatLimit } from '@/lib/plans'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
@@ -12,8 +13,7 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const supabaseAdmin = createSupabaseAdmin()
-
+    // Usaremos el cliente estándar (RLS) que ahora debería ser seguro para lectura.
     // Fetch all data in parallel
     const [
       profileResult,
@@ -47,7 +47,7 @@ export async function GET() {
       supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
       // New leads (last 7 days)
       supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-      // assistant_channels (check if table exists and has data)
+      // assistant_channels
       supabase.from('assistant_channels').select('channel, is_enabled, config, assistant_id').eq('user_id', user.id).eq('is_enabled', true).limit(50),
       // Recent notifications (activity feed)
       supabase.from('notifications').select('id, title, message, type, created_at, metadata').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
@@ -58,66 +58,83 @@ export async function GET() {
       // Recent leads (for activity fallback)
       supabase.from('leads').select('id, created_at, name, email, source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       // Assistant domains for real webchat verification
-      supabase.from('assistant_domains').select('is_verified, verification_status, last_seen_at').eq('user_id', user.id),
+      supabase.from('assistant_domains').select('domain, is_verified, verification_status, last_seen_at, last_seen_url, assistant_id').eq('user_id', user.id),
     ])
 
     // --- Plan & Usage ---
-    let subscription = subscriptionResult.data
-
-    // Fallback: create free subscription if none found
-    if (!subscription) {
-      const planCfg = getPlanConfig('free')
-      const { data: newSub } = await supabaseAdmin
-        .from('subscriptions')
-        .insert({
-          user_id: user.id,
-          plan: 'free',
-          status: 'active',
-          assistants_limit: planCfg.assistantsLimit ?? 1,
-          messages_limit: planCfg.messagesLimit ?? 100,
-          current_messages_used: 0,
-        })
-        .select()
-        .single()
-      subscription = newSub
+    // Dashboard route is read-only. We don't create fallback free subscriptions here anymore.
+    const subscription = subscriptionResult.data || {
+      plan: 'free',
+      status: 'active',
+      current_messages_used: 0,
     }
 
-    const planKey = normalizePlan(subscription?.plan ?? 'free')
+    const planKey = normalizePlan(subscription.plan ?? 'free')
     const planConfig = getPlanConfig(planKey)
     const planLimits = getPlanLimits(planKey)
+    
     const assistantsUsed = assistantsResult.count ?? 0
-    const messagesUsed = subscription?.current_messages_used ?? 0
+    const messagesUsed = subscription.current_messages_used ?? 0
+    
+    // Limits
     const messagesLimit = planLimits.messagesPerMonth === Infinity ? null : planLimits.messagesPerMonth
     const assistantsLimit = planLimits.assistants === Infinity ? null : planLimits.assistants
-
-    // --- Channel Status ---
-    const channelRows = assistantChannelsResult.data ?? []
     
-    // Web Chat Status derivation
-    const domains = assistantDomainsResult.data ?? []
-    let webchatStatus = 'missing_domain'
+    const messagesPercentage = messagesLimit ? Math.round((messagesUsed / messagesLimit) * 100) : 0
+    const assistantsPercentage = assistantsLimit ? Math.round((assistantsUsed / assistantsLimit) * 100) : 0
 
-    if (assistantsUsed > 0) {
-      if (domains.length === 0) {
-        webchatStatus = 'missing_domain'
-      } else {
-        // Find if any domain is blocked
-        const hasBlocked = domains.some(d => d.verification_status === 'blocked')
-        // Find if any is verified and has last_seen_at
-        const hasVerified = domains.some(d => d.is_verified && d.last_seen_at)
-        
-        if (hasBlocked && !hasVerified) {
-          webchatStatus = 'blocked'
-        } else if (hasVerified) {
-          webchatStatus = 'installed'
-        } else {
-          webchatStatus = 'pending'
-        }
-      }
-    } else {
-      webchatStatus = 'missing_domain' // Will show "crea tu primer asistente"
+    // --- Web Chat Status & Object ---
+    const domains = assistantDomainsResult.data ?? []
+    
+    let webchatObj = {
+      status: 'missing_domain',
+      label: 'Falta agregar dominio',
+      domain: undefined as string | undefined,
+      lastSeenAt: undefined as string | undefined,
+      lastSeenUrl: undefined as string | undefined,
+      assistantId: undefined as string | undefined
     }
 
+    if (assistantsUsed === 0) {
+      webchatObj.label = 'Crea un asistente primero'
+    } else if (domains.length > 0) {
+      // Find priority domain: blocked -> installed -> pending -> missing
+      const blocked = domains.find(d => d.verification_status === 'blocked')
+      const installed = domains.find(d => d.is_verified && d.verification_status === 'verified' && d.last_seen_at)
+      const pending = domains.find(d => !d.is_verified || d.verification_status === 'pending' || !d.last_seen_at)
+
+      if (blocked) {
+        webchatObj = {
+          status: 'blocked',
+          label: 'Dominio bloqueado',
+          domain: blocked.domain,
+          lastSeenAt: blocked.last_seen_at || undefined,
+          lastSeenUrl: blocked.last_seen_url || undefined,
+          assistantId: blocked.assistant_id
+        }
+      } else if (installed) {
+        webchatObj = {
+          status: 'installed',
+          label: 'Instalado',
+          domain: installed.domain,
+          lastSeenAt: installed.last_seen_at || undefined,
+          lastSeenUrl: installed.last_seen_url || undefined,
+          assistantId: installed.assistant_id
+        }
+      } else if (pending) {
+        webchatObj = {
+          status: 'pending',
+          label: 'Pendiente de instalación',
+          domain: pending.domain,
+          lastSeenAt: undefined,
+          lastSeenUrl: undefined,
+          assistantId: pending.assistant_id
+        }
+      }
+    }
+
+    // --- Channel Integrations Status ---
+    const channelRows = assistantChannelsResult.data ?? []
     const hasTelegramActive = channelRows.some(
       (r) => r.channel === 'telegram' && r.is_enabled === true && (r.config as any)?.telegram_token
     )
@@ -125,23 +142,120 @@ export async function GET() {
     const telegramStatus = !telegramAllowed ? 'locked' : hasTelegramActive ? 'connected' : 'pending'
 
     const channels = {
-      webchat: webchatStatus,
+      webchat: webchatObj.status, // string shorthand compatibility
       telegram: telegramStatus,
-      whatsapp: 'coming_soon', // Always, never mark as connected
+      whatsapp: 'coming_soon',
+    }
+
+    // --- Health / Readiness Score ---
+    // Calculations purely based on real metrics
+    const hasAssistant = assistantsUsed > 0
+    const hasDomain = domains.length > 0
+    const hasVerifiedWidget = webchatObj.status === 'installed'
+    const hasConversations = (conversationsResult.count ?? 0) > 0
+    const hasLeads = (leadsResult.count ?? 0) > 0
+
+    let score = 0
+    if (hasAssistant) score += 20
+    if (hasDomain) score += 20
+    if (hasVerifiedWidget) score += 20
+    if (hasConversations) score += 20
+    if (hasLeads) score += 20
+
+    const healthLabel = score === 0 ? "Cuenta nueva" 
+                      : score < 60 ? "Configuración pendiente"
+                      : score < 100 ? "Casi listo"
+                      : "Operación óptima"
+
+    const health = {
+      score,
+      label: healthLabel,
+      items: [
+        { key: 'assistant', label: 'Asistente creado', done: hasAssistant, href: '/dashboard/create-assistant' },
+        { key: 'domain', label: 'Dominio autorizado', done: hasDomain, href: '/dashboard/assistants' },
+        { key: 'widget', label: 'Web Chat detectado', done: hasVerifiedWidget, href: '/dashboard/assistants' },
+        { key: 'conversations', label: 'Primeras conversaciones', done: hasConversations, href: '/dashboard/conversations' },
+        { key: 'leads', label: 'Primer lead captado', done: hasLeads, href: '/dashboard/leads' },
+      ]
+    }
+
+    // --- Next Action Priority Logic ---
+    let nextAction = {
+      type: 'review',
+      title: 'Todo listo. Revisa tus conversaciones y leads',
+      description: 'Tu asistente está operando y listo para captar clientes.',
+      cta: 'Ver conversaciones',
+      href: '/dashboard/conversations',
+      priority: 'low'
+    }
+
+    if (messagesLimit && messagesPercentage >= 90) {
+      nextAction = {
+        type: 'upgrade',
+        title: 'Límite de mensajes cerca',
+        description: `Has usado el ${messagesPercentage}% de tus mensajes. Actualiza tu plan para que tu asistente siga respondiendo.`,
+        cta: planKey === 'business' ? 'Administrar plan' : 'Mejorar plan',
+        href: '/dashboard/billing',
+        priority: 'high'
+      }
+    } else if (!hasAssistant) {
+      nextAction = {
+        type: 'create_assistant',
+        title: 'Crea tu primer asistente',
+        description: 'Empieza configurando cómo se comportará tu IA de soporte y ventas.',
+        cta: 'Crear asistente',
+        href: '/dashboard/create-assistant',
+        priority: 'high'
+      }
+    } else if (!hasDomain) {
+      nextAction = {
+        type: 'add_domain',
+        title: 'Agrega tu dominio para instalar Web Chat',
+        description: 'Debes autorizar el sitio web donde planeas integrar a tu asistente.',
+        cta: 'Configurar dominio',
+        href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install`,
+        priority: 'high'
+      }
+    } else if (!hasVerifiedWidget) {
+      nextAction = {
+        type: 'install_widget',
+        title: 'Copia el script e instálalo en tu sitio',
+        description: 'El dominio está autorizado, pero aún no detectamos el Web Chat en tu sitio.',
+        cta: 'Ver instrucciones',
+        href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install`,
+        priority: 'high'
+      }
+    } else if (!hasConversations && !hasLeads) {
+      nextAction = {
+        type: 'test_assistant',
+        title: 'Prueba tu asistente y empieza a captar prospectos',
+        description: 'El Web Chat ya está instalado. Haz una prueba enviando un mensaje o pidiendo dejar datos.',
+        cta: 'Ver página instalada',
+        href: webchatObj.lastSeenUrl || '#',
+        priority: 'medium'
+      }
+    } else if (hasConversations && !hasLeads) {
+      nextAction = {
+        type: 'review_conversations',
+        title: 'Tu asistente está conversando',
+        description: 'Revisa las charlas en curso para asegurarte de que la IA responda como esperas.',
+        cta: 'Ver conversaciones',
+        href: '/dashboard/conversations',
+        priority: 'medium'
+      }
     }
 
     // --- Alerts ---
-    const messagesPercentage = messagesLimit ? Math.round((messagesUsed / messagesLimit) * 100) : 0
-    const assistantsPercentage = assistantsLimit ? Math.round((assistantsUsed / assistantsLimit) * 100) : 0
     const alerts: { type: string; message: string; action?: string; href?: string }[] = []
 
     if (subscription?.status !== 'active') {
-      alerts.push({ type: 'error', message: 'Tu suscripción no está activa. Revisa tu facturación.', action: 'Ver facturación', href: '/dashboard/billing' })
+      alerts.push({ type: 'error', message: 'Tu suscripción no está activa. El asistente no responderá.', action: 'Ver facturación', href: '/dashboard/billing' })
+    }
+    if (webchatObj.status === 'blocked') {
+      alerts.push({ type: 'error', message: 'Tu dominio de Web Chat se encuentra bloqueado por políticas de seguridad.', action: 'Soporte', href: '/contact' })
     }
     if (messagesLimit && messagesPercentage >= 90) {
       alerts.push({ type: 'warning', message: `Usaste el ${messagesPercentage}% de tus mensajes este ciclo.`, action: planKey === 'business' ? 'Administrar' : 'Mejorar plan', href: '/dashboard/billing' })
-    } else if (messagesLimit && messagesPercentage >= 80) {
-      alerts.push({ type: 'info', message: `Llevas el ${messagesPercentage}% de tus mensajes este ciclo.`, action: 'Ver uso', href: '/dashboard/billing' })
     }
     if (assistantsLimit && assistantsUsed >= assistantsLimit) {
       alerts.push({ type: 'warning', message: 'Alcanzaste el límite de asistentes de tu plan.', action: planKey === 'business' || planKey === 'enterprise' ? 'Administrar' : 'Mejorar plan', href: '/dashboard/billing' })
@@ -151,7 +265,6 @@ export async function GET() {
     let activity: { id: string; type: string; title: string; description: string; created_at: string; href?: string }[] = []
 
     if (notificationsResult.data && notificationsResult.data.length > 0) {
-      // Use notifications table as feed
       activity = notificationsResult.data.map((n) => ({
         id: n.id,
         type: n.type ?? 'notification',
@@ -161,7 +274,7 @@ export async function GET() {
         href: (n.metadata as any)?.assistantId ? `/dashboard/assistants/${(n.metadata as any).assistantId}` : undefined,
       }))
     } else {
-      // Fallback: combine assistants, conversations, leads
+      // Fallback
       const assistantItems = (recentAssistantsResult.data ?? []).map((a) => ({
         id: `assistant-${a.id}`,
         type: 'assistant',
@@ -192,7 +305,7 @@ export async function GET() {
         .slice(0, 10)
     }
 
-    // --- Response ---
+    // --- Final Response ---
     return NextResponse.json({
       profile: {
         full_name: profileResult.data?.full_name || user.user_metadata?.full_name || null,
@@ -232,9 +345,17 @@ export async function GET() {
         created_at: a.created_at,
         tone: a.tone,
       })),
+      webchat: webchatObj,
       channels,
+      health,
+      nextAction,
       alerts,
       activity,
+    }, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+        'Pragma': 'no-cache',
+      }
     })
   } catch (err) {
     console.error('[GET /api/dashboard]', err)

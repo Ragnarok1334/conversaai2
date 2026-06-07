@@ -35,24 +35,27 @@ export function DashboardChannels({ channels, planKey, firstAssistantId }: Props
       name: 'Web Chat',
       icon: Globe,
       iconColor: 'text-brand-cyan',
-      description: 'Widget para integrar en tu sitio web.',
+      description: 
+        channels.webchat === 'installed' ? 'Detectado recientemente en tu sitio.'
+        : channels.webchat === 'pending' ? 'El dominio está autorizado, falta detectar el script.'
+        : 'Agrega el dominio donde instalarás el widget.',
       status: channels.webchat,
       statusLabel:
         channels.webchat === 'installed' ? 'Instalado'
-        : channels.webchat === 'pending' ? 'Pendiente de instalación'
-        : channels.webchat === 'blocked' ? 'Dominio bloqueado'
-        : 'Falta agregar dominio',
+        : channels.webchat === 'pending' ? 'Pendiente'
+        : channels.webchat === 'blocked' ? 'Bloqueado'
+        : 'Falta dominio',
       statusColor:
         channels.webchat === 'installed' ? 'text-brand-success'
         : channels.webchat === 'pending' ? 'text-amber-400'
-        : channels.webchat === 'blocked' ? 'text-rose-500'
+        : channels.webchat === 'blocked' ? 'text-brand-pink'
         : 'text-slate-400',
       statusIcon:
         channels.webchat === 'installed' ? CheckCircle2
         : channels.webchat === 'blocked' ? Lock
         : Clock,
       ctaLabel:
-        channels.webchat === 'installed' ? 'Ver detalles'
+        channels.webchat === 'installed' ? 'Ver instalación'
         : channels.webchat === 'pending' ? 'Copiar script'
         : channels.webchat === 'blocked' ? 'Revisar dominios'
         : 'Agregar dominio',

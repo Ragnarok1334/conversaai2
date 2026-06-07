@@ -13,10 +13,10 @@ interface Stats {
 }
 
 interface Usage {
+  assistantsLimit: number | null
   messagesUsed: number
   messagesLimit: number | null
   messagesPercentage: number
-  messagesLimitFormatted: string
 }
 
 interface Props {
@@ -29,17 +29,17 @@ function StatCard({
   label,
   value,
   subtitle,
-  trend,
   color,
   href,
+  ctaText
 }: {
   icon: React.ElementType
   label: string
   value: number | string
   subtitle: string
-  trend?: string
   color: 'violet' | 'cyan' | 'pink' | 'green'
   href: string
+  ctaText: string
 }) {
   const colorMap = {
     violet: {
@@ -74,50 +74,60 @@ function StatCard({
   const c = colorMap[color]
 
   return (
-    <Link
-      href={href}
-      className={`group relative overflow-hidden rounded-2xl p-5 bg-card-bg/80 backdrop-blur-xl border ${c.border} ${c.hover} ${c.glow} hover:-translate-y-0.5 transition-all duration-200`}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className={`w-10 h-10 rounded-xl ${c.bg} flex items-center justify-center flex-shrink-0`}>
-          <Icon className={`w-5 h-5 ${c.icon}`} />
+    <div className={`group relative overflow-hidden rounded-3xl p-5 md:p-6 bg-card-bg/80 backdrop-blur-xl border ${c.border} flex flex-col justify-between`}>
+      <div>
+        <div className="flex items-start justify-between mb-4">
+          <div className={`w-12 h-12 rounded-2xl ${c.bg} flex items-center justify-center flex-shrink-0`}>
+            <Icon className={`w-6 h-6 ${c.icon}`} />
+          </div>
         </div>
-        <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-slate-400 group-hover:translate-x-0.5 transition-all" />
-      </div>
-      <p className="text-3xl font-bold text-white mb-1">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-      <p className="text-xs font-medium text-slate-400 mb-1">{label}</p>
-      {subtitle && (
-        <p className="text-[11px] text-slate-500 flex items-center gap-1">
-          <TrendingUp className="w-3 h-3 text-brand-success" />
+        <p className="text-3xl md:text-4xl font-bold text-white mb-2 tracking-tight">
+          {typeof value === 'number' ? value.toLocaleString() : value}
+        </p>
+        <p className="text-sm font-semibold text-white mb-1">{label}</p>
+        <p className="text-xs text-text-soft flex items-center gap-1.5 mb-5">
+          <span className={`w-1.5 h-1.5 rounded-full ${c.icon.replace('text-', 'bg-')}`} />
           {subtitle}
         </p>
-      )}
-    </Link>
+      </div>
+      
+      <Link
+        href={href}
+        className={`flex items-center justify-between pt-4 mt-auto border-t border-white/5 text-xs font-medium text-text-secondary ${c.hover.replace('border-', 'text-').replace('/40', '')} transition-colors`}
+      >
+        {ctaText}
+        <ArrowRight className="w-3.5 h-3.5 transform group-hover:translate-x-1 transition-transform" />
+      </Link>
+    </div>
   )
 }
 
 export function DashboardStatsRow({ stats, usage }: Props) {
-  const messagesLabel = usage.messagesLimit
-    ? `${usage.messagesUsed.toLocaleString()} / ${usage.messagesLimitFormatted}`
-    : `${usage.messagesUsed.toLocaleString()} usados`
+  const assistantsLimitStr = usage.assistantsLimit ? ` de ${usage.assistantsLimit}` : ''
+  
+  const messagesAvailable = usage.messagesLimit 
+    ? Math.max(0, usage.messagesLimit - usage.messagesUsed)
+    : 'Ilimitados'
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
       <StatCard
         icon={Bot}
-        label="Asistentes"
-        value={stats.assistantCount}
-        subtitle={`${stats.activeAssistantCount} activos`}
+        label="Asistentes activos"
+        value={stats.activeAssistantCount}
+        subtitle={`${stats.assistantCount}${assistantsLimitStr} en total`}
         color="violet"
         href="/dashboard/assistants"
+        ctaText="Ver asistentes"
       />
       <StatCard
         icon={MessageSquare}
         label="Conversaciones"
         value={stats.conversationCount}
-        subtitle={`${stats.openConversationCount} abiertas`}
+        subtitle={`${stats.openConversationCount} abiertas actualmente`}
         color="cyan"
         href="/dashboard/conversations"
+        ctaText="Ver conversaciones"
       />
       <StatCard
         icon={Users}
@@ -126,14 +136,16 @@ export function DashboardStatsRow({ stats, usage }: Props) {
         subtitle={`${stats.newLeadCount} nuevos esta semana`}
         color="pink"
         href="/dashboard/leads"
+        ctaText="Ver leads"
       />
       <StatCard
         icon={Zap}
         label="Mensajes del ciclo"
-        value={messagesLabel}
-        subtitle={usage.messagesLimit ? `${usage.messagesPercentage}% usado` : 'Sin límite'}
+        value={usage.messagesUsed}
+        subtitle={usage.messagesLimit ? `${messagesAvailable} disponibles (${100 - usage.messagesPercentage}%)` : 'Mensajes ilimitados'}
         color={usage.messagesPercentage >= 80 ? 'pink' : 'green'}
         href="/dashboard/billing"
+        ctaText="Ver facturación"
       />
     </div>
   )

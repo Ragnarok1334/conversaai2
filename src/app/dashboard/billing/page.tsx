@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { PlanUsageCard } from '@/components/dashboard/PlanUsageCard'
 import { PlanComparison } from '@/components/dashboard/PlanComparison'
 import { PaymentHistory } from '@/components/dashboard/PaymentHistory'
-import { PLAN_CONFIGS } from '@/lib/plans'
+import { PLAN_CONFIGS, normalizePlan, getPlanConfig, getPlanLimits } from '@/lib/plans'
 import { Check, Lock, Sparkles, Receipt, CreditCard, Shield, Clock, Zap } from 'lucide-react'
 import Link from 'next/link'
 
@@ -23,11 +23,46 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
 
   const { data: subscription } = await supabase
     .from('subscriptions')
-    .select('plan')
+    .select('*')
     .eq('user_id', user.id)
     .single()
 
+  const { count: assistantsCount } = await supabase
+    .from('assistants')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
   const currentPlan = subscription?.plan || 'free'
+  const planKey = normalizePlan(currentPlan)
+  const planConfig = getPlanConfig(planKey)
+  const planLimits = getPlanLimits(planKey)
+  
+  const assistantsUsed = assistantsCount ?? 0
+  const messagesUsed = subscription?.current_messages_used ?? 0
+  
+  const messagesLimit = planLimits.messagesPerMonth === Infinity ? null : planLimits.messagesPerMonth
+  const assistantsLimit = planLimits.assistants === Infinity ? null : planLimits.assistants
+  
+  const messagesPercentage = messagesLimit ? Math.round((messagesUsed / messagesLimit) * 100) : 0
+  const assistantsPercentage = assistantsLimit ? Math.round((assistantsUsed / assistantsLimit) * 100) : 0
+
+  const planProp = {
+    key: planKey,
+    label: planConfig.label,
+    status: subscription?.status ?? 'active',
+    channels: planConfig.channels,
+    description: planConfig.description,
+  }
+
+  const usageProp = {
+    assistantsUsed,
+    assistantsLimit,
+    messagesUsed,
+    messagesLimit,
+    messagesPercentage,
+    assistantsPercentage,
+  }
+
   const plans = [PLAN_CONFIGS.free, PLAN_CONFIGS.pro, PLAN_CONFIGS.business, PLAN_CONFIGS.enterprise]
 
   return (
@@ -85,7 +120,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
           <Sparkles className="w-5 h-5 text-brand-violet" /> 
           Uso actual
         </h2>
-        <PlanUsageCard />
+        <PlanUsageCard plan={planProp} usage={usageProp} />
         <p className="text-xs text-text-soft flex justify-end">
           El uso de mensajes se reinicia el primer día de cada ciclo de facturación.
         </p>
