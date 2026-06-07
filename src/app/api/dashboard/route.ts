@@ -245,6 +245,72 @@ export async function GET() {
       }
     }
 
+    // --- Executive Summary Logic ---
+    let execStatus: "empty" | "setup" | "ready" | "active" | "attention" = "empty"
+    let execTitle = ""
+    let execMessage = ""
+    let execNextStep = { title: "", description: "", cta: "", href: "" }
+
+    if (messagesLimit && messagesPercentage >= 100) {
+      execStatus = "attention"
+      execTitle = "Límite de mensajes alcanzado"
+      execMessage = "Has consumido el 100% de tus mensajes. Tu asistente está pausado. Mejora tu plan para reactivarlo."
+      execNextStep = { title: "Límite de plan alcanzado", description: "Mejora tu plan para continuar operando.", cta: "Mejorar plan", href: "/dashboard/billing" }
+    } else if (messagesLimit && messagesPercentage >= 90) {
+      execStatus = "attention"
+      execTitle = "Tu cuenta requiere atención"
+      execMessage = `Estás cerca del límite de mensajes de tu plan. Revisa tu consumo para evitar interrupciones.`
+      execNextStep = { title: "Consumo elevado", description: "Evita interrupciones gestionando tu plan mensual.", cta: "Gestionar plan", href: "/dashboard/billing" }
+    } else {
+      if (!hasAssistant) {
+        execStatus = "empty"
+        execTitle = "Tu cuenta está lista para comenzar"
+        execMessage = "Crea tu primer asistente para empezar a responder clientes, capturar leads e instalar el Web Chat en tu sitio."
+        execNextStep = { title: "Crea tu primer asistente", description: "Configura la IA que responderá por ti.", cta: "Crear asistente", href: "/dashboard/create-assistant" }
+      } else if (!hasDomain) {
+        execStatus = "setup"
+        execTitle = "Tu asistente ya está creado"
+        execMessage = "Ahora agrega el dominio de tu sitio para poder instalar el Web Chat y empezar a recibir conversaciones."
+        execNextStep = { title: "Agrega tu dominio", description: "Autoriza tu web para instalar el chat.", cta: "Agregar dominio", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install` }
+      } else if (!hasVerifiedWidget) {
+        execStatus = "setup"
+        execTitle = "Falta instalar el Web Chat"
+        execMessage = "El dominio ya está autorizado, pero todavía no detectamos el script instalado en tu sitio."
+        execNextStep = { title: "Instala el Web Chat", description: "Copia y pega el código en tu sitio web.", cta: "Ver instrucciones", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install` }
+      } else if (!hasConversations) {
+        execStatus = "ready"
+        execTitle = "Web Chat instalado correctamente"
+        execMessage = "El asistente ya está listo en tu sitio. Prueba una conversación para validar cómo responde."
+        execNextStep = { title: "Prueba tu asistente", description: "Asegúrate de que todo funciona bien.", cta: "Probar asistente", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=playground` }
+      } else if (!hasLeads) {
+        execStatus = "active"
+        execTitle = "Tu asistente ya está atendiendo conversaciones"
+        execMessage = "Aún no se han captado leads. Revisa si el asistente está solicitando nombre, correo o teléfono cuando corresponde."
+        execNextStep = { title: "Ver conversaciones en curso", description: "Monitorea cómo responde tu IA a los clientes.", cta: "Ver conversaciones", href: "/dashboard/conversations" }
+      } else {
+        execStatus = "active"
+        execTitle = "Tu automatización ya está generando oportunidades"
+        execMessage = "Tu asistente ya captó leads. Revisa los prospectos nuevos y dales seguimiento."
+        execNextStep = { title: "Revisa tus prospectos", description: "Contacta a los clientes que dejaron sus datos.", cta: "Ver leads", href: "/dashboard/leads" }
+      }
+    }
+
+    const execHighlights = [
+      { label: "Plan", value: planConfig.label, status: "neutral" },
+      { label: "Web Chat", value: webchatObj.label, status: webchatObj.status === 'installed' ? "success" : webchatObj.status === 'pending' || webchatObj.status === 'missing_domain' ? "warning" : "danger" },
+      { label: "Asistentes", value: `${assistantsUsed} / ${formatLimit(assistantsLimit)}`, status: assistantsUsed >= (assistantsLimit || Infinity) ? "warning" : "neutral" },
+      { label: "Conversaciones", value: String(conversationsResult.count ?? 0), status: (conversationsResult.count ?? 0) > 0 ? "success" : "neutral" },
+      { label: "Leads", value: String(leadsResult.count ?? 0), status: (leadsResult.count ?? 0) > 0 ? "success" : "neutral" },
+    ].slice(0, 5)
+
+    const executiveSummary = {
+      status: execStatus,
+      title: execTitle,
+      message: execMessage,
+      highlights: execHighlights,
+      nextStep: execNextStep
+    }
+
     // --- Alerts ---
     const alerts: { type: string; message: string; action?: string; href?: string }[] = []
 
@@ -349,6 +415,7 @@ export async function GET() {
       channels,
       health,
       nextAction,
+      executiveSummary,
       alerts,
       activity,
     }, {

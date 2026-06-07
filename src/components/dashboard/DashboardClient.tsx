@@ -12,6 +12,7 @@ import { PlanUsageCard } from '@/components/dashboard/PlanUsageCard'
 import { DashboardStatsRow } from '@/components/dashboard/DashboardStatsRow'
 import { DashboardActivity } from '@/components/dashboard/DashboardActivity'
 import { DashboardChannels } from '@/components/dashboard/DashboardChannels'
+import { ExecutiveSummaryCard, ExecutiveSummary } from '@/components/dashboard/ExecutiveSummaryCard'
 
 // Types mirroring API response
 interface DashboardData {
@@ -66,6 +67,7 @@ interface DashboardData {
     href: string
     priority: 'high' | 'medium' | 'low'
   }
+  executiveSummary: ExecutiveSummary
   alerts: { type: string; message: string; action?: string; href?: string }[]
   activity: { id: string; type: string; title: string; description: string; created_at: string; href?: string }[]
 }
@@ -223,49 +225,35 @@ export function DashboardClient({ initialData, userId }: Props) {
         </div>
       )}
 
-      {/* B & C. Hero Operativo / Acción Recomendada */}
+      {/* B. Resumen Ejecutivo */}
+      <ExecutiveSummaryCard summary={data.executiveSummary} />
+
+      {/* C & D. Hero Operativo / Uso y Health */}
       <div className="grid lg:grid-cols-3 gap-6">
         
-        {/* Next Action & Health Panel */}
+        {/* Health Panel (Checklist de cuenta) */}
         <div className="lg:col-span-1 rounded-[2rem] bg-card-bg/80 backdrop-blur-2xl border border-card-border p-6 md:p-8 flex flex-col relative overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-5">
             <Activity className="w-32 h-32" />
           </div>
           
-          <div className="relative z-10">
-            <h2 className="text-xl font-bold text-white mb-6">Próxima acción</h2>
-            
-            <div className={`p-5 rounded-2xl mb-8 ${data.nextAction.priority === 'high' ? 'bg-brand-violet/10 border border-brand-violet/20' : 'bg-white/[0.04] border border-white/10'}`}>
-              <h3 className="text-base font-bold text-white mb-2">{data.nextAction.title}</h3>
-              <p className="text-sm text-text-soft mb-5 line-clamp-3">{data.nextAction.description}</p>
-              <Link
-                href={data.nextAction.href}
-                className={`inline-flex items-center justify-center w-full gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  data.nextAction.priority === 'high'
-                    ? 'bg-brand-violet text-white hover:bg-brand-violet/90 hover:shadow-[0_0_15px_rgba(124,58,237,0.3)]'
-                    : 'bg-white/10 text-white hover:bg-white/15'
-                }`}
-              >
-                {data.nextAction.cta} <ArrowUpRight className="w-4 h-4" />
-              </Link>
-            </div>
-
+          <div className="relative z-10 flex-1 flex flex-col justify-center">
             <div>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-semibold text-white">Preparación de cuenta</span>
                 <span className="text-xs font-bold text-brand-cyan">{data.health.score}%</span>
               </div>
-              <div className="h-1.5 w-full bg-white/[0.04] rounded-full overflow-hidden mb-4">
+              <div className="h-1.5 w-full bg-white/[0.04] rounded-full overflow-hidden mb-5">
                 <div 
                   className="h-full bg-gradient-to-r from-brand-violet to-brand-cyan transition-all duration-1000" 
                   style={{ width: `${data.health.score}%` }} 
                 />
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {data.health.items.map(item => (
                   <Link key={item.key} href={item.href} className="flex items-center gap-2 group cursor-pointer">
-                    <CheckCircle className={`w-3.5 h-3.5 ${item.done ? 'text-brand-success' : 'text-slate-600'}`} />
-                    <span className={`text-xs font-medium transition-colors ${item.done ? 'text-slate-400' : 'text-slate-300 group-hover:text-white'}`}>
+                    <CheckCircle className={`w-4 h-4 ${item.done ? 'text-brand-success' : 'text-slate-600'}`} />
+                    <span className={`text-sm font-medium transition-colors ${item.done ? 'text-slate-400' : 'text-slate-300 group-hover:text-white'}`}>
                       {item.label}
                     </span>
                   </Link>
