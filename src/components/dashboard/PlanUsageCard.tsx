@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion'
 import { Sparkles, Crown, Zap, Bot, MessageSquare, Briefcase, Building } from 'lucide-react'
 import Link from 'next/link'
 import { formatLimit, getChannelLabel } from '@/lib/plans'
@@ -22,7 +21,13 @@ interface Props {
 }
 
 export function PlanUsageCard({ plan, usage }: Props) {
-  const isPremium = plan.key !== 'free'
+  const isPremium = plan?.key !== 'free'
+  const messagesPct = usage?.messagesPercentage ?? 0;
+  const assistantsPct = usage?.assistantsPercentage ?? 0;
+  const messagesUsed = usage?.messagesUsed ?? 0;
+  const assistantsUsed = usage?.assistantsUsed ?? 0;
+  const messagesLimit = usage?.messagesLimit ?? null;
+  const assistantsLimit = usage?.assistantsLimit ?? null;
 
   const getPlanIcon = () => {
     switch (plan.key) {
@@ -87,17 +92,15 @@ export function PlanUsageCard({ plan, usage }: Props) {
                   <MessageSquare className="w-3.5 h-3.5 shrink-0" />
                   Mensajes del ciclo
                 </div>
-                <span className={`text-xs font-semibold whitespace-nowrap ${usage.messagesPercentage > 90 ? 'text-brand-pink' : 'text-white'}`}>
-                  {usage.messagesUsed.toLocaleString()}
-                  <span className="text-text-soft font-normal"> / {formatLimit(usage.messagesLimit)}</span>
+                <span className={`text-xs font-semibold whitespace-nowrap ${messagesPct > 90 ? 'text-brand-pink' : 'text-white'}`}>
+                  {messagesUsed.toLocaleString()}
+                  <span className="text-text-soft font-normal"> / {formatLimit(messagesLimit)}</span>
                 </span>
               </div>
               <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(usage.messagesPercentage, 100)}%` }}
-                  transition={{ duration: 1, ease: 'easeOut' }}
-                  className={`h-full rounded-full ${usage.messagesPercentage > 90 ? 'bg-brand-pink' : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'}`}
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ease-out ${messagesPct > 90 ? 'bg-brand-pink' : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'}`}
+                  style={{ width: `${Math.min(messagesPct, 100)}%` }}
                 />
               </div>
             </div>
@@ -109,17 +112,15 @@ export function PlanUsageCard({ plan, usage }: Props) {
                   <Bot className="w-3.5 h-3.5 shrink-0" />
                   Asistentes creados
                 </div>
-                <span className={`text-xs font-semibold whitespace-nowrap ${usage.assistantsPercentage > 90 ? 'text-brand-pink' : 'text-white'}`}>
-                  {usage.assistantsUsed}
-                  <span className="text-text-soft font-normal"> / {formatLimit(usage.assistantsLimit)}</span>
+                <span className={`text-xs font-semibold whitespace-nowrap ${assistantsPct > 90 ? 'text-brand-pink' : 'text-white'}`}>
+                  {assistantsUsed}
+                  <span className="text-text-soft font-normal"> / {formatLimit(assistantsLimit)}</span>
                 </span>
               </div>
               <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(usage.assistantsPercentage, 100)}%` }}
-                  transition={{ duration: 1, ease: 'easeOut', delay: 0.2 }}
-                  className={`h-full rounded-full ${usage.assistantsPercentage > 90 ? 'bg-brand-pink' : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'}`}
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ease-out ${assistantsPct > 90 ? 'bg-brand-pink' : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'}`}
+                  style={{ width: `${Math.min(assistantsPct, 100)}%` }}
                 />
               </div>
             </div>

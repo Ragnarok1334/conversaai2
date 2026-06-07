@@ -4,6 +4,8 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plans'
 import { logAuditEvent } from '@/lib/audit'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/assistants — list user's assistants
 export async function GET() {
   try {
@@ -14,15 +16,56 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { data, error } = await supabase
+    const { data: assistants, error } = await supabase
       .from('assistants')
-      .select('*')
+      .select(`
+        *,
+        assistant_domains ( verification_status )
+      `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    return NextResponse.json({ assistants: data })
+    // Fetch counts for conversations and leads
+    const { data: convData } = await supabase
+      .from('conversations')
+      .select('assistant_id')
+      .eq('user_id', user.id)
+
+    const { data: leadsData } = await supabase
+      .from('leads')
+      .select('assistant_id')
+      .eq('user_id', user.id)
+
+    // Compute stats
+    const enrichedAssistants = assistants?.map(assistant => {
+      const conversationsCount = convData?.filter(c => c.assistant_id === assistant.id).length || 0
+      const leadsCount = leadsData?.filter(l => l.assistant_id === assistant.id).length || 0
+      
+      // Determine webchat status from domains
+      // Priority: installed -> pending -> blocked -> missing_domain
+      let webchatStatus = 'missing_domain'
+      if (assistant.assistant_domains && assistant.assistant_domains.length > 0) {
+        const statuses = assistant.assistant_domains.map((d: any) => d.verification_status)
+        if (statuses.includes('installed') || statuses.includes('verified')) {
+          webchatStatus = 'installed'
+        } else if (statuses.includes('pending')) {
+          webchatStatus = 'pending'
+        } else if (statuses.includes('blocked')) {
+          webchatStatus = 'blocked'
+        }
+      }
+
+      return {
+        ...assistant,
+        conversationsCount,
+        leadsCount,
+        webchatStatus
+      }
+    })
+
+    return NextResponse.json({ assistants: enrichedAssistants })
   } catch (error) {
     console.error('[GET /api/assistants]', error)
     return NextResponse.json({ error: 'Error al obtener asistentes' }, { status: 500 })

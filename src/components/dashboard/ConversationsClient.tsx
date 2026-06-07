@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Globe, Send, MessageCircle, Clock, Plus, Settings, Search, Filter, CheckCircle2 } from 'lucide-react'
+import { MessageSquare, Globe, Send, MessageCircle, Clock, Plus, Settings, Search, Filter, CheckCircle2, Users } from 'lucide-react'
 import Link from 'next/link'
 import ChannelConnectActions from '@/components/dashboard/ChannelConnectActions'
+import { ConvertLeadModal } from './ConvertLeadModal'
 
 const channelIcon: Record<string, React.ReactNode> = {
   webchat: <Globe className="w-4 h-4" />,
@@ -22,6 +23,7 @@ export default function ConversationsClient({ user, assistants, currentPlan }: {
   const [selectedConv, setSelectedConv] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
+  const [showConvertModal, setShowConvertModal] = useState(false)
 
   // Filtros
   const [search, setSearch] = useState('')
@@ -249,6 +251,21 @@ export default function ConversationsClient({ user, assistants, currentPlan }: {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
+                    {selectedConv.lead && selectedConv.lead.length > 0 ? (
+                      <Link 
+                        href={`/dashboard/leads?id=${selectedConv.lead[0].id}`}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-medium rounded-lg transition-colors"
+                      >
+                        <Users className="w-3.5 h-3.5" /> Ver lead
+                      </Link>
+                    ) : (
+                      <button
+                        onClick={() => setShowConvertModal(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-violet/10 border border-brand-violet/20 hover:bg-brand-violet/20 text-brand-violet text-xs font-medium rounded-lg transition-colors"
+                      >
+                        <Users className="w-3.5 h-3.5" /> Convertir a lead
+                      </button>
+                    )}
                     <select
                       value={selectedConv.status}
                       onChange={(e) => handleUpdateStatus(selectedConv.id, e.target.value)}
@@ -292,6 +309,19 @@ export default function ConversationsClient({ user, assistants, currentPlan }: {
             )}
           </div>
         </div>
+      )}
+
+      {selectedConv && (
+        <ConvertLeadModal
+          isOpen={showConvertModal}
+          onClose={() => setShowConvertModal(false)}
+          conversation={selectedConv}
+          onSuccess={(newLead) => {
+            const updatedConv = { ...selectedConv, lead: [newLead] }
+            setSelectedConv(updatedConv)
+            setConversations(prev => prev.map(c => c.id === updatedConv.id ? updatedConv : c))
+          }}
+        />
       )}
     </div>
   )

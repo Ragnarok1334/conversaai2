@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
@@ -21,7 +23,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from('conversations')
-      .select('*, assistant:assistants(assistant_name, business_name)', { count: 'exact' })
+      .select('*, assistant:assistants(assistant_name, business_name), lead:leads(id)', { count: 'exact' })
       .eq('user_id', user.id)
       .order('last_message_at', { ascending: false })
       .limit(limit)

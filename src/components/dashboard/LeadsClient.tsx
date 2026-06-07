@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Users, Mail, Phone, Globe, TrendingUp, Clock, CheckCircle2, Plus, Link as LinkIcon, Search } from 'lucide-react'
+import { Users, Mail, Phone, Globe, TrendingUp, Clock, CheckCircle2, Plus, Link as LinkIcon, Search, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import ChannelConnectActions from '@/components/dashboard/ChannelConnectActions'
 
@@ -212,17 +212,27 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
                             {new Date(lead.created_at).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' })}
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <select
-                              value={lead.status}
-                              onChange={(e) => handleUpdateStatus(lead.id, e.target.value)}
-                              className="bg-white/[0.05] hover:bg-white/[0.1] transition-colors border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
-                            >
-                              <option value="new">Nuevo</option>
-                              <option value="contacted">Contactado</option>
-                              <option value="qualified">Calificado</option>
-                              <option value="converted">Convertido</option>
-                              <option value="discarded">Descartado</option>
-                            </select>
+                            <div className="flex items-center justify-end gap-3">
+                              {lead.conversation_id && (
+                                <Link 
+                                  href={`/dashboard/conversations?id=${lead.conversation_id}`}
+                                  className="text-text-soft hover:text-brand-violet transition-colors text-xs flex items-center gap-1"
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5" /> Ver conv.
+                                </Link>
+                              )}
+                              <select
+                                value={lead.status}
+                                onChange={(e) => handleUpdateStatus(lead.id, e.target.value)}
+                                className="bg-white/[0.05] hover:bg-white/[0.1] transition-colors border border-white/[0.1] rounded-lg px-2 py-1 text-xs text-white focus:outline-none"
+                              >
+                                <option value="new">Nuevo</option>
+                                <option value="contacted">Contactado</option>
+                                <option value="qualified">Calificado</option>
+                                <option value="converted">Convertido</option>
+                                <option value="discarded">Descartado</option>
+                              </select>
+                            </div>
                           </td>
                         </tr>
                       )

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Globe, MessageCircle, Send, Pencil, Trash2, Calendar, Plug, Play, CheckCircle2, ChevronRight, Lock, AlertCircle, Sparkles } from 'lucide-react'
+import { Globe, MessageCircle, Send, Pencil, Trash2, Calendar, Plug, Play, CheckCircle2, ChevronRight, Lock, AlertCircle, Sparkles, Users } from 'lucide-react'
 import Link from 'next/link'
 import { AssistantInstallModal } from './AssistantInstallModal'
 import { AssistantTestModal } from './AssistantTestModal'
@@ -16,6 +16,9 @@ interface Assistant {
   tone: string
   status: string
   created_at: string
+  webchatStatus?: string
+  conversationsCount?: number
+  leadsCount?: number
 }
 
 interface AssistantCardProps {
@@ -164,13 +167,28 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
           </div>
         </div>
 
-        {/* Canales */}
+        {/* Canales y Estadísticas */}
         <div className="mb-4">
-          <p className="text-[10px] text-text-soft font-semibold uppercase tracking-wider mb-2">Canales</p>
-          <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-xs font-medium">
-              <Globe className="w-3.5 h-3.5" /> Web Chat
-            </div>
+          <p className="text-[10px] text-text-soft font-semibold uppercase tracking-wider mb-2">Canales e Interacciones</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {assistant.webchatStatus === 'installed' ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-brand-success/10 border border-brand-success/20 text-brand-success text-xs font-medium">
+                <Globe className="w-3.5 h-3.5" /> Web Chat (Instalado)
+              </div>
+            ) : assistant.webchatStatus === 'pending' ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-xs font-medium">
+                <Globe className="w-3.5 h-3.5" /> Web Chat (Pendiente)
+              </div>
+            ) : assistant.webchatStatus === 'blocked' ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-brand-pink/10 border border-brand-pink/20 text-brand-pink text-xs font-medium">
+                <Globe className="w-3.5 h-3.5" /> Web Chat (Bloqueado)
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08] text-text-soft text-xs font-medium">
+                <Globe className="w-3.5 h-3.5" /> Web Chat (Falta dominio)
+              </div>
+            )}
+            
             {planLimits.channels.telegram ? (
               <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#0088cc]/10 border border-[#0088cc]/20 text-[#0088cc] text-xs font-medium">
                 <Send className="w-3.5 h-3.5" /> Telegram
@@ -180,9 +198,16 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
                 <Send className="w-3.5 h-3.5 opacity-50" /> <Lock className="w-2.5 h-2.5" /> Telegram
               </div>
             )}
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-brand-success/5 border border-brand-success/10 text-brand-success/50 text-xs font-medium grayscale">
-              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
-            </div>
+          </div>
+          <div className="flex gap-4 text-xs">
+            <Link href={`/dashboard/conversations?assistantId=${assistant.id}`} className="flex items-center gap-1 text-text-soft hover:text-white transition-colors">
+              <MessageCircle className="w-4 h-4 text-brand-violet" /> 
+              <span className="font-semibold text-white">{assistant.conversationsCount || 0}</span> conv.
+            </Link>
+            <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex items-center gap-1 text-text-soft hover:text-white transition-colors">
+              <Users className="w-4 h-4 text-brand-cyan" /> 
+              <span className="font-semibold text-white">{assistant.leadsCount || 0}</span> leads
+            </Link>
           </div>
         </div>
 

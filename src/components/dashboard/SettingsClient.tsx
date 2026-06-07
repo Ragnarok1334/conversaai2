@@ -6,7 +6,7 @@ import {
   ExternalLink, Copy, Check, Zap, Bot, Globe2, Layers,
   BarChart3, Loader2, AlertCircle, CheckCircle2, X,
   Wifi, WifiOff, ChevronRight, Sparkles, Crown, Briefcase,
-  Building, MessageSquare,
+  Building, MessageSquare, Phone, MapPin
 } from 'lucide-react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -95,7 +95,6 @@ function SectionHeader({ icon, title, subtitle }: { icon: React.ReactNode; title
   )
 }
 
-/** Toggle switch with loading state */
 function SettingSwitch({
   label, description, checked, loading, onChange,
 }: {
@@ -130,8 +129,6 @@ function SettingSwitch({
   )
 }
 
-// ─── Plan badge ─────────────────────────────────────────────────────────────
-
 function PlanIcon({ plan }: { plan: string }) {
   switch (plan) {
     case 'pro': return <Crown className="w-3.5 h-3.5" />
@@ -155,8 +152,6 @@ function UsageBar({ used, limit, color }: { used: number; limit: number | null; 
     </div>
   )
 }
-
-// ─── Logout confirmation modal ───────────────────────────────────────────────
 
 function LogoutModal({ open, onCancel }: { open: boolean; onCancel: () => void }) {
   return (
@@ -209,8 +204,6 @@ function LogoutModal({ open, onCancel }: { open: boolean; onCancel: () => void }
   )
 }
 
-// ─── Edit profile modal ──────────────────────────────────────────────────────
-
 function EditProfileModal({
   open, initialValues, onClose, onSave,
 }: {
@@ -262,7 +255,7 @@ function EditProfileModal({
             className="bg-[#080f28]/95 border border-white/10 rounded-2xl p-7 max-w-md w-full shadow-2xl"
           >
             <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold text-white text-base">Editar perfil</h3>
+              <h3 className="font-semibold text-white text-base">Editar información</h3>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-text-soft hover:text-white transition-all">
                 <X className="w-4 h-4" />
               </button>
@@ -300,6 +293,8 @@ function EditProfileModal({
 // ─── Main component ──────────────────────────────────────────────────────────
 export function SettingsClient({ userName, email, joinDate, assistantCount }: Props) {
   const { refreshProfile } = useProfile()
+
+  const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'security' | 'notifications' | 'channels' | 'billing'>('profile')
 
   // ── Toast state ────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' })
@@ -427,15 +422,15 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
       const data = await res.json()
       if (res.ok && data.success) {
         setProfileValues(values)
-        showToast('Perfil actualizado correctamente')
+        showToast('Información actualizada correctamente')
         refreshProfile()
       } else {
-        const errMsg = data.error || 'No se pudo guardar el perfil'
+        const errMsg = data.error || 'No se pudo guardar la información'
         showToast(errMsg, 'error')
         console.error('[handleSaveProfile]', data)
       }
     } catch (err) {
-      showToast('Error de conexión al guardar perfil', 'error')
+      showToast('Error de conexión', 'error')
       console.error('[handleSaveProfile] network error', err)
     }
   }
@@ -477,9 +472,6 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   const hasAssistant = assistantCount > 0
 
   // ── Channel statuses ───────────────────────────────────────────────────────
-  // Web Chat: always available per plan; actionable only if user has an assistant
-  // Telegram: requires plan that includes telegram
-  // WhatsApp: always 'coming soon' as backend is not yet implemented
   const channelStatus = {
     webchat: {
       available: true,
@@ -502,7 +494,7 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
       actionHref: planLimits.channels.telegram ? '/dashboard/assistants' : '/dashboard/billing',
     },
     whatsapp: {
-      available: false, // Not yet implemented — always show as coming soon
+      available: false,
       configured: false,
       label: 'WhatsApp',
       description: 'Próximamente disponible',
@@ -513,16 +505,23 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
     },
   }
 
+  const TABS = [
+    { id: 'profile', label: 'Perfil', icon: <User className="w-4 h-4" /> },
+    { id: 'company', label: 'Empresa', icon: <Building className="w-4 h-4" /> },
+    { id: 'security', label: 'Seguridad', icon: <Shield className="w-4 h-4" /> },
+    { id: 'notifications', label: 'Notificaciones', icon: <Bell className="w-4 h-4" /> },
+    { id: 'channels', label: 'Canales', icon: <Layers className="w-4 h-4" /> },
+    { id: 'billing', label: 'Facturación', icon: <Zap className="w-4 h-4" /> },
+  ] as const
+
   return (
     <>
-      {/* Toast */}
       <AnimatePresence>
         {toast.show && (
           <Toast key="toast" message={toast.message} type={toast.type} onClose={() => setToast(prev => ({ ...prev, show: false }))} />
         )}
       </AnimatePresence>
 
-      {/* Modals */}
       <LogoutModal open={showLogout} onCancel={() => setShowLogout(false)} />
       <EditProfileModal
         open={showEditProfile}
@@ -531,394 +530,462 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
         onSave={handleSaveProfile}
       />
 
-      <div className="max-w-3xl mx-auto space-y-6">
-
-        {/* ── Page header ─────────────────────────────────────────────────── */}
-        <div>
+      <div className="max-w-6xl mx-auto pb-12">
+        <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Configuración</h1>
           <p className="text-text-soft mt-1 text-sm">
             Controla tu cuenta, seguridad, notificaciones e integraciones desde un solo lugar.
           </p>
         </div>
 
-        {/* ── 1. Perfil y cuenta ──────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader
-            icon={<User className="w-4.5 h-4.5 text-brand-violet" />}
-            title="Perfil y cuenta"
-            subtitle="Información principal de tu cuenta y estado de uso."
-          />
-
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
-            {/* Avatar */}
-            <div className="relative shrink-0">
-              <div className="w-16 h-16 rounded-2xl gradient-btn flex items-center justify-center text-white font-bold text-2xl shadow-[0_0_30px_rgba(124,58,237,0.3)]">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-              {isPremium && (
-                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-r from-brand-violet to-brand-blue flex items-center justify-center">
-                  <PlanIcon plan={plan} />
-                </div>
-              )}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 mb-0.5">
-                <p className="font-semibold text-lg text-white">{displayName}</p>
-                {profileValues.company_name && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-text-soft">
-                    {profileValues.company_name}
-                  </span>
-                )}
-              </div>
-              <p className="text-text-soft text-sm flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5" /> {email}
-              </p>
-              {profileValues.phone && (
-                <p className="text-text-soft text-xs mt-0.5">{profileValues.phone}</p>
-              )}
-            </div>
-
-            {/* Edit button */}
-            <button
-              onClick={() => setShowEditProfile(true)}
-              className="shrink-0 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-brand-violet/40 transition-all"
-            >
-              Editar perfil
-            </button>
-          </div>
-
-          {/* Meta grid */}
-          <div className="grid sm:grid-cols-2 gap-3 pt-2">
-            {[
-              { icon: <Shield className="w-4 h-4 text-brand-success" />, label: 'Estado', value: 'Verificado', green: true },
-              { icon: <Bot className="w-4 h-4 text-text-soft" />, label: 'Asistentes', value: `${assistantCount} creados` },
-              { icon: <Mail className="w-4 h-4 text-text-soft" />, label: 'Miembro desde', value: joinDate },
-              {
-                icon: <PlanIcon plan={plan} />,
-                label: 'Plan actual',
-                value: planConfig?.label ?? 'Free',
-                badge: isPremium,
-              },
-            ].map(({ icon, label, value, green, badge }) => (
-              <div key={label} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                <div className="shrink-0">{icon}</div>
-                <div className="min-w-0">
-                  <p className="text-xs text-text-soft">{label}</p>
-                  <p className={`text-sm font-medium truncate ${green ? 'text-brand-success' : 'text-white'}`}>
-                    {value}
-                    {badge && <span className="ml-2 text-xs px-1.5 py-0.5 rounded-full bg-brand-violet/20 text-brand-purple">activo</span>}
-                  </p>
-                </div>
-              </div>
+        <div className="flex flex-col md:flex-row gap-8 items-start">
+          
+          {/* Sidebar Menu */}
+          <div className="w-full md:w-64 shrink-0 space-y-1 bg-card-bg/50 p-2 rounded-2xl border border-card-border backdrop-blur-xl">
+            {TABS.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-brand-violet/10 text-brand-violet border border-brand-violet/20 shadow-[0_0_15px_rgba(124,58,237,0.1)]'
+                    : 'text-text-soft hover:text-white hover:bg-white/[0.04] border border-transparent'
+                }`}
+              >
+                {tab.icon}
+                {tab.label}
+              </button>
             ))}
           </div>
-        </SectionCard>
 
-        {/* ── 2. Plan y límites ────────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader
-            icon={<Zap className="w-4.5 h-4.5 text-brand-cyan" />}
-            title="Uso de tu plan"
-            subtitle="Seguimiento de tus recursos y límites activos."
-          />
-
-          {subLoading ? (
-            <div className="flex items-center gap-2 text-text-soft text-sm py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Cargando plan…
-            </div>
-          ) : (
-            <>
-              {/* Plan badge */}
-              <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
-                ${isPremium
-                  ? 'bg-gradient-to-r from-brand-violet to-brand-blue text-white shadow-[0_0_12px_rgba(124,58,237,0.4)]'
-                  : 'bg-white/[0.06] border border-white/[0.1] text-text-secondary'
-                }`}>
-                <PlanIcon plan={plan} />
-                Plan {planConfig?.label ?? 'Free'}
-                {isPremium && <span className="opacity-70">· Activo</span>}
-              </div>
-
-              {/* Usage bars */}
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs text-text-soft flex items-center gap-1.5">
-                      <Bot className="w-3.5 h-3.5" /> Asistentes
-                    </span>
-                    <span className="text-xs font-semibold text-white">
-                      {usage?.assistantsUsed ?? 0}
-                      <span className="text-text-soft font-normal">
-                        {' '}/ {planLimits.assistants === Infinity ? '∞' : planLimits.assistants}
-                      </span>
-                    </span>
-                  </div>
-                  <UsageBar
-                    used={usage?.assistantsUsed ?? 0}
-                    limit={planLimits.assistants === Infinity ? null : planLimits.assistants}
-                    color="bg-gradient-to-r from-brand-violet to-brand-blue"
+          {/* Content Area */}
+          <div className="flex-1 w-full min-w-0 space-y-6">
+            
+            {/* ── PERFIL ──────────────────────────────────────────────────────── */}
+            {activeTab === 'profile' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <SectionCard>
+                  <SectionHeader
+                    icon={<User className="w-4.5 h-4.5 text-brand-violet" />}
+                    title="Información personal"
+                    subtitle="Tus datos básicos de contacto e identificación."
                   />
-                </div>
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <span className="text-xs text-text-soft flex items-center gap-1.5">
-                      <MessageSquare className="w-3.5 h-3.5" /> Mensajes del mes
-                    </span>
-                    <span className="text-xs font-semibold text-white">
-                      {(usage?.messagesUsed ?? 0).toLocaleString()}
-                      <span className="text-text-soft font-normal">
-                        / {planLimits.messagesPerMonth === null ? '∞' : planLimits.messagesPerMonth.toLocaleString()}
-                      </span>
-                    </span>
-                  </div>
-                  <UsageBar
-                    used={usage?.messagesUsed ?? 0}
-                    limit={planLimits.messagesPerMonth === Infinity ? null : planLimits.messagesPerMonth}
-                    color="bg-gradient-to-r from-brand-cyan to-brand-blue"
-                  />
-                </div>
-              </div>
-
-              {/* CTA */}
-              {plan !== 'enterprise' && (
-                <div className="pt-1">
-                  <Link
-                    href="/dashboard/billing"
-                    className="inline-flex items-center gap-2 text-sm font-medium text-brand-violet hover:text-brand-purple transition-colors"
-                  >
-                    {plan === 'free' ? 'Mejorar mi plan' : 'Ver facturación'}
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              )}
-            </>
-          )}
-        </SectionCard>
-
-        {/* ── 3. Seguridad ────────────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader
-            icon={<Key className="w-4.5 h-4.5 text-brand-violet" />}
-            title="Seguridad"
-            subtitle="Mantén protegida tu cuenta y actualiza tus accesos cuando lo necesites."
-          />
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
-            <div>
-              <p className="text-sm font-medium text-white">Contraseña de acceso</p>
-              <p className="text-xs text-text-soft mt-0.5">
-                Te enviaremos un enlace seguro a <span className="text-brand-cyan">{email}</span>
-              </p>
-            </div>
-            <div className="shrink-0">
-              {pwStatus === 'idle' && (
-                <button
-                  onClick={handleResetPassword}
-                  className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-brand-violet/30 transition-all"
-                >
-                  Cambiar contraseña
-                </button>
-              )}
-              {pwStatus === 'loading' && (
-                <div className="flex items-center gap-2 text-text-soft text-sm px-4 py-2.5">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Enviando…
-                </div>
-              )}
-              {pwStatus === 'success' && (
-                <div className="flex items-center gap-2 text-brand-success text-sm px-4 py-2.5">
-                  <CheckCircle2 className="w-4 h-4" /> {pwMessage}
-                </div>
-              )}
-              {pwStatus === 'error' && (
-                <div className="flex flex-col gap-1">
-                  <div className="flex items-center gap-2 text-brand-pink text-sm">
-                    <AlertCircle className="w-4 h-4" /> {pwMessage}
-                  </div>
-                  <button onClick={() => setPwStatus('idle')} className="text-xs text-text-soft hover:text-white">
-                    Intentar de nuevo
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="p-3 rounded-xl bg-brand-violet/5 border border-brand-violet/10 flex items-start gap-3">
-            <Shield className="w-4 h-4 text-brand-violet shrink-0 mt-0.5" />
-            <p className="text-xs text-text-soft leading-relaxed">
-              Recomendamos usar una contraseña larga y única para ConversaAI.
-              No compartas tu contraseña con nadie.
-            </p>
-          </div>
-        </SectionCard>
-
-        {/* ── 4. Notificaciones ────────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader
-            icon={<Bell className="w-4.5 h-4.5 text-brand-violet" />}
-            title="Notificaciones"
-            subtitle="Elige qué avisos quieres recibir para no perder leads ni conversaciones importantes."
-          />
-
-          {settingsLoading ? (
-            <div className="flex items-center gap-2 text-text-soft text-sm py-2">
-              <Loader2 className="w-4 h-4 animate-spin" /> Cargando preferencias…
-            </div>
-          ) : settings ? (
-            <>
-              <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] mb-1">
-                <p className="text-xs text-text-soft">
-                  Estas preferencias se usarán para tus avisos dentro del dashboard y futuras notificaciones por correo.
-                </p>
-              </div>
-              {([
-                { key: 'weekly_summary', label: 'Resumen semanal', desc: 'Recibe un resumen de tu actividad cada semana' },
-                { key: 'lead_alerts', label: 'Alertas de leads', desc: 'Notificación cuando un nuevo lead es captado' },
-                { key: 'conversation_alerts', label: 'Nuevas conversaciones', desc: 'Aviso cuando tu asistente inicia una nueva conversación' },
-                { key: 'message_limit_alerts', label: 'Límite de mensajes', desc: 'Alerta cuando alcances el 80% de tu cuota mensual' },
-                { key: 'payment_alerts', label: 'Pagos y suscripción', desc: 'Confirmaciones de pago y cambios en tu plan' },
-              ] as { key: keyof UserSettings; label: string; desc: string }[]).map(({ key, label, desc }) => (
-                <SettingSwitch
-                  key={key}
-                  label={label}
-                  description={desc}
-                  checked={!!settings[key]}
-                  loading={togglingKey === key}
-                  onChange={(v) => toggleSetting(key, v)}
-                />
-              ))}
-            </>
-          ) : (
-            <p className="text-sm text-text-soft">No se pudieron cargar las preferencias.</p>
-          )}
-        </SectionCard>
-
-        {/* ── 5. Integraciones rápidas ─────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader
-            icon={<Layers className="w-4.5 h-4.5 text-brand-violet" />}
-            title="Integraciones rápidas"
-            subtitle="Conecta los canales donde tus clientes ya te escriben."
-          />
-
-          <div className="space-y-3">
-            {(Object.entries(channelStatus) as [keyof typeof channelStatus, (typeof channelStatus)[keyof typeof channelStatus]][]).map(([key, ch]) => (
-              <div key={key} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`${ch.color} shrink-0`}>{ch.icon}</div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-white">{ch.label}</p>
-                    <p className={`text-xs mt-0.5 flex items-center gap-1 truncate ${
-                      ch.available ? 'text-brand-success' : 'text-text-soft'
-                    }`}>
-                      {ch.available ? <Wifi className="w-3 h-3 shrink-0" /> : <WifiOff className="w-3 h-3 shrink-0" />}
-                      {ch.description}
-                    </p>
-                  </div>
-                </div>
-                <Link
-                  href={ch.actionHref}
-                  className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border transition-all ${
-                    ch.available
-                      ? 'bg-white/[0.04] border-white/[0.1] text-text-soft hover:text-white hover:border-white/20'
-                      : key === 'whatsapp'
-                        ? 'bg-white/[0.02] border-white/[0.06] text-text-soft cursor-default pointer-events-none'
-                        : 'bg-brand-violet/10 border-brand-violet/20 text-brand-purple hover:bg-brand-violet/20'
-                  }`}
-                >
-                  {ch.actionLabel}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-
-        {/* ── 6. Bot de Telegram ──────────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader
-            icon={<MessageCircle className="w-4.5 h-4.5 text-[#0088cc]" />}
-            title="Bot oficial de Telegram"
-            subtitle='Usa el bot oficial para probar ConversaAI, recibir ayuda rápida y validar cómo respondería tu asistente en Telegram.'
-          />
-
-          <div className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.03] border border-[#0088cc]/20">
-            <MessageCircle className="w-4 h-4 text-[#0088cc] shrink-0" />
-            <span className="text-sm font-mono text-brand-cyan flex-1 truncate">{CONTACT_INFO.telegram}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[#0088cc]/10 border border-[#0088cc]/20 text-[#0088cc]">
-              Recomendado para pruebas
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <a
-              href={CONTACT_INFO.telegram}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0088cc]/10 border border-[#0088cc]/30 text-[#0088cc] font-semibold text-sm hover:bg-[#0088cc]/20 transition-all"
-            >
-              <ExternalLink className="w-4 h-4" />
-              Abrir bot
-            </a>
-            <button
-              onClick={handleCopy}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-white/20 transition-all"
-            >
-              {copied ? <><Check className="w-4 h-4 text-brand-success" /> Copiado</> : <><Copy className="w-4 h-4" /> Copiar enlace</>}
-            </button>
-          </div>
-        </SectionCard>
-
-        {/* ── 6.5 Actividad de Seguridad ────────────────────────────────────── */}
-        <SectionCard>
-          <SectionHeader
-            icon={<Shield className="w-4.5 h-4.5 text-brand-purple" />}
-            title="Actividad de Seguridad"
-            subtitle="Tus registros de actividad reciente (inicios de sesión, cambios, etc.)."
-          />
-          <div className="mt-4">
-            {loadingLogs ? (
-              <div className="flex items-center gap-2 text-text-soft text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" /> Cargando actividad...
-              </div>
-            ) : auditLogs.length === 0 ? (
-              <p className="text-sm text-text-soft">No hay actividad registrada aún.</p>
-            ) : (
-              <div className="space-y-3">
-                {auditLogs.map(log => (
-                  <div key={log.id} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
-                    <div className="mt-0.5"><Shield className="w-4 h-4 text-brand-cyan/60" /></div>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                    <div className="relative shrink-0">
+                      <div className="w-16 h-16 rounded-2xl gradient-btn flex items-center justify-center text-white font-bold text-2xl shadow-[0_0_30px_rgba(124,58,237,0.3)]">
+                        {displayName.charAt(0).toUpperCase()}
+                      </div>
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white">{log.action}</p>
-                      <p className="text-xs text-text-soft mt-0.5">{log.description}</p>
-                      <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-text-soft/60">
-                        <span>{new Date(log.created_at).toLocaleString('es-ES')}</span>
-                        {log.ip_address && <span>• IP: {log.ip_address}</span>}
+                      <p className="font-semibold text-lg text-white mb-0.5">{displayName}</p>
+                      <p className="text-text-soft text-sm flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5" /> {email}
+                      </p>
+                      {profileValues.phone && (
+                        <p className="text-text-soft text-sm mt-1 flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5" /> {profileValues.phone}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => setShowEditProfile(true)}
+                      className="shrink-0 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-brand-violet/40 transition-all"
+                    >
+                      Editar perfil
+                    </button>
+                  </div>
+                </SectionCard>
+
+                <SectionCard>
+                  <SectionHeader
+                    icon={<Bot className="w-4.5 h-4.5 text-brand-cyan" />}
+                    title="Resumen de cuenta"
+                    subtitle="Datos rápidos sobre tu cuenta en ConversaAI."
+                  />
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <div className="shrink-0"><Shield className="w-4 h-4 text-brand-success" /></div>
+                      <div>
+                        <p className="text-xs text-text-soft">Estado de la cuenta</p>
+                        <p className="text-sm font-medium text-brand-success">Verificado</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <div className="shrink-0"><Bot className="w-4 h-4 text-text-soft" /></div>
+                      <div>
+                        <p className="text-xs text-text-soft">Asistentes creados</p>
+                        <p className="text-sm font-medium text-white">{assistantCount}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <div className="shrink-0"><Mail className="w-4 h-4 text-text-soft" /></div>
+                      <div>
+                        <p className="text-xs text-text-soft">Miembro desde</p>
+                        <p className="text-sm font-medium text-white">{joinDate}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <div className="shrink-0"><PlanIcon plan={plan} /></div>
+                      <div>
+                        <p className="text-xs text-text-soft">Plan actual</p>
+                        <p className="text-sm font-medium text-white">
+                          {planConfig?.label ?? 'Free'}
+                          {isPremium && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-brand-violet/20 text-brand-purple uppercase tracking-wider">Activo</span>}
+                        </p>
                       </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </SectionCard>
+              </motion.div>
             )}
+
+            {/* ── EMPRESA ─────────────────────────────────────────────────────── */}
+            {activeTab === 'company' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <SectionCard>
+                  <SectionHeader
+                    icon={<Building className="w-4.5 h-4.5 text-brand-blue" />}
+                    title="Detalles de la empresa"
+                    subtitle="Información comercial asociada a tu cuenta."
+                  />
+                  
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <p className="text-xs text-text-soft mb-1">Nombre de la empresa</p>
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        <Building className="w-4 h-4 text-text-soft" />
+                        {profileValues.company_name || <span className="text-text-soft italic">No especificado</span>}
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                      <p className="text-xs text-text-soft mb-1">País</p>
+                      <p className="text-sm font-medium text-white flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-text-soft" />
+                        {profileValues.country || <span className="text-text-soft italic">No especificado</span>}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-end">
+                    <button
+                      onClick={() => setShowEditProfile(true)}
+                      className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-brand-blue/40 transition-all"
+                    >
+                      Editar detalles de empresa
+                    </button>
+                  </div>
+                </SectionCard>
+              </motion.div>
+            )}
+
+            {/* ── SEGURIDAD ───────────────────────────────────────────────────── */}
+            {activeTab === 'security' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <SectionCard>
+                  <SectionHeader
+                    icon={<Key className="w-4.5 h-4.5 text-brand-violet" />}
+                    title="Contraseña y acceso"
+                    subtitle="Actualiza tus credenciales para mantener tu cuenta segura."
+                  />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                    <div>
+                      <p className="text-sm font-medium text-white">Cambiar contraseña</p>
+                      <p className="text-xs text-text-soft mt-0.5">
+                        Te enviaremos un enlace seguro a <span className="text-brand-cyan">{email}</span>
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      {pwStatus === 'idle' && (
+                        <button
+                          onClick={handleResetPassword}
+                          className="px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-brand-violet/30 transition-all"
+                        >
+                          Enviar enlace
+                        </button>
+                      )}
+                      {pwStatus === 'loading' && (
+                        <div className="flex items-center gap-2 text-text-soft text-sm px-4 py-2.5">
+                          <Loader2 className="w-4 h-4 animate-spin" /> Enviando…
+                        </div>
+                      )}
+                      {pwStatus === 'success' && (
+                        <div className="flex items-center gap-2 text-brand-success text-sm px-4 py-2.5">
+                          <CheckCircle2 className="w-4 h-4" /> {pwMessage}
+                        </div>
+                      )}
+                      {pwStatus === 'error' && (
+                        <div className="flex flex-col gap-1 items-end">
+                          <div className="flex items-center gap-2 text-brand-pink text-sm">
+                            <AlertCircle className="w-4 h-4" /> {pwMessage}
+                          </div>
+                          <button onClick={() => setPwStatus('idle')} className="text-xs text-text-soft hover:text-white">
+                            Intentar de nuevo
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-xl bg-brand-violet/5 border border-brand-violet/10 flex items-start gap-3">
+                    <Shield className="w-4 h-4 text-brand-violet shrink-0 mt-0.5" />
+                    <p className="text-xs text-text-soft leading-relaxed">
+                      Recomendamos usar una contraseña larga y única para ConversaAI. No compartas tu contraseña con nadie.
+                    </p>
+                  </div>
+                </SectionCard>
+
+                <SectionCard>
+                  <SectionHeader
+                    icon={<Shield className="w-4.5 h-4.5 text-brand-purple" />}
+                    title="Actividad de Seguridad"
+                    subtitle="Tus registros de actividad reciente (inicios de sesión, cambios, etc.)."
+                  />
+                  <div className="mt-4">
+                    {loadingLogs ? (
+                      <div className="flex items-center gap-2 text-text-soft text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Cargando actividad...
+                      </div>
+                    ) : auditLogs.length === 0 ? (
+                      <p className="text-sm text-text-soft">No hay actividad registrada aún.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {auditLogs.map(log => (
+                          <div key={log.id} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                            <div className="mt-0.5"><Shield className="w-4 h-4 text-brand-cyan/60" /></div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-white">{log.action}</p>
+                              <p className="text-xs text-text-soft mt-0.5">{log.description}</p>
+                              <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-text-soft/60">
+                                <span>{new Date(log.created_at).toLocaleString('es-ES')}</span>
+                                {log.ip_address && <span>• IP: {log.ip_address}</span>}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </SectionCard>
+
+                <div className="bg-brand-pink/5 border border-brand-pink/20 rounded-2xl p-6 space-y-4">
+                  <SectionHeader
+                    icon={<LogOut className="w-4.5 h-4.5 text-brand-pink" />}
+                    title="Cerrar Sesión"
+                    subtitle="Finaliza tu sesión en este dispositivo."
+                  />
+                  <button
+                    onClick={() => setShowLogout(true)}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-brand-pink/10 border border-brand-pink/30 text-brand-pink font-semibold text-sm hover:bg-brand-pink/20 transition-all"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Cerrar sesión
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* ── NOTIFICACIONES ──────────────────────────────────────────────── */}
+            {activeTab === 'notifications' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <SectionCard>
+                  <SectionHeader
+                    icon={<Bell className="w-4.5 h-4.5 text-brand-violet" />}
+                    title="Preferencias de alertas"
+                    subtitle="Elige qué avisos quieres recibir para no perder leads ni conversaciones importantes."
+                  />
+                  {settingsLoading ? (
+                    <div className="flex items-center gap-2 text-text-soft text-sm py-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Cargando preferencias…
+                    </div>
+                  ) : settings ? (
+                    <>
+                      <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.05] mb-1">
+                        <p className="text-xs text-text-soft">
+                          Estas preferencias se usarán para tus avisos dentro del dashboard y futuras notificaciones por correo.
+                        </p>
+                      </div>
+                      {([
+                        { key: 'weekly_summary', label: 'Resumen semanal', desc: 'Recibe un resumen de tu actividad cada semana' },
+                        { key: 'lead_alerts', label: 'Alertas de leads', desc: 'Notificación cuando un nuevo lead es captado' },
+                        { key: 'conversation_alerts', label: 'Nuevas conversaciones', desc: 'Aviso cuando tu asistente inicia una nueva conversación' },
+                        { key: 'message_limit_alerts', label: 'Límite de mensajes', desc: 'Alerta cuando alcances el 80% de tu cuota mensual' },
+                        { key: 'payment_alerts', label: 'Pagos y suscripción', desc: 'Confirmaciones de pago y cambios en tu plan' },
+                      ] as { key: keyof UserSettings; label: string; desc: string }[]).map(({ key, label, desc }) => (
+                        <SettingSwitch
+                          key={key}
+                          label={label}
+                          description={desc}
+                          checked={!!settings[key]}
+                          loading={togglingKey === key}
+                          onChange={(v) => toggleSetting(key, v)}
+                        />
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-sm text-text-soft">No se pudieron cargar las preferencias.</p>
+                  )}
+                </SectionCard>
+              </motion.div>
+            )}
+
+            {/* ── CANALES ─────────────────────────────────────────────────────── */}
+            {activeTab === 'channels' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <SectionCard>
+                  <SectionHeader
+                    icon={<Layers className="w-4.5 h-4.5 text-brand-violet" />}
+                    title="Integraciones rápidas"
+                    subtitle="Conecta los canales donde tus clientes ya te escriben."
+                  />
+                  <div className="space-y-3">
+                    {(Object.entries(channelStatus) as [keyof typeof channelStatus, (typeof channelStatus)[keyof typeof channelStatus]][]).map(([key, ch]) => (
+                      <div key={key} className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={`${ch.color} shrink-0`}>{ch.icon}</div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-white">{ch.label}</p>
+                            <p className={`text-xs mt-0.5 flex items-center gap-1 truncate ${
+                              ch.available ? 'text-brand-success' : 'text-text-soft'
+                            }`}>
+                              {ch.available ? <Wifi className="w-3 h-3 shrink-0" /> : <WifiOff className="w-3 h-3 shrink-0" />}
+                              {ch.description}
+                            </p>
+                          </div>
+                        </div>
+                        <Link
+                          href={ch.actionHref}
+                          className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border transition-all ${
+                            ch.available
+                              ? 'bg-white/[0.04] border-white/[0.1] text-text-soft hover:text-white hover:border-white/20'
+                              : key === 'whatsapp'
+                                ? 'bg-white/[0.02] border-white/[0.06] text-text-soft cursor-default pointer-events-none'
+                                : 'bg-brand-violet/10 border-brand-violet/20 text-brand-purple hover:bg-brand-violet/20'
+                          }`}
+                        >
+                          {ch.actionLabel}
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+
+                <SectionCard>
+                  <SectionHeader
+                    icon={<MessageCircle className="w-4.5 h-4.5 text-[#0088cc]" />}
+                    title="Bot oficial de Telegram"
+                    subtitle='Usa el bot oficial para probar ConversaAI, recibir ayuda rápida y validar cómo respondería tu asistente en Telegram.'
+                  />
+                  <div className="flex items-center gap-2 p-3 rounded-xl bg-white/[0.03] border border-[#0088cc]/20">
+                    <MessageCircle className="w-4 h-4 text-[#0088cc] shrink-0" />
+                    <span className="text-sm font-mono text-brand-cyan flex-1 truncate">{CONTACT_INFO.telegram}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-[#0088cc]/10 border border-[#0088cc]/20 text-[#0088cc] hidden sm:inline-block">
+                      Para pruebas
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    <a
+                      href={CONTACT_INFO.telegram}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0088cc]/10 border border-[#0088cc]/30 text-[#0088cc] font-semibold text-sm hover:bg-[#0088cc]/20 transition-all"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Abrir bot
+                    </a>
+                    <button
+                      onClick={handleCopy}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white hover:border-white/20 transition-all"
+                    >
+                      {copied ? <><Check className="w-4 h-4 text-brand-success" /> Copiado</> : <><Copy className="w-4 h-4" /> Copiar enlace</>}
+                    </button>
+                  </div>
+                </SectionCard>
+              </motion.div>
+            )}
+
+            {/* ── FACTURACIÓN ─────────────────────────────────────────────────── */}
+            {activeTab === 'billing' && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <SectionCard>
+                  <SectionHeader
+                    icon={<Zap className="w-4.5 h-4.5 text-brand-cyan" />}
+                    title="Uso de tu plan y límites"
+                    subtitle="Seguimiento de tus recursos activos y límites de cuota mensual."
+                  />
+                  {subLoading ? (
+                    <div className="flex items-center gap-2 text-text-soft text-sm py-2">
+                      <Loader2 className="w-4 h-4 animate-spin" /> Cargando plan…
+                    </div>
+                  ) : (
+                    <>
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+                        ${isPremium
+                          ? 'bg-gradient-to-r from-brand-violet to-brand-blue text-white shadow-[0_0_12px_rgba(124,58,237,0.4)]'
+                          : 'bg-white/[0.06] border border-white/[0.1] text-text-secondary'
+                        }`}>
+                        <PlanIcon plan={plan} />
+                        Plan {planConfig?.label ?? 'Free'}
+                        {isPremium && <span className="opacity-70">· Activo</span>}
+                      </div>
+
+                      <div className="space-y-5 mt-4">
+                        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-white flex items-center gap-2 font-medium">
+                              <Bot className="w-4 h-4 text-brand-violet" /> Asistentes
+                            </span>
+                            <span className="text-sm font-semibold text-white">
+                              {usage?.assistantsUsed ?? 0}
+                              <span className="text-text-soft font-normal">
+                                {' '}/ {planLimits.assistants === Infinity ? 'Ilimitado' : planLimits.assistants}
+                              </span>
+                            </span>
+                          </div>
+                          <UsageBar
+                            used={usage?.assistantsUsed ?? 0}
+                            limit={planLimits.assistants === Infinity ? null : planLimits.assistants}
+                            color="bg-gradient-to-r from-brand-violet to-brand-blue"
+                          />
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm text-white flex items-center gap-2 font-medium">
+                              <MessageSquare className="w-4 h-4 text-brand-cyan" /> Mensajes del mes
+                            </span>
+                            <span className="text-sm font-semibold text-white">
+                              {(usage?.messagesUsed ?? 0).toLocaleString()}
+                              <span className="text-text-soft font-normal">
+                                {' '}/ {planLimits.messagesPerMonth === null ? 'Ilimitado' : planLimits.messagesPerMonth.toLocaleString()}
+                              </span>
+                            </span>
+                          </div>
+                          <UsageBar
+                            used={usage?.messagesUsed ?? 0}
+                            limit={planLimits.messagesPerMonth === Infinity ? null : planLimits.messagesPerMonth}
+                            color="bg-gradient-to-r from-brand-cyan to-brand-blue"
+                          />
+                        </div>
+                      </div>
+
+                      {plan !== 'enterprise' && (
+                        <div className="pt-3">
+                          <Link
+                            href="/dashboard/billing"
+                            className="inline-flex items-center gap-2 text-sm font-medium text-brand-violet hover:text-brand-purple transition-colors px-4 py-2.5 rounded-xl bg-brand-violet/10 border border-brand-violet/20"
+                          >
+                            <Zap className="w-4 h-4" />
+                            {plan === 'free' ? 'Mejorar mi plan a Pro' : 'Gestionar mi suscripción'}
+                          </Link>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </SectionCard>
+              </motion.div>
+            )}
+
           </div>
-        </SectionCard>
-
-        {/* ── 7. Sesión ────────────────────────────────────────────────────── */}
-        <div className="bg-brand-pink/5 border border-brand-pink/20 rounded-2xl p-6 space-y-4">
-          <SectionHeader
-            icon={<LogOut className="w-4.5 h-4.5 text-brand-pink" />}
-            title="Sesión"
-            subtitle="Cierra tu sesión en este dispositivo de forma segura."
-          />
-          <button
-            onClick={() => setShowLogout(true)}
-            className="flex items-center gap-2 px-5 py-3 rounded-xl bg-brand-pink/10 border border-brand-pink/30 text-brand-pink font-semibold text-sm hover:bg-brand-pink/20 transition-all"
-          >
-            <LogOut className="w-4 h-4" />
-            Cerrar sesión
-          </button>
         </div>
-
       </div>
     </>
   )

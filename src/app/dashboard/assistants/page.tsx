@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Bot, Crown, Sparkles, Briefcase, Building, MessagesSquare, CheckCircle2 } from 'lucide-react'
+import { Plus, Search, Bot, Crown, Sparkles, Briefcase, Building, MessagesSquare, CheckCircle2, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { AssistantCard } from '@/components/dashboard/AssistantCard'
 import type { PlanKey } from '@/lib/plans'
@@ -16,6 +16,9 @@ interface Assistant {
   tone: string
   status: string
   created_at: string
+  conversationsCount?: number
+  leadsCount?: number
+  webchatStatus?: string
 }
 
 interface SubscriptionData {
@@ -24,12 +27,12 @@ interface SubscriptionData {
   usage: { assistantsUsed: number; messagesUsed: number }
 }
 
-const FILTER_CHANNELS = ['todos', 'webchat', 'telegram', 'whatsapp']
+// Ocultamos WhatsApp por ahora ya que es "Próximamente"
+const FILTER_CHANNELS = ['todos', 'webchat', 'telegram']
 const CHANNEL_LABEL: Record<string, string> = {
   todos: 'Todos',
   webchat: 'Web Chat',
   telegram: 'Telegram',
-  whatsapp: 'WhatsApp',
 }
 
 function PlanIcon({ plan }: { plan: string }) {
@@ -48,21 +51,31 @@ export default function AssistantsPage() {
   const [subLoading, setSubLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filterChannel, setFilterChannel] = useState('todos')
+  const [refreshing, setRefreshing] = useState(false)
+
+  const fetchData = async () => {
+    setRefreshing(true)
+    try {
+      const [assRes, subRes] = await Promise.all([
+        fetch('/api/assistants'),
+        fetch('/api/subscription')
+      ])
+      const assData = await assRes.json()
+      const sData = await subRes.json()
+      
+      if (assData.assistants) setAssistants(assData.assistants)
+      if (!sData.error) setSubData(sData)
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+      setSubLoading(false)
+      setRefreshing(false)
+    }
+  }
 
   useEffect(() => {
-    fetch('/api/assistants')
-      .then(r => r.json())
-      .then(data => {
-        setAssistants(data.assistants || [])
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-
-    fetch('/api/subscription')
-      .then(r => r.json())
-      .then(d => { if (!d.error) setSubData(d) })
-      .catch(() => null)
-      .finally(() => setSubLoading(false))
+    fetchData()
   }, [])
 
   const filtered = assistants.filter(a => {
@@ -94,13 +107,23 @@ export default function AssistantsPage() {
             <h1 className="text-3xl font-bold tracking-tight">Mis asistentes</h1>
             <p className="text-text-soft mt-1">Administra, prueba e instala tus asistentes en los canales donde tus clientes ya te escriben.</p>
           </div>
-          <Link
-            href="/dashboard/create-assistant"
-            className="gradient-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity glow-violet w-fit"
-          >
-            <Plus className="w-5 h-5" />
-            Crear asistente
-          </Link>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={fetchData}
+              disabled={refreshing}
+              className="p-3 rounded-xl bg-card-bg/80 border border-card-border hover:bg-white/[0.05] transition-colors"
+              title="Actualizar datos"
+            >
+              <RefreshCw className={`w-5 h-5 text-text-soft ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <Link
+              href="/dashboard/create-assistant"
+              className="gradient-btn inline-flex items-center gap-2 px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-opacity glow-violet"
+            >
+              <Plus className="w-5 h-5" />
+              Crear asistente
+            </Link>
+          </div>
         </div>
 
         {/* STATS BAR */}
@@ -144,6 +167,11 @@ export default function AssistantsPage() {
         </div>
       </div>
 
+      <div className="pt-4 border-t border-white/[0.05]">
+        <h2 className="text-xl font-bold text-white mb-2">Tus asistentes por área</h2>
+        <p className="text-sm text-text-soft mb-6">Puedes crear asistentes separados para diferentes áreas: ventas, soporte técnico, agendamiento de citas, o sucursales específicas.</p>
+      </div>
+
       {/* BUSCADOR Y FILTROS */}
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
@@ -151,7 +179,7 @@ export default function AssistantsPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por asistente, negocio o canal..."
+            placeholder="Buscar por nombre o negocio..."
             className="w-full bg-card-bg/80 backdrop-blur border border-card-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-text-main placeholder:text-text-soft/40 focus:outline-none focus:border-brand-violet/40 transition-all"
           />
         </div>
@@ -198,13 +226,13 @@ export default function AssistantsPage() {
               <Sparkles className="w-3 h-3 text-brand-cyan" />
             </div>
           </div>
-          <h3 className="text-xl font-bold mb-3 text-white">Aún no has creado asistentes</h3>
+          <h3 className="text-xl font-bold mb-3 text-white">Aún no tienes asistentes en esta vista</h3>
           <p className="text-text-soft mb-8 max-w-md mx-auto">
-            Crea tu primer asistente para empezar a responder clientes en Web Chat, Telegram y próximamente WhatsApp.
+            Los asistentes son el motor de ConversaAI. Creando uno podrás responder automáticamente, captar prospectos y atender 24/7.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4 mb-8 text-sm text-text-soft">
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Responde FAQs</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Captura leads</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Responde FAQs automáticamente</span>
+            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Captura leads de valor</span>
             <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Atiende fuera de horario</span>
           </div>
           {!search && filterChannel === 'todos' && (
@@ -213,7 +241,7 @@ export default function AssistantsPage() {
               className="gradient-btn inline-flex items-center gap-2 px-8 py-4 rounded-xl text-white font-bold hover:opacity-90 transition-opacity glow-violet text-lg"
             >
               <Plus className="w-6 h-6" />
-              Crear primer asistente
+              Crear mi primer asistente
             </Link>
           )}
         </motion.div>
