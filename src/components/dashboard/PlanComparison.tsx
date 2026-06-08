@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Check, X, Clock, Building2 } from 'lucide-react'
 import type { PlanConfig } from '@/lib/plans'
-
+import { PAYMENT_PROVIDERS, type PaymentProvider } from '@/lib/payment-providers'
+import { PaymentProviderSelector } from './PaymentProviderSelector'
 import { useRouter } from 'next/navigation'
 
 interface PlanComparisonProps {
@@ -16,16 +17,25 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [startingTrial, setStartingTrial] = useState(false)
+  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('flow')
   const router = useRouter()
 
+  const providerConfig = PAYMENT_PROVIDERS[selectedProvider]
+
   const handleCheckout = async (planKey: string) => {
+    // Guard: don't call unavailable providers
+    if (!providerConfig.available) {
+      setError(`${providerConfig.label} estará disponible próximamente.`)
+      return
+    }
+
     setLoadingPlan(planKey)
     setError(null)
     try {
-      const res = await fetch('/api/billing/flow/checkout', {
+      const res = await fetch(providerConfig.checkoutEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: planKey })
+        body: JSON.stringify({ plan: planKey, provider: selectedProvider })
       })
 
       const contentType = res.headers.get("content-type") || ""
@@ -34,24 +44,18 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
       }
 
       const data = await res.json()
-      
+
       if (!res.ok) {
-        let finalError = data.error || 'Error al iniciar el pago'
-        if (data.details) {
-          finalError = `${finalError} ${data.details}`
-        }
+        let finalError = data.error || 'No se pudo iniciar el pago. Intenta nuevamente.'
+        if (data.details) finalError = `${finalError} ${data.details}`
         throw new Error(finalError)
       }
-      
+
       if (data.url) {
         window.location.assign(data.url)
       }
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message)
-      } else {
-        setError('Error desconocido')
-      }
+      setError(err instanceof Error ? err.message : 'Error desconocido')
       setLoadingPlan(null)
     }
   }
@@ -120,6 +124,12 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
         </div>
       )}
 
+      {/* PAYMENT PROVIDER SELECTOR */}
+      <PaymentProviderSelector
+        selected={selectedProvider}
+        onChange={(p) => { setSelectedProvider(p); setError(null) }}
+      />
+
       {/* CORE PLANS */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
         {corePlans.map((plan) => {
@@ -149,10 +159,17 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
               
               <div className="relative z-10 flex-1 flex flex-col">
                 <h3 className="text-xl font-bold mb-2 mt-4">{plan.label}</h3>
-                <div className="mb-6 flex items-baseline gap-1">
-                  <span className={`font-bold ${plan.priceLabel.length > 8 ? 'text-2xl' : 'text-3xl'}`}>{plan.priceLabel}</span>
+                <div className="mb-2 flex items-baseline gap-1">
+                  <span className={`font-bold ${plan.priceLabelCLP.length > 8 ? 'text-2xl' : 'text-3xl'}`}>
+                    {selectedProvider === 'flow' ? plan.priceLabelCLP : plan.priceLabelUSD}
+                  </span>
                   <span className="text-text-soft text-sm">{plan.period}</span>
                 </div>
+                {selectedProvider !== 'flow' && (
+                  <p className="text-[11px] text-text-soft mb-4">
+                    Equiv. aprox. {plan.priceLabelCLP} con Flow Chile
+                  </p>
+                )}
                 
                 <ul className="space-y-3 flex-1 mb-6">
                   {plan.features.map((f, i) => (

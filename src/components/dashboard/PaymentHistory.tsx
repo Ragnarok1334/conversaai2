@@ -85,7 +85,9 @@ export function PaymentHistory() {
                   <div className="text-xs text-slate-400 flex items-center gap-2">
                     {formatDate(payment.created_at)}
                     <span className="hidden sm:inline">•</span>
-                    <span className="uppercase text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">Flow</span>
+                    <span className="uppercase text-[10px] bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">
+                      {payment.provider === 'paypal' ? 'PayPal' : payment.provider === 'crypto' ? 'Cripto' : 'Flow'}
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1">

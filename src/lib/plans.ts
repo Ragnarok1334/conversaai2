@@ -1,24 +1,39 @@
 import { CONTACT_INFO } from './contact'
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const telegramBase = process.env.NEXT_PUBLIC_TELEGRAM_URL || CONTACT_INFO.telegram
 
 export type PlanKey = 'trial' | 'starter' | 'pro' | 'growth' | 'business' | 'enterprise'
 export type ChannelKey = 'webchat' | 'telegram' | 'whatsapp'
 export type PlanStatus = 'active' | 'cancelled' | 'past_due'
+export type PaymentCurrency = 'CLP' | 'USD'
+
+// ─── PRECIOS POR MONEDA ─────────────────────────────────────────────────────
+export interface PlanPrices {
+  CLP: number | null  // Pesos chilenos (Flow)
+  USD: number | null  // Dólares en centavos (PayPal/Cripto). Ej: $9.99 USD = 999 cents
+}
 
 export interface PlanConfig {
   key: PlanKey
   label: string
+  /** @deprecated Usar prices.CLP. Mantenido por compatibilidad con código existente. */
   priceCLP: number | null
+  /** Precios por moneda. Fuente de verdad para todos los proveedores. */
+  prices: PlanPrices
+  /** Label del precio en CLP para UI */
+  priceLabelCLP: string
+  /** Label del precio en USD para UI */
+  priceLabelUSD: string
   priceLabel: string
   period: string
   description: string
   recommended?: boolean
   limits: {
-    assistants: number | null // null means unlimited
-    messagesPerMonth: number | null // null means unlimited
-    domains: number | null // null means unlimited
-    users: number | null // null means unlimited
+    assistants: number | null
+    messagesPerMonth: number | null
+    domains: number | null
+    users: number | null
   }
   channels: {
     webchat: boolean
@@ -42,7 +57,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     key: 'trial',
     label: 'Prueba Gratis',
     priceCLP: 0,
+    prices: { CLP: 0, USD: 0 },
     priceLabel: '$0',
+    priceLabelCLP: '$0 CLP',
+    priceLabelUSD: '$0 USD',
     period: '/ 7 días',
     description: 'Para probar ConversaAI y crear tu primer asistente.',
     purchaseMode: 'trial',
@@ -64,7 +82,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     key: 'starter',
     label: 'Starter',
     priceCLP: 9990,
+    prices: { CLP: 9990, USD: 999 }, // $9.99 USD = 999 centavos
     priceLabel: '$9.990 CLP',
+    priceLabelCLP: '$9.990 CLP',
+    priceLabelUSD: '$9.99 USD',
     period: '/mes',
     description: 'Ideal para quienes recién comienzan a automatizar su sitio web.',
     purchaseMode: 'checkout',
@@ -86,7 +107,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     key: 'pro',
     label: 'Pro',
     priceCLP: 19990,
+    prices: { CLP: 19990, USD: 1999 }, // $19.99 USD = 1999 centavos
     priceLabel: '$19.990 CLP',
+    priceLabelCLP: '$19.990 CLP',
+    priceLabelUSD: '$19.99 USD',
     period: '/mes',
     description: 'Para emprendedores y negocios pequeños que quieren automatizar prospectos.',
     purchaseMode: 'checkout',
@@ -108,7 +132,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     key: 'growth',
     label: 'Growth',
     priceCLP: 39990,
+    prices: { CLP: 39990, USD: 3999 }, // $39.99 USD = 3999 centavos
     priceLabel: '$39.990 CLP',
+    priceLabelCLP: '$39.990 CLP',
+    priceLabelUSD: '$39.99 USD',
     period: '/mes',
     description: 'Para negocios en expansión con mayor volumen y automatización.',
     purchaseMode: 'checkout',
@@ -136,7 +163,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     key: 'business',
     label: 'Business',
     priceCLP: 69990,
+    prices: { CLP: 69990, USD: 6999 }, // $69.99 USD = 6999 centavos
     priceLabel: '$69.990 CLP',
+    priceLabelCLP: '$69.990 CLP',
+    priceLabelUSD: '$69.99 USD',
     period: '/mes',
     description: 'Para negocios con alto volumen, múltiples sucursales o áreas.',
     purchaseMode: 'checkout',
@@ -161,7 +191,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     key: 'enterprise',
     label: 'Enterprise',
     priceCLP: null,
+    prices: { CLP: null, USD: null },
     priceLabel: 'Desde $149.990 CLP',
+    priceLabelCLP: 'Desde $149.990 CLP',
+    priceLabelUSD: 'Desde $149.99 USD',
     period: '',
     description: 'Solución a medida para empresas con integración profunda.',
     purchaseMode: 'contact',
@@ -188,7 +221,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
 export interface UserSubscription {
   id: string
   user_id: string
-  plan: string // Almacenado como string en BD, ej. 'free', 'trial', 'pro'
+  plan: string
   status: PlanStatus
   assistants_limit: number
   messages_limit: number
@@ -218,6 +251,32 @@ export function getPlanConfig(plan: PlanKey | string): PlanConfig {
 
 export function getPlanLimits(plan: PlanKey | string) {
   return getPlanConfig(plan).limits
+}
+
+/**
+ * Obtiene el precio del plan para la moneda indicada.
+ * Para USD, devuelve centavos (ej: $9.99 USD = 999 centavos).
+ * Para CLP, devuelve pesos enteros.
+ * Devuelve null si el plan no tiene precio definido (enterprise).
+ */
+export function getPlanPrice(plan: PlanKey | string, currency: PaymentCurrency): number | null {
+  const config = getPlanConfig(plan)
+  return config.prices[currency]
+}
+
+/**
+ * Formatea centavos USD a string de precio legible.
+ * Ej: 999 → "$9.99"  |  3999 → "$39.99"  |  null → "Personalizado"
+ */
+export function formatUSD(cents: number | null): string {
+  if (cents === null) return 'Personalizado'
+  const dollars = cents / 100
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(dollars)
 }
 
 export function getRemainingAssistants(plan: PlanKey | string, currentCount: number): number | null {
