@@ -1,29 +1,36 @@
-export type PlanKey = 'free' | 'pro' | 'business' | 'enterprise'
-export type ChannelKey = 'webchat' | 'telegram' | 'whatsapp'
-export type PlanStatus = 'active' | 'cancelled' | 'past_due'
-
-export interface PlanFeature {
-  name: string
-}
-
 import { CONTACT_INFO } from './contact'
 
 const telegramBase = process.env.NEXT_PUBLIC_TELEGRAM_URL || CONTACT_INFO.telegram
 
+export type PlanKey = 'trial' | 'starter' | 'pro' | 'growth' | 'business' | 'enterprise'
+export type ChannelKey = 'webchat' | 'telegram' | 'whatsapp'
+export type PlanStatus = 'active' | 'cancelled' | 'past_due'
+
 export interface PlanConfig {
   key: PlanKey
   label: string
-  price: string
+  priceCLP: number | null
+  priceLabel: string
   period: string
   description: string
-  assistantsLimit: number | null // null means unlimited
-  messagesLimit: number | null   // null means unlimited
-  channels: ChannelKey[]
-  popular?: boolean
+  recommended?: boolean
+  limits: {
+    assistants: number | null // null means unlimited
+    messagesPerMonth: number | null // null means unlimited
+    domains: number | null // null means unlimited
+    users: number | null // null means unlimited
+  }
+  channels: {
+    webchat: boolean
+    telegram: boolean
+    whatsapp: boolean
+  }
   features: string[]
+  futureFeatures: string[]
+  supportLevel: string
   cta: string
   href: string
-  // TODO: Implement payment gateway. This URL will be used to generate the checkout session.
+  purchaseMode: 'trial' | 'checkout' | 'contact' | 'placeholder'
   checkoutUrl?: string
   external?: boolean
   highlighted?: boolean
@@ -31,100 +38,157 @@ export interface PlanConfig {
 }
 
 export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
-  free: {
-    key: 'free',
-    label: 'Free',
-    price: '$0',
-    period: '/mes',
+  trial: {
+    key: 'trial',
+    label: 'Prueba Gratis',
+    priceCLP: 0,
+    priceLabel: '$0',
+    period: '/ 7 días',
     description: 'Para probar ConversaAI y crear tu primer asistente.',
-    assistantsLimit: 1,
-    messagesLimit: 100,
-    channels: ['webchat'],
+    purchaseMode: 'trial',
+    limits: { assistants: 1, messagesPerMonth: 100, domains: 1, users: 1 },
+    channels: { webchat: true, telegram: false, whatsapp: false },
     features: [
       '1 asistente IA',
-      '100 mensajes al mes',
+      '100 mensajes de prueba',
       'Canal Web Chat',
-      'Playground básico',
-      'Soporte comunitario',
+      '1 dominio autorizado',
     ],
-    cta: 'Crear asistente',
+    futureFeatures: [],
+    supportLevel: 'Soporte comunitario',
+    cta: 'Comenzar prueba',
     href: '/dashboard/create-assistant',
-    highlighted: false
+    highlighted: false,
+  },
+  starter: {
+    key: 'starter',
+    label: 'Starter',
+    priceCLP: 9990,
+    priceLabel: '$9.990 CLP',
+    period: '/mes',
+    description: 'Ideal para quienes recién comienzan a automatizar su sitio web.',
+    purchaseMode: 'checkout',
+    limits: { assistants: 1, messagesPerMonth: 500, domains: 1, users: 1 },
+    channels: { webchat: true, telegram: false, whatsapp: false },
+    features: [
+      '1 asistente IA',
+      '500 mensajes al mes',
+      'Canal Web Chat',
+      'Leads básicos',
+    ],
+    futureFeatures: [],
+    supportLevel: 'Soporte estándar',
+    cta: 'Comprar Starter',
+    href: '',
+    highlighted: false,
   },
   pro: {
     key: 'pro',
     label: 'Pro',
-    price: '$19',
+    priceCLP: 19990,
+    priceLabel: '$19.990 CLP',
     period: '/mes',
-    description: 'Ideal para emprendedores y negocios pequeños que quieren automatizar conversaciones.',
-    assistantsLimit: 5,
-    messagesLimit: 5000,
-    channels: ['webchat', 'telegram'],
+    description: 'Para emprendedores y negocios pequeños que quieren automatizar prospectos.',
+    purchaseMode: 'checkout',
+    limits: { assistants: 3, messagesPerMonth: 2500, domains: 3, users: 1 },
+    channels: { webchat: true, telegram: false, whatsapp: false },
     features: [
-      '5 asistentes IA',
-      '5,000 mensajes al mes',
-      'Web Chat y Telegram (WhatsApp próximamente)',
-      'Captura de leads',
-      'Historial de conversaciones',
-      'Soporte prioritario',
+      '3 asistentes IA',
+      '2.500 mensajes al mes',
+      '3 dominios autorizados',
+      'Mini CRM e Inbox',
     ],
-    cta: 'Contratar Pro',
-    href: '/dashboard/billing/checkout?plan=pro',
-    checkoutUrl: '/api/checkout', // TODO: Connect to Stripe/MercadoPago API route
-    highlighted: false
+    futureFeatures: [],
+    supportLevel: 'Soporte estándar',
+    cta: 'Comprar Pro',
+    href: '',
+    highlighted: false,
+  },
+  growth: {
+    key: 'growth',
+    label: 'Growth',
+    priceCLP: 39990,
+    priceLabel: '$39.990 CLP',
+    period: '/mes',
+    description: 'Para negocios en expansión con mayor volumen y automatización.',
+    purchaseMode: 'checkout',
+    recommended: true,
+    limits: { assistants: 8, messagesPerMonth: 8000, domains: 10, users: null },
+    channels: { webchat: true, telegram: false, whatsapp: false },
+    features: [
+      '8 asistentes IA',
+      '8.000 mensajes al mes',
+      '10 dominios autorizados',
+      'Canal Web Chat',
+    ],
+    futureFeatures: [
+      'Canal Telegram',
+      'Reportes semanales',
+      'Automatizaciones',
+    ],
+    supportLevel: 'Soporte prioritario',
+    cta: 'Comprar Growth',
+    href: '',
+    highlighted: true,
+    badge: 'Recomendado',
   },
   business: {
     key: 'business',
     label: 'Business',
-    price: '$49',
+    priceCLP: 69990,
+    priceLabel: '$69.990 CLP',
     period: '/mes',
-    description: 'Para negocios con más volumen, más canales y automatización avanzada.',
-    assistantsLimit: 20,
-    messagesLimit: 50000,
-    channels: ['webchat', 'telegram'],
+    description: 'Para negocios con alto volumen, múltiples sucursales o áreas.',
+    purchaseMode: 'checkout',
+    limits: { assistants: 20, messagesPerMonth: 20000, domains: 25, users: null },
+    channels: { webchat: true, telegram: false, whatsapp: false },
     features: [
       '20 asistentes IA',
-      '50,000 mensajes al mes',
-      'Web Chat y Telegram (WhatsApp próximamente)',
-      'Analytics avanzados',
-      'Branding personalizado',
-      'API y Webhooks',
-      'Soporte prioritario',
+      '20.000 mensajes al mes',
+      '25 dominios autorizados',
+      'CRM completo y Analytics',
     ],
-    cta: 'Contratar Business',
-    href: '/dashboard/billing/checkout?plan=business',
-    checkoutUrl: '/api/checkout', // TODO: Connect to Stripe/MercadoPago API route
-    highlighted: true,
-    badge: 'Más popular'
+    futureFeatures: [
+      'Canal Telegram',
+      'Equipos (5 usuarios)',
+    ],
+    supportLevel: 'Soporte prioritario',
+    cta: 'Comprar Business',
+    href: '',
+    highlighted: false,
   },
   enterprise: {
     key: 'enterprise',
     label: 'Enterprise',
-    price: 'Personalizado',
+    priceCLP: null,
+    priceLabel: 'Desde $149.990 CLP',
     period: '',
-    description: 'Solución a medida para empresas que necesitan infraestructura dedicada y soporte directo.',
-    assistantsLimit: null,
-    messagesLimit: null,
-    channels: ['webchat', 'telegram', 'whatsapp'],
+    description: 'Solución a medida para empresas con integración profunda.',
+    purchaseMode: 'contact',
+    limits: { assistants: null, messagesPerMonth: null, domains: null, users: null },
+    channels: { webchat: true, telegram: false, whatsapp: false },
     features: [
       'Asistentes ilimitados',
       'Mensajes personalizados',
-      'Infraestructura dedicada',
-      'SLA empresarial',
-      'Integraciones custom',
-      'Soporte dedicado',
+      'Integraciones especiales',
+      'Onboarding guiado',
     ],
-    cta: 'Hablar por Telegram',
-    href: `${telegramBase}?text=Hola,%20quiero%20información%20sobre%20el%20plan%20Enterprise%20de%20ConversaAI`,
+    futureFeatures: [
+      'WhatsApp y Telegram',
+      'Roles y permisos',
+    ],
+    supportLevel: 'Soporte dedicado SLA',
+    cta: 'Solicitar plan Enterprise',
+    href: '/contact',
     external: true,
-    highlighted: false
+    highlighted: false,
   },
 }
 
 export interface UserSubscription {
   id: string
   user_id: string
-  plan: PlanKey
+  plan: string // Almacenado como string en BD, ej. 'free', 'trial', 'pro'
   status: PlanStatus
   assistants_limit: number
   messages_limit: number
@@ -133,80 +197,45 @@ export interface UserSubscription {
   updated_at: string
 }
 
-// ─── PLAN_LIMITS: source of truth with null for unlimited ───────────────
-export const PLAN_LIMITS = {
-  free: {
-    assistants: 1,
-    messagesPerMonth: 100,
-    channels: { webchat: true, telegram: false, whatsapp: false },
-    features: {
-      playground: true, leadCapture: false, conversationHistory: false,
-      advancedAnalytics: false, customBranding: false, apiWebhooks: false,
-    },
-  },
-  pro: {
-    assistants: 5,
-    messagesPerMonth: 5000,
-    channels: { webchat: true, telegram: true, whatsapp: false },
-    features: {
-      playground: true, leadCapture: true, conversationHistory: true,
-      advancedAnalytics: false, customBranding: false, apiWebhooks: false,
-    },
-  },
-  business: {
-    assistants: 20,
-    messagesPerMonth: 50000,
-    channels: { webchat: true, telegram: true, whatsapp: false },
-    features: {
-      playground: true, leadCapture: true, conversationHistory: true,
-      advancedAnalytics: true, customBranding: true, apiWebhooks: true,
-    },
-  },
-  enterprise: {
-    assistants: null,
-    messagesPerMonth: null,
-    channels: { webchat: true, telegram: true, whatsapp: false },
-    features: {
-      playground: true, leadCapture: true, conversationHistory: true,
-      advancedAnalytics: true, customBranding: true, apiWebhooks: true,
-      dedicatedSupport: true, customIntegrations: true,
-    },
-  },
-} as const
-
-export function getPlanLimits(plan: PlanKey) {
-  return PLAN_LIMITS[plan] ?? PLAN_LIMITS.free
-}
+// ─── HELPERS UNIFICADOS ─────────────────────────────────────────
 
 export function normalizePlan(plan: unknown): PlanKey {
-  const value = String(plan || "free").toLowerCase().trim()
-  if (value.includes("enterprise")) return "enterprise"
-  if (value.includes("business")) return "business"
+  const value = String(plan || "trial").toLowerCase().trim()
+  if (value.includes("free")) return "trial" // LEGACY: usuarios 'free' se mapean a 'trial'
+  if (value.includes("trial")) return "trial"
+  if (value.includes("starter")) return "starter"
   if (value.includes("pro")) return "pro"
-  return "free"
+  if (value.includes("growth")) return "growth"
+  if (value.includes("business")) return "business"
+  if (value.includes("enterprise")) return "enterprise"
+  return "trial"
 }
 
-export function getRemainingAssistants(plan: PlanKey, currentCount: number): number | null {
+export function getPlanConfig(plan: PlanKey | string): PlanConfig {
+  const normalized = normalizePlan(plan)
+  return PLAN_CONFIGS[normalized] || PLAN_CONFIGS.trial
+}
+
+export function getPlanLimits(plan: PlanKey | string) {
+  return getPlanConfig(plan).limits
+}
+
+export function getRemainingAssistants(plan: PlanKey | string, currentCount: number): number | null {
   const limit = getPlanLimits(plan).assistants
   if (limit === null) return null
   return Math.max(0, limit - currentCount)
 }
 
-export function canSendMessage(plan: PlanKey, usedMessagesThisMonth: number): boolean {
+export function canSendMessage(plan: PlanKey | string, usedMessagesThisMonth: number): boolean {
   const limit = getPlanLimits(plan).messagesPerMonth
   if (limit === null) return true
   return usedMessagesThisMonth < limit
 }
 
-export function getRemainingMessages(plan: PlanKey, usedMessagesThisMonth: number): number | null {
+export function getRemainingMessages(plan: PlanKey | string, usedMessagesThisMonth: number): number | null {
   const limit = getPlanLimits(plan).messagesPerMonth
   if (limit === null) return null
   return Math.max(0, limit - usedMessagesThisMonth)
-}
-
-// ─── Legacy helpers (keep for backward compatibility) ─────────────────────────
-export function getPlanConfig(plan: PlanKey): PlanConfig {
-  return PLAN_CONFIGS[plan] || PLAN_CONFIGS.free
 }
 
 export function isUnlimited(limit: number | null): boolean {
@@ -219,19 +248,18 @@ export function getUsagePercentage(used: number, limit: number | null): number {
   return Math.min(100, (used / limit) * 100)
 }
 
-export function canUseChannel(plan: PlanKey, channel: string): boolean {
-  const limits = getPlanLimits(plan)
-  // Ensure we fallback to false if channel is unknown
-  return (limits.channels as Record<string, boolean>)[channel] ?? false
+export function canUseChannel(plan: PlanKey | string, channel: string): boolean {
+  const config = getPlanConfig(plan)
+  return (config.channels as Record<string, boolean>)[channel] ?? false
 }
 
-export function canCreateAssistant(plan: PlanKey, currentAssistantCount: number): boolean {
+export function canCreateAssistant(plan: PlanKey | string, currentAssistantCount: number): boolean {
   const limit = getPlanLimits(plan).assistants
   if (limit === null) return true
   return currentAssistantCount < limit
 }
 
-export function hasMessagesRemaining(plan: PlanKey, currentMessagesUsed: number): boolean {
+export function hasMessagesRemaining(plan: PlanKey | string, currentMessagesUsed: number): boolean {
   const limit = getPlanLimits(plan).messagesPerMonth
   if (limit === null) return true
   return currentMessagesUsed < limit
@@ -249,4 +277,13 @@ export function getChannelLabel(channel: string): string {
     whatsapp: 'WhatsApp'
   }
   return map[channel] || channel
+}
+
+export function formatCLP(amount: number | null): string {
+  if (amount === null) return 'Personalizado'
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0
+  }).format(amount)
 }

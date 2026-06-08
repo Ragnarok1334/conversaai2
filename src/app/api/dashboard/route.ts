@@ -62,12 +62,14 @@ export async function GET() {
     ])
 
     const subscription = subscriptionResult.data || {
-      plan: 'free',
+      id: 'fallback',
+      user_id: user.id,
+      plan: 'trial',
       status: 'active',
       current_messages_used: 0,
     }
 
-    const planKey = normalizePlan(subscription.plan ?? 'free')
+    const planKey = normalizePlan(subscription.plan ?? 'trial')
     const planConfig = getPlanConfig(planKey)
     const planLimits = getPlanLimits(planKey)
     
@@ -114,7 +116,7 @@ export async function GET() {
 
     const channelRows = assistantChannelsResult.data ?? []
     const hasTelegramActive = channelRows.some((r) => r.channel === 'telegram' && r.is_enabled === true && (r.config as any)?.telegram_token)
-    const telegramAllowed = planConfig.channels.includes('telegram')
+    const telegramAllowed = planConfig.channels.telegram
     const telegramStatus = !telegramAllowed ? 'locked' : hasTelegramActive ? 'connected' : 'pending'
 
     const channels = {

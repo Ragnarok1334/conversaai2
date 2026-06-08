@@ -5,8 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, Search, Bot, Crown, Sparkles, Briefcase, Building, MessagesSquare, CheckCircle2, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import { AssistantCard } from '@/components/dashboard/AssistantCard'
-import type { PlanKey } from '@/lib/plans'
-import { PLAN_LIMITS } from '@/lib/plans'
+import { getPlanLimits, normalizePlan } from '@/lib/plans'
 
 interface Assistant {
   id: string
@@ -23,7 +22,7 @@ interface Assistant {
 
 interface SubscriptionData {
   subscription: { plan: string; status: string }
-  planConfig: { label: string; assistantsLimit: number | null; messagesLimit: number | null; channels: string[] }
+  planConfig: { label: string; limits: { assistants: number | null; messagesPerMonth: number | null }; channels: { [key: string]: boolean } }
   usage: { assistantsUsed: number; messagesUsed: number }
 }
 
@@ -93,10 +92,10 @@ export default function AssistantsPage() {
     setAssistants(prev => prev.map(a => a.id === id ? { ...a, status } : a))
   }
 
-  const plan = (subData?.subscription?.plan ?? 'free') as PlanKey
-  const planLimits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free
-  const isUnlimitedAssistants = planLimits.assistants === Infinity
-  const isUnlimitedMessages = planLimits.messagesPerMonth === Infinity
+  const plan = normalizePlan(subData?.subscription?.plan ?? 'trial')
+  const planLimits = getPlanLimits(plan)
+  const isUnlimitedAssistants = planLimits.assistants === null
+  const isUnlimitedMessages = planLimits.messagesPerMonth === null
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -158,7 +157,7 @@ export default function AssistantsPage() {
                 ) : '...'}
               </span>
             </div>
-            {!subLoading && (plan === 'free' || plan === 'pro') && (
+            {!subLoading && (plan === 'trial' || plan === 'starter') && (
               <Link href="/dashboard/billing" className="text-[10px] px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.1] hover:bg-white/[0.08] transition-colors font-medium">
                 Mejorar
               </Link>

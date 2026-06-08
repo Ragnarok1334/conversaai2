@@ -379,8 +379,8 @@ export function AssistantForm({ hasReachedLimit = false, currentUsage = 0, planL
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className={`p-3 rounded-xl border ${currentPlan === 'free' ? 'border-brand-cyan/50 bg-brand-cyan/10' : 'border-white/10 bg-white/[0.02]'}`}>
-                <p className={`text-xs font-semibold mb-1 ${currentPlan === 'free' ? 'text-brand-cyan' : 'text-slate-400'}`}>Gratis</p>
+              <div className={`p-3 rounded-xl border ${currentPlan === 'trial' ? 'border-brand-cyan/50 bg-brand-cyan/10' : 'border-white/10 bg-white/[0.02]'}`}>
+                <p className={`text-xs font-semibold mb-1 ${currentPlan === 'trial' ? 'text-brand-cyan' : 'text-slate-400'}`}>Trial</p>
                 <p className="text-sm font-medium text-white">1 asistente</p>
               </div>
               <div className={`p-3 rounded-xl border ${currentPlan === 'pro' ? 'border-brand-cyan/50 bg-brand-cyan/10' : 'border-white/10 bg-white/[0.02]'}`}>

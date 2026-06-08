@@ -1,6 +1,6 @@
 import { Globe, Send, MessageCircle, Plus } from 'lucide-react'
 import Link from 'next/link'
-import { normalizePlan, getPlanLimits, PlanKey } from '@/lib/plans'
+import { normalizePlan, getPlanConfig, PlanKey } from '@/lib/plans'
 
 type Assistant = {
   id: string
@@ -15,7 +15,7 @@ interface ChannelConnectActionsProps {
 
 export default function ChannelConnectActions({ assistants, currentPlan }: ChannelConnectActionsProps) {
   const plan = normalizePlan(currentPlan)
-  const limits = getPlanLimits(plan)
+  const config = getPlanConfig(plan)
   
   const activeAssistant = assistants.find(a => a.status === 'active')
   const primaryAssistant = activeAssistant || assistants[0] || null
@@ -64,16 +64,16 @@ export default function ChannelConnectActions({ assistants, currentPlan }: Chann
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h4 className="font-semibold text-sm text-white">Telegram</h4>
-              {limits.channels.telegram ? (
+              {config.channels.telegram ? (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-success/10 text-brand-success border border-brand-success/20">Disponible</span>
               ) : (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-violet/10 text-brand-violet border border-brand-violet/20">Disponible desde Pro</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-violet/10 text-brand-violet border border-brand-violet/20">Disponible desde Starter</span>
               )}
             </div>
             <p className="text-xs text-text-soft">Conecta tu asistente a Telegram para atender mensajes desde tu bot.</p>
           </div>
           <div className="mt-auto pt-4 w-full">
-            {limits.channels.telegram ? (
+            {config.channels.telegram ? (
               primaryAssistant ? (
                 <Link 
                   href={`/dashboard/assistants/${primaryAssistant.id}?tab=install&channel=telegram`}

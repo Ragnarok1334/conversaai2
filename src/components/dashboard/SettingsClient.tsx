@@ -13,8 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { CONTACT_INFO } from '@/lib/contact'
 import { signOut } from '@/app/auth/actions'
 import { useProfile } from '@/providers/ProfileProvider'
-import type { PlanKey } from '@/lib/plans'
-import { PLAN_LIMITS } from '@/lib/plans'
+import { getPlanLimits, normalizePlan, PlanKey, PlanConfig } from '@/lib/plans'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -749,11 +748,11 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   }
 
   // ── Plan info helpers ──────────────────────────────────────────────────────
-  const plan = (subData?.subscription?.plan ?? 'free') as PlanKey
-  const planConfig = subData?.planConfig
+  const plan = normalizePlan(subData?.subscription?.plan ?? 'trial')
+  const planConfig = subData?.planConfig as PlanConfig | undefined
   const usage = subData?.usage
-  const planLimits = PLAN_LIMITS[plan] ?? PLAN_LIMITS.free
-  const isPremium = plan !== 'free'
+  const planLimits = getPlanLimits(plan)
+  const isPremium = plan !== 'trial' && plan !== 'starter' // Define premium appropriately
   const displayName = profileValues.full_name || userName
   const hasAssistant = assistantCount > 0
 
@@ -770,14 +769,14 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
       actionHref: hasAssistant ? '/dashboard/assistants' : '/dashboard/create-assistant',
     },
     telegram: {
-      available: planLimits.channels.telegram,
+      available: planConfig?.channels.telegram || false,
       configured: false,
       label: 'Telegram',
-      description: planLimits.channels.telegram ? 'Conecta tu bot de Telegram' : 'Disponible desde el plan Pro',
+      description: planConfig?.channels.telegram ? 'Conecta tu bot de Telegram' : 'Disponible en planes avanzados',
       icon: <MessageCircle className="w-4 h-4" />,
       color: 'text-[#0088cc]',
-      actionLabel: planLimits.channels.telegram ? 'Configurar' : 'Mejorar plan',
-      actionHref: planLimits.channels.telegram ? '/dashboard/assistants' : '/dashboard/billing',
+      actionLabel: planConfig?.channels.telegram ? 'Configurar' : 'Mejorar plan',
+      actionHref: planConfig?.channels.telegram ? '/dashboard/assistants' : '/dashboard/billing',
     },
     whatsapp: {
       available: false,
@@ -1453,8 +1452,8 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                               <Sparkles className="w-4 h-4 text-brand-violet" /> Recomendación para ti
                             </h4>
                             <p className="text-xs text-text-soft">
-                              {plan === 'free' && (usage?.messagesUsed ?? 0) > 80 ? 'Estás cerca del límite. Mejora a Pro para más asistentes y mensajes.' :
-                               plan === 'free' ? 'El plan Free es perfecto para empezar. Mejora a Pro cuando necesites Telegram y más mensajes.' :
+                              {plan === 'trial' && (usage?.messagesUsed ?? 0) > 80 ? 'Estás cerca del límite. Mejora tu plan para más asistentes y mensajes.' :
+                               plan === 'trial' ? 'El plan Trial es perfecto para empezar. Mejora a Starter o superior cuando necesites más mensajes y canales.' :
                                plan === 'pro' && (usage?.messagesUsed ?? 0) > 4000 ? 'Tu volumen está creciendo rápido. Considera el plan Business.' :
                                plan === 'business' ? 'Tu plan está preparado para mayor volumen. ¡Excelente trabajo!' :
                                'Plan personalizado y adaptado a tus necesidades.'}

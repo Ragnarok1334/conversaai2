@@ -2,21 +2,11 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { createFlowPayment } from '@/lib/flow';
-
-const PRICES = {
-  pro: 19000,
-  business: 49000
-} as const;
-
-type Plan = keyof typeof PRICES;
-
-function isValidPlan(plan: unknown): plan is Plan {
-  return typeof plan === 'string' && plan in PRICES;
-}
+import { getPlanConfig, normalizePlan } from '@/lib/plans';
 
 export async function POST(req: Request) {
   let commerceOrder = '';
-  let plan = '';
+  let planKey = '';
   let amount = 0;
 
   try {
@@ -39,23 +29,37 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    plan = body.plan;
+    planKey = normalizePlan(body.plan);
 
-    if (!isValidPlan(plan)) {
-      return NextResponse.json({ error: 'Plan inválido. Debe ser pro o business.' }, { status: 400 });
+    if (planKey === 'trial' || body.plan === 'free') {
+      return NextResponse.json({ error: 'La prueba gratis no requiere pago.' }, { status: 400 });
     }
 
-    amount = PRICES[plan as Plan];
+    if (planKey === 'enterprise') {
+      return NextResponse.json({ error: 'Enterprise requiere contacto comercial.' }, { status: 400 });
+    }
+
+    const allowedPlans = ['starter', 'pro', 'growth', 'business'];
+    if (!allowedPlans.includes(planKey)) {
+      return NextResponse.json({ error: 'Plan no válido para checkout automático.' }, { status: 400 });
+    }
+
+    const config = getPlanConfig(planKey);
+    if (!config.priceCLP || config.priceCLP <= 0) {
+      return NextResponse.json({ error: 'Precio del plan no configurado.' }, { status: 500 });
+    }
+
+    amount = config.priceCLP;
     
     // Create unique order ID
     const shortId = user.id.split('-')[0];
     const timestamp = Date.now();
-    commerceOrder = `conversaai-${shortId}-${plan}-${timestamp}`;
+    commerceOrder = `conversaai-${shortId}-${planKey}-${timestamp}`;
 
     // 1. Call Flow Sandbox FIRST
     const flowResponse = await createFlowPayment({
       commerceOrder,
-      subject: `Plan ${plan.toUpperCase()} - ConversaAI`,
+      subject: `ConversaAI ${config.label} - Suscripción mensual`,
       currency: 'CLP',
       amount,
       email: user.email || 'usuario@conversaai.store',
@@ -68,7 +72,7 @@ export async function POST(req: Request) {
         hasUrl: Boolean(flowResponse.url),
         hasToken: Boolean(flowResponse.token),
         commerceOrder,
-        plan,
+        plan: planKey,
         amount,
       });
     }
@@ -82,7 +86,7 @@ export async function POST(req: Request) {
         provider: "flow",
         flow_token: flowResponse.token,
         flow_order: commerceOrder,
-        plan,
+        plan: planKey,
         amount,
         currency: "CLP",
         status: "pending",
@@ -114,7 +118,14 @@ export async function POST(req: Request) {
       url: `${flowResponse.url}?token=${flowResponse.token}`
     });
 
-  } catch (error: unknown) {
+  } catch (error: any) {
+    if (error.isFlowParseError) {
+      return NextResponse.json({
+        error: error.message,
+        debug: process.env.NODE_ENV === 'development' ? error.debug : undefined
+      }, { status: 500 });
+    }
+
     const errMessage = error instanceof Error ? error.message : String(error);
     console.error('Flow Checkout Error:', errMessage);
     
@@ -128,7 +139,7 @@ export async function POST(req: Request) {
       statusCode = 400;
       flowCode = 105;
       
-      details = 'Revisa en Flow Sandbox que tu cuenta tenga medios de pago habilitados. También confirma que FLOW_API_KEY y FLOW_SECRET_KEY sean de sandbox y que FLOW_BASE_URL sea https://sandbox.flow.cl/api.';
+      details = 'Revisa en Flow Sandbox que tu cuenta tenga medios de pago habilitados.';
     } else if (errMessage.includes('Faltan credenciales')) {
       userFriendlyMessage = 'Faltan variables de entorno de Flow.';
       statusCode = 400;
@@ -138,11 +149,8 @@ export async function POST(req: Request) {
       console.error('Flow Error Logs:', {
         message: errMessage,
         code: flowCode,
-        endpoint: 'https://sandbox.flow.cl/api/payment/create',
-        plan,
+        plan: planKey,
         amount,
-        urlReturn: `${process.env.NEXT_PUBLIC_APP_URL || 'https://conversaai.store'}/api/billing/flow/return`,
-        urlConfirmation: `${process.env.NEXT_PUBLIC_APP_URL || 'https://conversaai.store'}/api/webhooks/flow`
       });
     }
 

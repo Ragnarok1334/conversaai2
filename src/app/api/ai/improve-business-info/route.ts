@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const planConfig = getPlanConfig(normalizePlan(sub.plan))
-    const limit = planConfig.messagesLimit
+    const limit = planConfig.limits.messagesPerMonth
 
     const consumed = await consumeMessageCredit(user.id, limit)
     if (!consumed) {

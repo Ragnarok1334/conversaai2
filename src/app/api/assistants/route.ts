@@ -136,7 +136,8 @@ export async function POST(request: NextRequest) {
       .single()
 
     const isActiveSub = sub && sub.status === 'active'
-    const rawPlan = isActiveSub ? sub.plan : 'free'
+    // Usar "trial" por defecto si no hay sub o no está activa
+    const rawPlan = isActiveSub ? sub.plan : 'trial'
     const planKey = normalizePlan(rawPlan) as PlanKey
     const planLimits = getPlanLimits(planKey)
     const assistantsLimit = planLimits.assistants

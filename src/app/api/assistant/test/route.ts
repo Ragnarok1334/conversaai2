@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     const normalizedPlan = normalizePlan(sub.plan)
     const planConfig = getPlanConfig(normalizedPlan)
-    const effectiveLimit = planConfig.messagesLimit
+    const effectiveLimit = planConfig.limits.messagesPerMonth
 
     // Consume credit atomically
     const consumed = await consumeMessageCredit(user.id, effectiveLimit)

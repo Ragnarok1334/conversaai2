@@ -21,6 +21,12 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
 
   if (error || !user) redirect('/login')
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('trial_used')
+    .eq('id', user.id)
+    .single()
+
   const { data: subscription } = await supabase
     .from('subscriptions')
     .select('*')
@@ -32,7 +38,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
 
-  const currentPlan = subscription?.plan || 'free'
+  const currentPlan = subscription?.plan || 'trial'
   const planKey = normalizePlan(currentPlan)
   const planConfig = getPlanConfig(planKey)
   const planLimits = getPlanLimits(planKey)
@@ -40,8 +46,8 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
   const assistantsUsed = assistantsCount ?? 0
   const messagesUsed = subscription?.current_messages_used ?? 0
   
-  const messagesLimit = planLimits.messagesPerMonth === Infinity ? null : planLimits.messagesPerMonth
-  const assistantsLimit = planLimits.assistants === Infinity ? null : planLimits.assistants
+  const messagesLimit = planLimits.messagesPerMonth === null ? null : planLimits.messagesPerMonth
+  const assistantsLimit = planLimits.assistants === null ? null : planLimits.assistants
   
   const messagesPercentage = messagesLimit ? Math.round((messagesUsed / messagesLimit) * 100) : 0
   const assistantsPercentage = assistantsLimit ? Math.round((assistantsUsed / assistantsLimit) * 100) : 0
@@ -63,7 +69,8 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
     assistantsPercentage,
   }
 
-  const plans = [PLAN_CONFIGS.free, PLAN_CONFIGS.pro, PLAN_CONFIGS.business, PLAN_CONFIGS.enterprise]
+  const plans = Object.values(PLAN_CONFIGS)
+  const trialUsed = profile?.trial_used ?? false
 
   return (
     <div className="max-w-6xl mx-auto space-y-10">
@@ -137,18 +144,19 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
             <h3 className="text-xl font-semibold">Pagos con Flow</h3>
           </div>
           <p className="text-text-secondary text-sm mb-6 max-w-sm flex-1 relative z-10">
-            Activa tu plan usando Flow Sandbox. En producción podrás aceptar Webpay, tarjetas, transferencias y métodos disponibles en Chile.
+            Puedes pagar de forma segura con Webpay, tarjetas de crédito y débito. Los planes se activan automáticamente tras confirmar el pago.
           </p>
-          <Link href="#plan-business" className="w-full sm:w-auto px-6 py-3 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-white hover:bg-white/10 transition-colors text-center relative z-10">
-            Probar pago con Flow
-          </Link>
+          <div className="relative z-10 flex gap-2">
+            <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs text-text-soft">Webpay Plus</span>
+            <span className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs text-text-soft">Transferencia</span>
+          </div>
         </div>
 
         <PaymentHistory />
       </section>
 
       {/* Plan Comparison */}
-      <PlanComparison plans={plans} currentPlan={currentPlan} />
+      <PlanComparison plans={plans} currentPlan={currentPlan} trialUsed={trialUsed} />
 
     </div>
   )

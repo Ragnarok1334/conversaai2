@@ -20,18 +20,18 @@ export async function GET() {
       
     let subscription = subscriptionData
 
-    // If subscription doesn't exist, create a fallback Free one using admin (bypasses RLS)
+    // If subscription doesn't exist, create a fallback trial one using admin (bypasses RLS)
     if (!subscription) {
-      const planConfig = getPlanConfig('free')
+      const planConfig = getPlanConfig('trial')
       const supabaseAdmin = createSupabaseAdmin()
       const { data: newSub, error: insertError } = await supabaseAdmin
         .from('subscriptions')
         .insert({
           user_id: user.id,
-          plan: 'free',
+          plan: 'trial',
           status: 'active',
-          assistants_limit: planConfig.assistantsLimit ?? 1,
-          messages_limit: planConfig.messagesLimit ?? 100,
+          assistants_limit: planConfig.limits.assistants ?? 1,
+          messages_limit: planConfig.limits.messagesPerMonth ?? 100,
           current_messages_used: 0
         })
         .select()
@@ -55,8 +55,8 @@ export async function GET() {
     const planConfig = getPlanConfig(normalizedPlan)
 
     // Use limits from PLAN_CONFIGS (source of truth), not stored DB value
-    const assistantsLimit = planConfig.assistantsLimit
-    const messagesLimit = planConfig.messagesLimit
+    const assistantsLimit = planConfig.limits.assistants
+    const messagesLimit = planConfig.limits.messagesPerMonth
 
     const payload = {
       subscription: { ...sub, plan: normalizedPlan },

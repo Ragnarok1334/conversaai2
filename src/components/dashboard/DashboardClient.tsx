@@ -17,7 +17,7 @@ import { ExecutiveSummaryCard, ExecutiveSummary } from '@/components/dashboard/E
 // Types mirroring API response
 interface DashboardData {
   profile: { full_name: string | null; email: string | null }
-  plan: { key: string; label: string; status: string; channels: string[]; description: string }
+  plan: { key: string; label: string; status: string; channels: { [key: string]: boolean }; description: string }
   usage: {
     assistantsUsed: number
     assistantsLimit: number | null

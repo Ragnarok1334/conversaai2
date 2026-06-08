@@ -7,7 +7,7 @@ interface Props {
     key: string
     label: string
     status: string
-    channels: string[]
+    channels: { [key: string]: boolean }
     description: string
   }
   usage: {
@@ -72,7 +72,9 @@ export function PlanUsageCard({ plan, usage }: Props) {
 
         {/* Channels */}
         <div className="flex flex-wrap gap-2 mb-6">
-          {plan.channels.map(c => (
+          {Object.entries(plan.channels)
+            .filter(([_, enabled]) => enabled)
+            .map(([c]) => (
             <span key={c} className="text-xs px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] text-text-secondary">
               {getChannelLabel(c)}
             </span>
@@ -129,7 +131,7 @@ export function PlanUsageCard({ plan, usage }: Props) {
 
           {/* Action button */}
           <div className="sm:ml-6 shrink-0 mt-2 sm:mt-0">
-            {plan.key === 'free' ? (
+            {plan.key === 'trial' ? (
               <Link
                 href="/dashboard/billing#plan-business"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-violet to-brand-blue text-white text-sm font-semibold shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] hover:scale-[1.02] transition-all duration-200 whitespace-nowrap border-0 w-full sm:w-auto"

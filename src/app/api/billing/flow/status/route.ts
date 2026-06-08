@@ -61,8 +61,8 @@ export async function GET(req: Request) {
           .update({
             plan: planKey,
             status: 'active',
-            assistants_limit: planConfig.assistantsLimit,
-            messages_limit: planConfig.messagesLimit,
+            assistants_limit: planConfig.limits.assistants,
+            messages_limit: planConfig.limits.messagesPerMonth,
           })
           .eq('user_id', payment.user_id);
       } else {
@@ -73,8 +73,8 @@ export async function GET(req: Request) {
             user_id: payment.user_id,
             plan: planKey,
             status: 'active',
-            assistants_limit: planConfig.assistantsLimit,
-            messages_limit: planConfig.messagesLimit,
+            assistants_limit: planConfig.limits.assistants,
+            messages_limit: planConfig.limits.messagesPerMonth,
             current_messages_used: 0
           });
       }

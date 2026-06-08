@@ -53,13 +53,20 @@ export function createFlowSignature(params: Record<string, string>): string {
 }
 
 export async function createFlowPayment(params: FlowPaymentParams): Promise<FlowPaymentResponse> {
-  if (!process.env.FLOW_API_KEY || !process.env.FLOW_SECRET_KEY || !process.env.FLOW_BASE_URL) {
-    throw new Error('Faltan credenciales de Flow Sandbox.');
+  const apiKey = process.env.FLOW_API_KEY;
+  const secretKey = process.env.FLOW_SECRET_KEY;
+  let baseUrl = process.env.FLOW_API_URL || process.env.FLOW_BASE_URL;
+
+  if (!apiKey || !secretKey || !baseUrl) {
+    throw new Error('Configuración de Flow incompleta. Revisa FLOW_API_KEY, FLOW_SECRET_KEY y FLOW_API_URL.');
   }
 
-  const apiKey = getEnvVar('FLOW_API_KEY');
-  const baseUrl = getEnvVar('FLOW_BASE_URL');
-  
+  // Normalize baseUrl to ensure it ends with /api
+  baseUrl = baseUrl.replace(/\/+$/, '');
+  if (!baseUrl.endsWith('/api')) {
+    baseUrl = `${baseUrl}/api`;
+  }
+
   const payload: Record<string, string> = {
     apiKey,
     commerceOrder: params.commerceOrder,
@@ -71,23 +78,6 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
     urlReturn: params.urlReturn,
   };
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Flow API Config:', {
-      flowBaseUrl: process.env.FLOW_BASE_URL,
-      endpoint: `${process.env.FLOW_BASE_URL}/payment/create`,
-      hasApiKey: Boolean(process.env.FLOW_API_KEY),
-      hasSecretKey: Boolean(process.env.FLOW_SECRET_KEY),
-      appUrl: process.env.NEXT_PUBLIC_APP_URL,
-      amount: params.amount,
-      commerceOrder: params.commerceOrder,
-      subject: params.subject,
-      currency: params.currency,
-      email: params.email,
-      urlConfirmation: params.urlConfirmation,
-      urlReturn: params.urlReturn
-    });
-  }
-  
   const s = createFlowSignature(payload);
   payload.s = s;
   
@@ -101,11 +91,40 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
     body: bodyParams.toString()
   });
   
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const rawText = await response.text();
+  let data: any = null;
+
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    const debugInfo = {
+      flowBaseUrl: baseUrl,
+      flowCreateUrl: `${baseUrl}/payment/create`,
+      status: response.status,
+      statusText: response.statusText,
+      contentType,
+      preview: rawText.slice(0, 800),
+    };
+    
+    console.error("[Flow checkout debug]", debugInfo);
+
+    // Throwing an object so the route handler can catch it and return it in dev
+    // eslint-disable-next-line no-throw-literal
+    throw {
+      isFlowParseError: true,
+      message: 'Flow devolvió una respuesta no válida.',
+      debug: {
+        flowStatus: response.status,
+        contentType,
+        preview: rawText.slice(0, 300)
+      }
+    };
+  }
   
   if (!response.ok || data.code) {
     console.error('Flow API Error (createPayment):', data);
-    throw new Error(data.message || 'Error al crear el pago en Flow');
+    throw new Error(data.message || data.error || 'Flow rechazó la creación del pago.');
   }
   
   return {
@@ -117,7 +136,13 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
 
 export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentStatus> {
   const apiKey = getEnvVar('FLOW_API_KEY');
-  const baseUrl = getEnvVar('FLOW_BASE_URL');
+  let baseUrl = getEnvVar('FLOW_BASE_URL');
+
+  // Normalize baseUrl to ensure it ends with /api
+  baseUrl = baseUrl.replace(/\/+$/, '');
+  if (!baseUrl.endsWith('/api')) {
+    baseUrl = `${baseUrl}/api`;
+  }
   
   const payload: Record<string, string> = {
     apiKey,
@@ -134,11 +159,24 @@ export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentSt
   });
   
   const response = await fetch(`${baseUrl}/payment/getStatus?${queryParams.toString()}`);
-  const data = await response.json();
+  const contentType = response.headers.get("content-type") || "";
+  const rawText = await response.text();
+  let data: any = null;
+
+  try {
+    data = JSON.parse(rawText);
+  } catch {
+    console.error("[Flow status] Non JSON response:", {
+      status: response.status,
+      contentType,
+      preview: rawText.slice(0, 500),
+    });
+    throw new Error('Flow devolvió una respuesta inválida al consultar el estado.');
+  }
   
   if (!response.ok || data.code) {
     console.error('Flow API Error (getStatus):', data);
-    throw new Error(data.message || 'Error al obtener el estado del pago en Flow');
+    throw new Error(data.message || data.error || 'Error al obtener el estado del pago en Flow');
   }
   
   return data;

@@ -4,7 +4,7 @@ import { normalizePlan, getPlanConfig, PlanKey } from '@/lib/plans'
 /**
  * Returns the normalized plan key for a given userId.
  * Always reads from DB via admin client (bypasses RLS).
- * Falls back to 'free' if no active subscription exists or it's expired.
+ * Falls back to 'trial' if no active subscription exists or it's expired.
  */
 export async function getUserPlan(userId: string): Promise<PlanKey> {
   try {
@@ -15,18 +15,19 @@ export async function getUserPlan(userId: string): Promise<PlanKey> {
       .eq('user_id', userId)
       .single()
 
-    if (!sub) return 'free'
-    if (sub.status !== 'active') return 'free'
+    if (!sub) return 'trial'
+    if (sub.status !== 'active') return 'trial'
 
     // Check expiry if the column exists
     if (sub.current_period_end) {
-      const expiry = new Date(sub.current_period_end)
-      if (expiry < new Date()) return 'free'
+      const now = new Date()
+      const end = new Date(sub.current_period_end)
+      if (now > end) return 'trial'
     }
 
     return normalizePlan(sub.plan)
   } catch {
-    return 'free'
+    return 'trial'
   }
 }
 
