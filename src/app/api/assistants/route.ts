@@ -111,6 +111,10 @@ export async function POST(request: NextRequest) {
     const fallbackMessage = body.fallback_message || body.fallbackMessage || null
     const welcomeMessage = body.welcome_message || body.welcomeMessage || null
 
+    // Knowledge blocks
+    const rawBlocks = body.knowledge_blocks || body.knowledgeBlocks
+    const knowledgeBlocks = Array.isArray(rawBlocks) ? rawBlocks : null
+
     // Canales del nuevo objeto channels
     const channels = body.channels ?? {}
 
@@ -214,6 +218,7 @@ export async function POST(request: NextRequest) {
       ...(welcomeMessage ? { welcome_message: welcomeMessage } : {}),
       ...(businessInfo ? { business_info: businessInfo } : {}),
       ...(schedule ? { business_hours: schedule } : {}),
+      ...(knowledgeBlocks ? { knowledge_blocks: knowledgeBlocks } : {}),
     }
 
     // Payload mínimo solo con columnas base (fallback si las extendidas no existen)
@@ -232,6 +237,7 @@ export async function POST(request: NextRequest) {
       fallback_message: fallbackMessage,
       language,
       status: 'active',
+      ...(knowledgeBlocks ? { knowledge_blocks: knowledgeBlocks } : {}),
     }
 
     if (process.env.NODE_ENV === 'development') {

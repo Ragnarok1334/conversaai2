@@ -18,8 +18,8 @@ const data = [
 
 export function MiniChart() {
   return (
-    <div className="w-full h-20">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full" style={{ height: 80, minHeight: 80 }}>
+      <ResponsiveContainer width="100%" height={80}>
         <AreaChart data={data}>
           <defs>
             <linearGradient id="colorChart" x1="0" y1="0" x2="0" y2="1">

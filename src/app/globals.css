@@ -263,3 +263,57 @@ body::before {
     @apply bg-background text-foreground;}
   html {
     @apply font-sans;}}
+
+/* ─── DARK PREMIUM SCROLLBARS ─────────────────────────────────────────────── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 92, 236, 0.4) rgba(15, 23, 42, 0.3);
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.35);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.6), rgba(6, 182, 212, 0.6));
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.5);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.9), rgba(6, 182, 212, 0.9));
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Utility class for specific containers (e.g. payment history lists) */
+.conversa-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 92, 236, 0.5) rgba(15, 23, 42, 0.2);
+}
+
+.conversa-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.conversa-scrollbar::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.2);
+  border-radius: 999px;
+}
+
+.conversa-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 0.7), rgba(6, 182, 212, 0.7));
+  border-radius: 999px;
+}
+
+.conversa-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(139, 92, 246, 1), rgba(6, 182, 212, 1));
+}

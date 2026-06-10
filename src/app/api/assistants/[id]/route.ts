@@ -56,7 +56,7 @@ export async function PATCH(
       'assistant_name', 'name', 'business_name', 'business_type',
       'instructions', 'behavior', 'channel', 'tone',
       'objective', 'main_goal', 'fallback_message', 'welcome_message',
-      'status'
+      'status', 'knowledge_blocks'
     ]
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
@@ -83,6 +83,22 @@ export async function PATCH(
         if (key === 'status') {
           if (!['active', 'inactive', 'draft'].includes(val)) {
             return NextResponse.json({ error: `El estado '${val}' no es válido.` }, { status: 400 })
+          }
+        }
+
+        // Validation for knowledge_blocks
+        if (key === 'knowledge_blocks') {
+          if (val !== null && !Array.isArray(val)) {
+            return NextResponse.json({ error: 'El campo knowledge_blocks debe ser un array o null.' }, { status: 400 })
+          }
+          if (Array.isArray(val)) {
+            for (const block of val) {
+              if (typeof block.type !== 'string' || typeof block.title !== 'string' || typeof block.content !== 'string' || typeof block.is_active !== 'boolean') {
+                return NextResponse.json({ error: 'Formato inválido en bloque de conocimiento.' }, { status: 400 })
+              }
+              if (block.title.length > 120) return NextResponse.json({ error: 'Título de bloque excede 120 caracteres.' }, { status: 400 })
+              if (block.content.length > 5000) return NextResponse.json({ error: 'Contenido de bloque excede 5000 caracteres.' }, { status: 400 })
+            }
           }
         }
 

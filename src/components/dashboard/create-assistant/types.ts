@@ -1,3 +1,14 @@
+export type KnowledgeBlockType = 'general' | 'services' | 'pricing' | 'hours' | 'location' | 'faq' | 'policies' | 'promotions' | 'lead_capture' | 'rules' | 'custom'
+
+export interface KnowledgeBlock {
+  id: string
+  type: KnowledgeBlockType
+  title: string
+  content: string
+  is_active: boolean
+  sort_order: number
+}
+
 export interface BuilderFormData {
   assistant_name: string
   business_name: string
@@ -29,6 +40,7 @@ export interface BuilderFormData {
     telegram: { enabled: boolean; token: string }
     whatsapp: { enabled: boolean }
   }
+  knowledgeBlocks: KnowledgeBlock[]
 }
 
 export const initialBuilderForm: BuilderFormData = {
@@ -61,5 +73,6 @@ export const initialBuilderForm: BuilderFormData = {
     webchat: { enabled: true },
     telegram: { enabled: false, token: '' },
     whatsapp: { enabled: false }
-  }
+  },
+  knowledgeBlocks: []
 }

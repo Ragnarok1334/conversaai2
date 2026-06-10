@@ -28,7 +28,8 @@ function mergeWithInitialBuilderForm(storedForm: any): BuilderFormData {
         ...initialBuilderForm.channels.whatsapp,
         ...storedForm?.channels?.whatsapp
       }
-    }
+    },
+    knowledgeBlocks: Array.isArray(storedForm?.knowledgeBlocks) ? storedForm.knowledgeBlocks : initialBuilderForm.knowledgeBlocks
   }
 }
 

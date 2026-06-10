@@ -19,9 +19,23 @@ interface Props {
 export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, currentPlan, onSubmit, status, errorMsg }: Props) {
   const router = useRouter()
 
+  const activeBlocks = form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim().length > 10) || []
+  const hasLegacy = form.instructions.trim().length > 10 && activeBlocks.length === 0
+  const totalQualityCount = activeBlocks.length + (hasLegacy ? 1 : 0)
+
+  let qualityLevel = 'Básico'
+  let qualityColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20'
+  if (totalQualityCount >= 6) {
+    qualityLevel = 'Completo'
+    qualityColor = 'text-brand-success bg-brand-success/10 border-brand-success/20'
+  } else if (totalQualityCount >= 3) {
+    qualityLevel = 'Bueno'
+    qualityColor = 'text-brand-cyan bg-brand-cyan/10 border-brand-cyan/20'
+  }
+
   const checklist = [
     { label: 'Información básica completa', done: form.assistant_name.trim() !== '' && form.business_name.trim() !== '' },
-    { label: 'Entrenamiento agregado', done: form.instructions.trim().length >= 80 },
+    { label: 'Entrenamiento agregado', done: form.instructions.trim().length >= 80 || activeBlocks.some(b => b.content.trim().length >= 80) },
     { label: 'Canal seleccionado', done: form.channels.webchat.enabled || form.channels.telegram.enabled },
   ]
 
@@ -69,6 +83,28 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
                 ].filter(Boolean).join(', ') || '-'}
               </li>
             </ul>
+
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
+                Conocimiento:
+                <span className={`px-2 py-0.5 rounded-full border ${qualityColor}`}>
+                  {qualityLevel}
+                </span>
+              </h4>
+              <ul className="space-y-1 text-xs text-slate-300">
+                {activeBlocks.length > 0 ? (
+                  activeBlocks.map(b => (
+                    <li key={b.type} className="flex items-center gap-1.5 capitalize">
+                      <CheckCircle2 className="w-3 h-3 text-brand-cyan" /> {b.title}
+                    </li>
+                  ))
+                ) : hasLegacy ? (
+                  <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-brand-cyan" /> Texto libre (Legacy)</li>
+                ) : (
+                  <li className="text-slate-500 italic">No hay entrenamiento configurado</li>
+                )}
+              </ul>
+            </div>
 
             <div className="mt-4">
               <h4 className="text-xs font-semibold text-white mb-2">Reglas activas:</h4>

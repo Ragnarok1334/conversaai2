@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
         schedule: assistant.schedule,
         fallbackMessage: assistant.fallback_message,
         language: assistant.language,
-        behavior: assistant.behavior
+        behavior: assistant.behavior,
+        knowledge_blocks: assistant.knowledge_blocks
       }
     } else if (assistantConfig) {
       // Preview mode — use provided config without saving

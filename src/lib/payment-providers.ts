@@ -4,14 +4,17 @@ export type PaymentCurrency = 'CLP' | 'USD'
 export interface ProviderConfig {
   key: PaymentProvider
   label: string
-  sublabel: string
+  shortLabel: string
   description: string
   currency: PaymentCurrency
-  /** true = checkout funcional, false = próximamente */
+  /** true = checkout funcional; false = stub/próximamente */
   available: boolean
-  icon: string
+  /** Badge to show on unavailable providers */
+  badge?: string
+  /** Emoji fallback if SVG icon fails */
+  iconFallback: string
   checkoutEndpoint: string
-  /** Métodos de pago aceptados (para mostrar en UI) */
+  /** Payment methods accepted (for UI display) */
   methods: string[]
 }
 
@@ -19,35 +22,37 @@ export const PAYMENT_PROVIDERS: Record<PaymentProvider, ProviderConfig> = {
   flow: {
     key: 'flow',
     label: 'Flow / Webpay',
-    sublabel: 'Pago en pesos chilenos',
-    description: 'Tarjetas de crédito, débito y transferencias bancarias en CLP.',
+    shortLabel: 'Flow',
+    description: 'Tarjetas de crédito, débito y transferencias en pesos chilenos.',
     currency: 'CLP',
     available: true,
-    icon: '🏦',
+    iconFallback: '🏦',
     checkoutEndpoint: '/api/billing/flow/checkout',
     methods: ['Webpay Plus', 'Transferencia', 'Redcompra'],
   },
   paypal: {
     key: 'paypal',
     label: 'PayPal',
-    sublabel: 'Pago en dólares (USD)',
-    description: 'Paga con tu cuenta PayPal o tarjeta de crédito internacional.',
+    shortLabel: 'PayPal',
+    description: 'Paga en dólares con tu cuenta PayPal o tarjeta internacional.',
     currency: 'USD',
-    available: false, // Próximamente
-    icon: '🌐',
+    available: false,
+    badge: 'Próximamente',
+    iconFallback: '🌐',
     checkoutEndpoint: '/api/billing/paypal/checkout',
-    methods: ['PayPal', 'Visa', 'Mastercard'],
+    methods: ['PayPal', 'Tarjeta internacional'],
   },
   crypto: {
     key: 'crypto',
     label: 'Cripto',
-    sublabel: 'USDT / USDC / BTC / ETH',
-    description: 'Pago con criptomonedas. Precio de referencia en USD.',
+    shortLabel: 'USDT / USDC',
+    description: 'Pago con criptomonedas. Precio de referencia en dólares.',
     currency: 'USD',
-    available: false, // Próximamente
-    icon: '₿',
+    available: false,
+    badge: 'Próximamente',
+    iconFallback: '₮',
     checkoutEndpoint: '/api/billing/crypto/checkout',
-    methods: ['USDT', 'USDC', 'Bitcoin', 'Ethereum'],
+    methods: ['USDT', 'USDC', 'BTC', 'ETH'],
   },
 }
 
@@ -62,10 +67,15 @@ export function getProviderConfig(provider: PaymentProvider | string): ProviderC
 }
 
 export function getProviderLabel(provider: string): string {
+  const config = PAYMENT_PROVIDERS[provider as PaymentProvider]
+  return config?.shortLabel || (provider ? provider.toUpperCase() : 'Pago')
+}
+
+export function getProviderBadge(provider: string): string {
   const labels: Record<string, string> = {
-    flow: 'Flow',
-    paypal: 'PayPal',
-    crypto: 'Cripto',
+    flow: 'FLOW',
+    paypal: 'PAYPAL',
+    crypto: 'CRYPTO',
   }
-  return labels[provider] || provider
+  return labels[provider] || (provider ? provider.toUpperCase() : 'PAGO')
 }

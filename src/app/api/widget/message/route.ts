@@ -165,7 +165,8 @@ export async function POST(request: NextRequest) {
       schedule: assistant.schedule || '',
       fallbackMessage: assistant.fallback_message || '',
       language: assistant.language || 'es',
-      behavior: assistant.behavior || undefined
+      behavior: assistant.behavior || undefined,
+      knowledge_blocks: assistant.knowledge_blocks
     }
 
     const reply = await generateAssistantReply(config, message.trim())

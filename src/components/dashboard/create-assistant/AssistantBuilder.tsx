@@ -47,6 +47,7 @@ export function AssistantBuilder({ userId, hasReachedLimit, currentUsage, planLi
       channel: form.behavior.initialChannel,
       tone: form.behavior.tone,
       main_goal: form.behavior.goal,
+      knowledge_blocks: form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim()) || null
     }
 
     try {
@@ -88,6 +89,7 @@ export function AssistantBuilder({ userId, hasReachedLimit, currentUsage, planLi
             schedule: form.schedule,
             fallbackMessage: form.fallback_message,
             language: form.language,
+            knowledge_blocks: form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim()) || null
           },
           userMessage,
         }),

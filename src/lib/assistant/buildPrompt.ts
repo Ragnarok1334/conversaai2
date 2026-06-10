@@ -17,6 +17,13 @@ export interface Assistant {
   status: string
   behavior: any
   created_at: string
+  knowledge_blocks?: Array<{
+    type: string
+    title: string
+    content: string
+    is_active: boolean
+    sort_order: number
+  }> | null
 }
 
 export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): string {
@@ -153,7 +160,39 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
     rulesList.push('- CRÍTICO: Debes responder SIEMPRE en Español, sin importar en qué idioma te hable el usuario.')
   }
 
-  // 7. Ensamblar Prompt Final
+  // 7. Generar Conocimiento Estructurado
+  let structuredKnowledge = ''
+  
+  if (assistant.knowledge_blocks && Array.isArray(assistant.knowledge_blocks)) {
+    const activeBlocks = assistant.knowledge_blocks.filter(b => b.is_active && b.content.trim())
+    if (activeBlocks.length > 0) {
+      // Ordenar por bloque para mantener la jerarquía semántica solicitada
+      const typeOrder = [
+        'general', 'services', 'pricing', 'hours', 
+        'location', 'faq', 'policies', 'promotions', 
+        'lead_capture', 'rules', 'custom'
+      ]
+      
+      const sortedBlocks = activeBlocks.sort((a, b) => {
+        const orderA = typeOrder.indexOf(a.type) === -1 ? 99 : typeOrder.indexOf(a.type)
+        const orderB = typeOrder.indexOf(b.type) === -1 ? 99 : typeOrder.indexOf(b.type)
+        if (orderA !== orderB) return orderA - orderB
+        return (a.sort_order || 0) - (b.sort_order || 0)
+      })
+
+      structuredKnowledge = sortedBlocks.map(b => `[${b.title.toUpperCase()}]\n${b.content}`).join('\n\n')
+    }
+  }
+
+  // Fallback a legacy si no hay bloques estructurados
+  if (!structuredKnowledge) {
+    structuredKnowledge = `Instrucciones generales:\n${instructions}\n`
+    if (services) structuredKnowledge += `\nServicios/Productos ofrecidos:\n${services}\n`
+    if (schedule) structuredKnowledge += `\nHorarios de atención:\n${schedule}\n`
+    if (faqs) structuredKnowledge += `\nPreguntas Frecuentes (FAQ):\n${faqs}\n`
+  }
+
+  // 8. Ensamblar Prompt Final
   return `
 Eres el asistente virtual oficial de "${businessName}", que es un(a) ${businessType}.
 
@@ -163,12 +202,7 @@ COMPORTAMIENTO PRINCIPAL:
 - ${salesInstruction}
 
 INFORMACIÓN DE ENTRENAMIENTO (CONOCIMIENTO DEL NEGOCIO):
-Instrucciones generales:
-${instructions}
-
-${services ? `Servicios/Productos ofrecidos:\n${services}` : ''}
-${schedule ? `Horarios de atención:\n${schedule}` : ''}
-${faqs ? `Preguntas Frecuentes (FAQ):\n${faqs}` : ''}
+${structuredKnowledge.trim()}
 
 REGLAS ESTRICTAS QUE DEBES CUMPLIR OBLIGATORIAMENTE:
 ${rulesList.join('\n')}

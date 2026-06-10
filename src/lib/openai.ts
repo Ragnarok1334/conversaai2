@@ -23,6 +23,7 @@ export interface AssistantConfig extends Partial<Assistant> {
   schedule?: string
   fallbackMessage?: string
   language?: string
+  knowledge_blocks?: any[] | null
 }
 
 // Se reemplazó buildSystemPrompt por buildAssistantSystemPrompt
@@ -42,6 +43,7 @@ export async function generateAssistantReply(
     business_hours: config.schedule || config.business_hours,
     fallback_message: config.fallbackMessage || config.fallback_message,
     language: config.language,
+    knowledge_blocks: config.knowledge_blocks,
     behavior: config.behavior || {
       tone: config.tone,
       goal: config.mainGoal,
