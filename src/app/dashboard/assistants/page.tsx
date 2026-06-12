@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Bot, Crown, Sparkles, Briefcase, Building, MessagesSquare, CheckCircle2, RefreshCw } from 'lucide-react'
+import { Plus, Search, Bot, Crown, Sparkles, Briefcase, Building, MessagesSquare, CheckCircle2, RefreshCw, Globe, Users } from 'lucide-react'
 import Link from 'next/link'
 import { AssistantCard } from '@/components/dashboard/AssistantCard'
 import { getPlanLimits, normalizePlan } from '@/lib/plans'
@@ -79,7 +79,7 @@ export default function AssistantsPage() {
 
   const filtered = assistants.filter(a => {
     const matchSearch = a.assistant_name.toLowerCase().includes(search.toLowerCase()) ||
-      a.business_name.toLowerCase().includes(search.toLowerCase())
+      (a.business_name || '').toLowerCase().includes(search.toLowerCase())
     const matchChannel = filterChannel === 'todos' || a.channel === filterChannel
     return matchSearch && matchChannel
   })
@@ -219,50 +219,65 @@ export default function AssistantsPage() {
 
       {/* CONTENIDO */}
       {loading || subLoading ? (
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-64 bg-card-bg/60 rounded-3xl animate-pulse border border-card-border" />
+            <div key={i} className="h-80 bg-card-bg/50 border border-card-border rounded-3xl animate-pulse" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card-bg/80 backdrop-blur-xl border border-card-border rounded-3xl p-12 text-center relative overflow-hidden"
-        >
-          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-brand-violet to-brand-cyan opacity-50" />
-          <div className="w-20 h-20 rounded-2xl bg-brand-violet/10 border border-brand-violet/20 flex items-center justify-center mx-auto mb-6 relative">
-            <Bot className="w-10 h-10 text-brand-violet" />
-            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-brand-cyan/20 border border-brand-cyan/30 flex items-center justify-center">
-              <Sparkles className="w-3 h-3 text-brand-cyan" />
+        search || filterChannel !== 'todos' ? (
+          <div className="text-center py-20 bg-card-bg/40 border border-card-border rounded-3xl">
+            <Bot className="w-12 h-12 text-text-soft/50 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-white mb-2">No encontramos coincidencias</h3>
+            <p className="text-text-soft">Prueba con otra búsqueda o limpia los filtros.</p>
+          </div>
+        ) : (
+          <div className="text-center py-20 px-4 bg-card-bg/40 border border-card-border rounded-3xl relative overflow-hidden flex flex-col items-center justify-center">
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-violet to-brand-cyan opacity-20" />
+            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mb-6 shadow-2xl">
+              <Bot className="w-10 h-10 text-brand-violet" />
             </div>
-          </div>
-          <h3 className="text-xl font-bold mb-3 text-white">Aún no tienes asistentes en esta vista</h3>
-          <p className="text-text-soft mb-8 max-w-md mx-auto">
-            Los asistentes son el motor de ConversaAI. Creando uno podrás responder automáticamente, captar prospectos y atender 24/7.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-4 mb-8 text-sm text-text-soft">
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Responde FAQs automáticamente</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Captura leads de valor</span>
-            <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-brand-success" /> Atiende fuera de horario</span>
-          </div>
-          {!search && filterChannel === 'todos' && (
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">Aún no tienes asistentes creados</h2>
+            <p className="text-slate-400 max-w-lg mx-auto mb-8 text-sm md:text-base">
+              Crea tu primer asistente para atender clientes, responder preguntas y capturar leads desde tu sitio web, trabajando por ti 24/7.
+            </p>
+            
+            <div className="flex flex-col md:flex-row gap-4 mb-10 max-w-2xl mx-auto w-full justify-center">
+              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1">
+                <div className="w-8 h-8 rounded-lg bg-brand-violet/10 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-brand-violet" />
+                </div>
+                <p className="text-xs text-left text-slate-300">Entrénalo con información de tu negocio</p>
+              </div>
+              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1">
+                <div className="w-8 h-8 rounded-lg bg-brand-cyan/10 flex items-center justify-center shrink-0">
+                  <Globe className="w-4 h-4 text-brand-cyan" />
+                </div>
+                <p className="text-xs text-left text-slate-300">Instálalo en tu web o canales</p>
+              </div>
+              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1">
+                <div className="w-8 h-8 rounded-lg bg-brand-success/10 flex items-center justify-center shrink-0">
+                  <Users className="w-4 h-4 text-brand-success" />
+                </div>
+                <p className="text-xs text-left text-slate-300">Recibe conversaciones y leads</p>
+              </div>
+            </div>
+
             <Link
               href="/dashboard/create-assistant"
-              className="gradient-btn inline-flex items-center gap-2 px-8 py-4 rounded-xl text-white font-bold hover:opacity-90 transition-opacity glow-violet text-lg"
+              className="gradient-btn px-8 py-3.5 rounded-xl text-white font-semibold hover:opacity-90 transition-all glow-violet shadow-xl text-lg flex items-center gap-2"
             >
-              <Plus className="w-6 h-6" />
-              Crear mi primer asistente
+              <Plus className="w-5 h-5" /> Crear mi primer asistente
             </Link>
-          )}
-        </motion.div>
+          </div>
+        )
       ) : (
-        <AnimatePresence>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filtered.map(a => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <AnimatePresence mode="popLayout">
+            {filtered.map(assistant => (
               <AssistantCard
-                key={a.id}
-                assistant={a}
+                key={assistant.id}
+                assistant={assistant}
                 plan={plan}
                 planLimits={planLimits}
                 usage={subData?.usage}
@@ -270,8 +285,8 @@ export default function AssistantsPage() {
                 onToggleStatus={handleToggleStatus}
               />
             ))}
-          </div>
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
       )}
     </div>
   )

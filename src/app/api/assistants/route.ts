@@ -27,41 +27,43 @@ export async function GET() {
 
     if (error) throw error
 
-    // Fetch counts for conversations and leads
+    // Fetch counts for conversations and leads, keeping it optimized
     const { data: convData } = await supabase
       .from('conversations')
-      .select('assistant_id')
+      .select('assistant_id, created_at')
       .eq('user_id', user.id)
 
     const { data: leadsData } = await supabase
       .from('leads')
-      .select('assistant_id')
+      .select('assistant_id, created_at')
       .eq('user_id', user.id)
+
+    const { calculateAssistantHealth } = await import('@/lib/assistant/assistant-health')
 
     // Compute stats
     const enrichedAssistants = assistants?.map(assistant => {
-      const conversationsCount = convData?.filter(c => c.assistant_id === assistant.id).length || 0
-      const leadsCount = leadsData?.filter(l => l.assistant_id === assistant.id).length || 0
+      const convs = convData?.filter(c => c.assistant_id === assistant.id) || []
+      const leads = leadsData?.filter(l => l.assistant_id === assistant.id) || []
       
-      // Determine webchat status from domains
-      // Priority: installed -> pending -> blocked -> missing_domain
-      let webchatStatus = 'missing_domain'
-      if (assistant.assistant_domains && assistant.assistant_domains.length > 0) {
-        const statuses = assistant.assistant_domains.map((d: any) => d.verification_status)
-        if (statuses.includes('installed') || statuses.includes('verified')) {
-          webchatStatus = 'installed'
-        } else if (statuses.includes('pending')) {
-          webchatStatus = 'pending'
-        } else if (statuses.includes('blocked')) {
-          webchatStatus = 'blocked'
-        }
-      }
+      const conversationsCount = convs.length
+      const leadsCount = leads.length
+      
+      const lastConvAt = convs.length > 0 ? Math.max(...convs.map(c => new Date(c.created_at).getTime())) : 0
+      const lastLeadAt = leads.length > 0 ? Math.max(...leads.map(l => new Date(l.created_at).getTime())) : 0
+      const lastActivityAt = Math.max(new Date(assistant.created_at).getTime(), lastConvAt, lastLeadAt)
+
+      const health = calculateAssistantHealth(
+        assistant,
+        assistant.assistant_domains || [],
+        { conversations: conversationsCount, leads: leadsCount }
+      )
 
       return {
         ...assistant,
         conversationsCount,
         leadsCount,
-        webchatStatus
+        lastActivityAt: new Date(lastActivityAt).toISOString(),
+        health
       }
     })
 

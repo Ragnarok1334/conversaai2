@@ -19,23 +19,43 @@ interface Props {
 export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, currentPlan, onSubmit, status, errorMsg }: Props) {
   const router = useRouter()
 
-  const activeBlocks = form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim().length > 10) || []
-  const hasLegacy = form.instructions.trim().length > 10 && activeBlocks.length === 0
-  const totalQualityCount = activeBlocks.length + (hasLegacy ? 1 : 0)
+  const blocks = form.knowledgeBlocks || []
+  
+  const getBlockState = (text: string) => {
+    const chars = text?.trim().length || 0
+    if (chars >= 80) return 'Completo'
+    if (chars > 0) return 'Parcial'
+    return 'Pendiente'
+  }
+
+  const activeAndCompleted = blocks.filter(b => b.is_active && getBlockState(b.content) === 'Completo')
+  const completedCount = activeAndCompleted.length
+  
+  const hasServices = activeAndCompleted.some(b => b.type === 'services')
+  const hasPricing = activeAndCompleted.some(b => b.type === 'pricing')
+  const hasHours = activeAndCompleted.some(b => b.type === 'hours')
+  const hasLocation = activeAndCompleted.some(b => b.type === 'location')
+  
+  const missingEssentials = []
+  if (!hasServices) missingEssentials.push('Servicios')
+  if (!hasPricing) missingEssentials.push('Precios')
+  if (!hasHours) missingEssentials.push('Horarios')
+  if (!hasLocation) missingEssentials.push('Ubicación')
 
   let qualityLevel = 'Básico'
   let qualityColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20'
-  if (totalQualityCount >= 6) {
+  
+  if (completedCount >= 6 && missingEssentials.length === 0) {
     qualityLevel = 'Completo'
     qualityColor = 'text-brand-success bg-brand-success/10 border-brand-success/20'
-  } else if (totalQualityCount >= 3) {
+  } else if (completedCount >= 3) {
     qualityLevel = 'Bueno'
     qualityColor = 'text-brand-cyan bg-brand-cyan/10 border-brand-cyan/20'
   }
 
   const checklist = [
     { label: 'Información básica completa', done: form.assistant_name.trim() !== '' && form.business_name.trim() !== '' },
-    { label: 'Entrenamiento agregado', done: form.instructions.trim().length >= 80 || activeBlocks.some(b => b.content.trim().length >= 80) },
+    { label: 'Entrenamiento agregado', done: form.instructions.trim().length >= 80 || blocks.some(b => b.content.trim().length >= 80) },
     { label: 'Canal seleccionado', done: form.channels.webchat.enabled || form.channels.telegram.enabled },
   ]
 
@@ -91,17 +111,31 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
                   {qualityLevel}
                 </span>
               </h4>
-              <ul className="space-y-1 text-xs text-slate-300">
-                {activeBlocks.length > 0 ? (
-                  activeBlocks.map(b => (
-                    <li key={b.type} className="flex items-center gap-1.5 capitalize">
-                      <CheckCircle2 className="w-3 h-3 text-brand-cyan" /> {b.title}
+              <ul className="space-y-2 text-xs text-slate-300">
+                {blocks.filter(b => b.type !== 'custom').map(b => {
+                  const state = getBlockState(b.content)
+                  return (
+                    <li key={b.type} className="flex items-center justify-between">
+                      <span className="capitalize">{b.title}</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                        state === 'Completo' ? 'text-brand-success bg-brand-success/10 border-brand-success/20' : 
+                        state === 'Parcial' ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 
+                        'text-slate-500 bg-white/5 border-white/10'
+                      }`}>
+                        {state}
+                      </span>
                     </li>
-                  ))
-                ) : hasLegacy ? (
-                  <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-brand-cyan" /> Texto libre (Legacy)</li>
-                ) : (
-                  <li className="text-slate-500 italic">No hay entrenamiento configurado</li>
+                  )
+                })}
+                {form.instructions.trim().length > 0 && (
+                  <li className="flex items-center justify-between">
+                    <span>Texto libre (Legacy)</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
+                      getBlockState(form.instructions) === 'Completo' ? 'text-brand-success bg-brand-success/10 border-brand-success/20' : 'text-amber-500 bg-amber-500/10 border-amber-500/20'
+                    }`}>
+                      {getBlockState(form.instructions)}
+                    </span>
+                  </li>
                 )}
               </ul>
             </div>

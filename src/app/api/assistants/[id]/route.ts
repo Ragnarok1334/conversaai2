@@ -18,7 +18,11 @@ export async function GET(
 
     const { data, error } = await supabase
       .from('assistants')
-      .select(`*, assistant_test_messages(*)`)
+      .select(`
+        *, 
+        assistant_test_messages(*),
+        assistant_domains ( verification_status )
+      `)
       .eq('id', id)
       .eq('user_id', user.id)
       .single()
@@ -27,7 +31,40 @@ export async function GET(
       return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404 })
     }
 
-    return NextResponse.json({ assistant: data })
+    const { data: convData } = await supabase
+      .from('conversations')
+      .select('created_at')
+      .eq('assistant_id', id)
+
+    const { data: leadsData } = await supabase
+      .from('leads')
+      .select('created_at')
+      .eq('assistant_id', id)
+
+    const conversationsCount = convData?.length || 0
+    const leadsCount = leadsData?.length || 0
+
+    const lastConvAt = conversationsCount > 0 ? Math.max(...(convData || []).map(c => new Date(c.created_at).getTime())) : 0
+    const lastLeadAt = leadsCount > 0 ? Math.max(...(leadsData || []).map(l => new Date(l.created_at).getTime())) : 0
+    const lastActivityAt = Math.max(new Date(data.created_at).getTime(), lastConvAt, lastLeadAt)
+
+    const { calculateAssistantHealth } = await import('@/lib/assistant/assistant-health')
+    
+    const health = calculateAssistantHealth(
+      data,
+      data.assistant_domains || [],
+      { conversations: conversationsCount, leads: leadsCount }
+    )
+
+    const enrichedAssistant = {
+      ...data,
+      conversationsCount,
+      leadsCount,
+      lastActivityAt: new Date(lastActivityAt).toISOString(),
+      health
+    }
+
+    return NextResponse.json({ assistant: enrichedAssistant })
   } catch (error) {
     console.error('[GET /api/assistants/[id]]', error)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })

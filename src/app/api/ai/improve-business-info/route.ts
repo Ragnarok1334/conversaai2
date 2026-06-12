@@ -22,13 +22,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { text } = body
+    const { text, blockType, blockTitle, assistantName, businessType, activeTemplate, existingKnowledgeBlocks, instructionsLegacy } = body
 
-    if (!text || typeof text !== 'string' || text.trim().length < 20 || text.length > 5000) {
+    if (typeof text !== 'string' || text.length > 5000) {
       return NextResponse.json(
-        { error: 'El texto debe tener entre 20 y 5000 caracteres.' },
+        { error: 'El texto no puede exceder los 5000 caracteres.' },
         { status: 400 }
       )
+    }
+
+    if (!blockType) {
+      return NextResponse.json({ error: 'Falta blockType' }, { status: 400 })
     }
 
     // Rate limit: 10 peticiones por minuto por usuario
@@ -64,19 +68,60 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const isCreating = text.trim().length === 0
+
+    if (isCreating && !assistantName && !businessType && (!existingKnowledgeBlocks || existingKnowledgeBlocks.length === 0)) {
+      return NextResponse.json({ error: 'Agrega al menos una idea del negocio para que la IA pueda ayudarte mejor.' }, { status: 400 })
+    }
+
+    let systemContext = `Eres un experto en redacción comercial para asistentes virtuales. `
+    if (isCreating) {
+      systemContext += `Debes CREAR el contenido inicial para el bloque de conocimiento "${blockTitle}" (${blockType}). `
+    } else {
+      systemContext += `Debes MEJORAR el contenido del bloque de conocimiento "${blockTitle}" (${blockType}). `
+    }
+    systemContext += `No inventes datos exactos como precios específicos, direcciones exactas o teléfonos si no se proveen. Si no tienes datos, usa placeholders como [Agrega aquí tu precio]. `
+
+    if (blockType === 'pricing') {
+      systemContext += `Si es de precios, puedes proponer rangos o estructura de cotización (ej: "Los precios dependen del servicio. Para cotizar, necesito..."). `
+    } else if (blockType === 'location') {
+      systemContext += `Si es ubicación, es válido sugerir opciones como "atención 100% online", "delivery a domicilio" o "zonas de cobertura". No inventes una dirección física. `
+    } else if (blockType === 'lead_capture') {
+      systemContext += `Sugiere qué datos debe pedir el asistente (nombre, correo, teléfono, fecha, motivo). `
+    } else if (blockType === 'rules') {
+      systemContext += `Convierte las reglas en instrucciones claras y estrictas para el comportamiento del asistente. `
+    }
+
+    let userMessage = `Por favor ${isCreating ? 'crea' : 'mejora'} el bloque "${blockTitle}" (${blockType}).\n`
+    userMessage += `\nContexto del negocio:\n`
+    if (assistantName) userMessage += `- Nombre del asistente/negocio: ${assistantName}\n`
+    if (businessType) userMessage += `- Tipo de negocio: ${businessType}\n`
+    if (activeTemplate) userMessage += `- Plantilla base: ${activeTemplate}\n`
+    
+    if (existingKnowledgeBlocks && existingKnowledgeBlocks.length > 0) {
+      userMessage += `\nOtros bloques ya completados (para referencia):\n`
+      existingKnowledgeBlocks.forEach((b: any) => {
+        if (b.type !== blockType && b.content.trim().length > 0) {
+          userMessage += `- ${b.title}: ${b.content.substring(0, 100)}...\n`
+        }
+      })
+    }
+    
+    if (instructionsLegacy) {
+      userMessage += `\nInformación general extra:\n${instructionsLegacy.substring(0, 200)}...\n`
+    }
+
+    if (!isCreating) {
+      userMessage += `\nTexto actual a mejorar:\n${text}`
+    } else {
+      userMessage += `\n(Actualmente está vacío, por favor genera una buena base).`
+    }
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
-        {
-          role: 'system',
-          content:
-            'Eres un experto en redacción comercial para asistentes virtuales de negocios. Mejora textos escritos por dueños de negocios para que un asistente pueda responder mejor a clientes. Mantén la información original, no inventes datos, organiza por secciones claras y escribe en español.',
-        },
-        {
-          role: 'user',
-          content:
-            'Mejora y organiza este texto para entrenar un asistente de atención al cliente. No inventes información. Conserva precios, horarios, ubicación, servicios y formas de pago si aparecen:\n\n' + text.trim(),
-        },
+        { role: 'system', content: systemContext },
+        { role: 'user', content: userMessage },
       ],
       temperature: 0.7,
       max_tokens: 1500,

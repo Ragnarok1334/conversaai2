@@ -198,7 +198,9 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
       <div className="bg-white/[0.02] border-b border-white/[0.04] px-4 py-2 flex flex-wrap gap-2 text-[10px] text-slate-400">
         <span className="px-2 py-1 rounded bg-white/5 border border-white/5">Tono: <span className="capitalize text-slate-300">{form.behavior.tone}</span></span>
         <span className="px-2 py-1 rounded bg-white/5 border border-white/5">Objetivo: <span className="capitalize text-slate-300">{form.behavior.goal}</span></span>
-        <span className="px-2 py-1 rounded bg-white/5 border border-white/5">Entrenamiento: <span className="text-slate-300">{form.instructions.length} chars</span></span>
+        <span className="px-2 py-1 rounded bg-white/5 border border-white/5">
+          Entrenamiento: <span className="text-slate-300">{(form.knowledgeBlocks || []).filter(b => b.is_active && b.content.trim().length >= 80).length} bloques completos</span>
+        </span>
       </div>
 
       {/* Messages */}
@@ -216,7 +218,7 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
                 <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">Tono: <span className="text-slate-300 capitalize">{form.behavior.tone}</span></span>
                 <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">Objetivo: <span className="text-slate-300 capitalize">{form.behavior.goal}</span></span>
                 <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">
-                  <span className="text-slate-300">{form.instructions.length}</span> chars
+                  <span className="text-slate-300">{(form.knowledgeBlocks || []).filter(b => b.is_active && b.content.trim().length >= 80).length}</span> bloques
                 </span>
               </div>
             </div>
