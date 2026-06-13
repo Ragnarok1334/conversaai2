@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { consumeMessageCredit } from '@/lib/security'
+import { getModelForPlan } from '@/lib/ai/model-router'
 
 export async function POST(request: NextRequest) {
   try {
@@ -86,7 +87,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Se requiere assistantId o assistantConfig' }, { status: 400 })
     }
 
-    const reply = await generateAssistantReply(config, userMessage.trim())
+    const aiModel = getModelForPlan(normalizedPlan, 'assistant_test', { messageLength: userMessage.length })
+    const reply = await generateAssistantReply(config, userMessage.trim(), aiModel)
 
     // Save test message if assistantId exists
     if (assistantId) {

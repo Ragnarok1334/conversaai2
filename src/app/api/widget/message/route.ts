@@ -4,6 +4,7 @@ import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
 import { checkRateLimit, consumeMessageCredit, validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
+import { getModelForPlan } from '@/lib/ai/model-router'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -169,7 +170,8 @@ export async function POST(request: NextRequest) {
       knowledge_blocks: assistant.knowledge_blocks
     }
 
-    const reply = await generateAssistantReply(config, message.trim())
+    const aiModel = getModelForPlan(normalizedPlan, 'webchat_message', { messageLength: message.length })
+    const reply = await generateAssistantReply(config, message.trim(), aiModel)
 
     // Guardar respuesta del asistente
     await supabaseAdmin.from('messages').insert({

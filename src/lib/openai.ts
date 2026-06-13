@@ -30,7 +30,8 @@ export interface AssistantConfig extends Partial<Assistant> {
 
 export async function generateAssistantReply(
   config: AssistantConfig,
-  userMessage: string
+  userMessage: string,
+  model: string = DEFAULT_OPENAI_MODEL
 ): Promise<string> {
   const systemPrompt = buildAssistantSystemPrompt({
     assistant_name: config.assistantName || config.assistant_name,
@@ -52,7 +53,7 @@ export async function generateAssistantReply(
   })
 
   const response = await openai.responses.create({
-    model: DEFAULT_OPENAI_MODEL,
+    model: model,
     instructions: systemPrompt,
     input: userMessage,
   })

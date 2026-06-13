@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, consumeMessageCredit } from '@/lib/security'
 import { normalizePlan, getPlanConfig } from '@/lib/plans'
+import { getModelForPlan } from '@/lib/ai/model-router'
 
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY
@@ -117,8 +118,10 @@ export async function POST(request: NextRequest) {
       userMessage += `\n(Actualmente está vacío, por favor genera una buena base).`
     }
 
+    const aiModel = getModelForPlan(normalizePlan(sub.plan), 'improve_training', { messageLength: userMessage.length })
+
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: aiModel,
       messages: [
         { role: 'system', content: systemContext },
         { role: 'user', content: userMessage },

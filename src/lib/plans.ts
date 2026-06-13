@@ -28,6 +28,7 @@ export interface PlanConfig {
   priceLabel: string
   period: string
   description: string
+  aiSubtitle: string
   recommended?: boolean
   limits: {
     assistants: number | null
@@ -63,6 +64,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     priceLabelUSD: '$0 USD',
     period: '/ 7 días',
     description: 'Para probar ConversaAI y crear tu primer asistente.',
+    aiSubtitle: 'IA básica para probar',
     purchaseMode: 'trial',
     limits: { assistants: 1, messagesPerMonth: 100, domains: 1, users: 1 },
     channels: { webchat: true, telegram: false, whatsapp: false },
@@ -88,6 +90,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     priceLabelUSD: '$9.99 USD',
     period: '/mes',
     description: 'Ideal para quienes recién comienzan a automatizar su sitio web.',
+    aiSubtitle: 'IA estándar para atención simple',
     purchaseMode: 'checkout',
     limits: { assistants: 1, messagesPerMonth: 500, domains: 1, users: 1 },
     channels: { webchat: true, telegram: false, whatsapp: false },
@@ -113,6 +116,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     priceLabelUSD: '$19.99 USD',
     period: '/mes',
     description: 'Para emprendedores y negocios pequeños que quieren automatizar prospectos.',
+    aiSubtitle: 'IA mejorada para vender y captar leads',
     purchaseMode: 'checkout',
     limits: { assistants: 3, messagesPerMonth: 2500, domains: 3, users: 1 },
     channels: { webchat: true, telegram: false, whatsapp: false },
@@ -138,6 +142,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     priceLabelUSD: '$39.99 USD',
     period: '/mes',
     description: 'Para negocios en expansión con mayor volumen y automatización.',
+    aiSubtitle: 'IA avanzada para escalar conversaciones',
     purchaseMode: 'checkout',
     recommended: true,
     limits: { assistants: 8, messagesPerMonth: 8000, domains: 10, users: null },
@@ -169,6 +174,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     priceLabelUSD: '$69.99 USD',
     period: '/mes',
     description: 'Para negocios con alto volumen, múltiples sucursales o áreas.',
+    aiSubtitle: 'IA avanzada prioritaria para operaciones',
     purchaseMode: 'checkout',
     limits: { assistants: 20, messagesPerMonth: 20000, domains: 25, users: null },
     channels: { webchat: true, telegram: false, whatsapp: false },
@@ -197,6 +203,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     priceLabelUSD: 'Desde $149.99 USD',
     period: '',
     description: 'Solución a medida para empresas con integración profunda.',
+    aiSubtitle: 'IA personalizada / dedicada',
     purchaseMode: 'contact',
     limits: { assistants: null, messagesPerMonth: null, domains: null, users: null },
     channels: { webchat: true, telegram: false, whatsapp: false },

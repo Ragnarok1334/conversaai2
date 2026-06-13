@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Receipt, Loader2 } from 'lucide-react'
+import { Receipt, Loader2, XCircle, AlertCircle } from 'lucide-react'
 import { getProviderBadge } from '@/lib/payment-providers'
 import { formatMoney, formatCryptoAmount } from '@/lib/money'
 
@@ -9,6 +9,7 @@ interface PaymentMetadata {
   cryptoCurrency?: string  // e.g. "USDT", "BTC", "ETH"
   cryptoAmount?: number    // e.g. 39.99 for USDT or 0.00059 for BTC
   cryptoAddress?: string
+  [key: string]: any
 }
 
 interface Payment {
@@ -44,6 +45,10 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
     label: 'Cancelado',
     className: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
   },
+  expired: {
+    label: 'Expirado',
+    className: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
+  },
 }
 
 const PROVIDER_COLORS: Record<string, string> = {
@@ -56,6 +61,10 @@ export function PaymentHistory() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null)
+  const [isCanceling, setIsCanceling] = useState<string | null>(null)
+  const [cancelError, setCancelError] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/billing/payments')
@@ -67,6 +76,27 @@ export function PaymentHistory() {
       .catch(() => setError('No se pudo cargar el historial.'))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleCancelPayment = async (id: string) => {
+    setIsCanceling(id)
+    setCancelError(null)
+    try {
+      const res = await fetch(`/api/billing/payments/${id}/cancel`, {
+        method: 'POST'
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setPayments(prev => prev.map(p => p.id === id ? { ...p, status: 'cancelled' } : p))
+        setConfirmCancelId(null)
+      } else {
+        setCancelError(data.error || 'No se pudo cancelar el pago.')
+      }
+    } catch (error) {
+      setCancelError('Error de red al cancelar.')
+    } finally {
+      setIsCanceling(null)
+    }
+  }
 
   const getStatusBadge = (status: string) => {
     const config = STATUS_CONFIG[status] || {
@@ -147,35 +177,85 @@ export function PaymentHistory() {
             Aún no tienes pagos registrados. Cuando actives un plan, tus comprobantes aparecerán aquí.
           </p>
         ) : (
-          <div className="space-y-3 overflow-y-auto pr-1 max-h-[260px] conversa-scrollbar">
+          <div className="space-y-3 overflow-y-auto pr-1 max-h-[300px] conversa-scrollbar">
             {payments.map((payment) => (
               <div
                 key={payment.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white/[0.02] border border-white/5 rounded-2xl gap-4 hover:bg-white/[0.04] transition-colors"
+                className="flex flex-col p-4 bg-white/[0.02] border border-white/5 rounded-2xl gap-3 hover:bg-white/[0.04] transition-colors"
               >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className="font-semibold text-white capitalize">
-                      Plan {payment.plan}
-                    </span>
-                    {getStatusBadge(payment.status)}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-semibold text-white capitalize">
+                        Plan {payment.plan}
+                      </span>
+                      {getStatusBadge(payment.status)}
+                    </div>
+                    <div className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+                      <span>{formatDate(payment.created_at)}</span>
+                      <span className="hidden sm:inline">•</span>
+                      {getProviderBadgeEl(payment.provider)}
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
-                    <span>{formatDate(payment.created_at)}</span>
-                    <span className="hidden sm:inline">•</span>
-                    {getProviderBadgeEl(payment.provider)}
+
+                  <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1 shrink-0">
+                    {formatAmountDisplay(payment)}
+                    <span
+                      className="text-[10px] text-slate-500 font-mono truncate max-w-[90px]"
+                      title={payment.flow_order}
+                    >
+                      {payment.flow_order?.split('-').pop() || '—'}
+                    </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1 shrink-0">
-                  {formatAmountDisplay(payment)}
-                  <span
-                    className="text-[10px] text-slate-500 font-mono truncate max-w-[90px]"
-                    title={payment.flow_order}
-                  >
-                    {payment.flow_order?.split('-').pop() || '—'}
-                  </span>
-                </div>
+                {/* Confirm Cancel Inline */}
+                {confirmCancelId === payment.id && payment.status === 'pending' && (
+                  <div className="mt-2 p-3 bg-black/40 border border-brand-pink/20 rounded-xl flex flex-col gap-3">
+                    <div className="flex items-start gap-2 text-sm text-slate-300">
+                      <AlertCircle className="w-4 h-4 text-brand-pink shrink-0 mt-0.5" />
+                      <p>¿Cancelar este intento de pago? Esto solo ocultará este intento pendiente en ConversaAI. Si ya realizaste el pago en el proveedor, por favor espera.</p>
+                    </div>
+                    {cancelError && isCanceling !== payment.id && (
+                      <p className="text-xs text-brand-pink font-medium">{cancelError}</p>
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <button 
+                        onClick={() => {
+                          setConfirmCancelId(null)
+                          setCancelError(null)
+                        }}
+                        disabled={isCanceling === payment.id}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                      >
+                        Mantener pendiente
+                      </button>
+                      <button 
+                        onClick={() => handleCancelPayment(payment.id)}
+                        disabled={isCanceling === payment.id}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-pink/10 hover:bg-brand-pink/20 text-brand-pink transition-colors flex items-center gap-1"
+                      >
+                        {isCanceling === payment.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <XCircle className="w-3 h-3" />}
+                        Cancelar intento
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Cancel Button Trigger */}
+                {payment.status === 'pending' && confirmCancelId !== payment.id && (
+                  <div className="flex justify-end border-t border-white/5 pt-2 mt-1">
+                    <button 
+                      onClick={() => {
+                        setConfirmCancelId(payment.id)
+                        setCancelError(null)
+                      }}
+                      className="text-xs text-slate-400 hover:text-white transition-colors px-2 py-1 rounded-md"
+                    >
+                      Cancelar intento
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

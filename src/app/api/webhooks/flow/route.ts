@@ -38,10 +38,17 @@ export async function POST(req: Request) {
     else if (flowStatus.status === 3) newStatus = 'rejected';
     else if (flowStatus.status === 4) newStatus = 'cancelled';
 
+    const currentMetadata = payment.metadata || {}
+    let updatedMetadata = { ...currentMetadata }
+    if (payment.status === 'cancelled' && newStatus === 'paid') {
+      updatedMetadata.recoveredFromCancelled = true
+    }
+
     await supabase
       .from('billing_payments')
       .update({
         status: newStatus,
+        metadata: updatedMetadata,
         raw_response: flowStatus
       })
       .eq('id', payment.id);

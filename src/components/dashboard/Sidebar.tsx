@@ -23,7 +23,7 @@ const navItems = [
   { label: 'Conversaciones', href: '/dashboard/conversations', icon: MessageSquare },
   { label: 'Leads', href: '/dashboard/leads', icon: Users },
   { label: 'Configuración', href: '/dashboard/settings', icon: Settings },
-  { label: 'Soporte', href: '/contact', icon: HelpCircle },
+  { label: 'Soporte', href: '/dashboard/support', icon: HelpCircle },
 ]
 
 export function Sidebar() {

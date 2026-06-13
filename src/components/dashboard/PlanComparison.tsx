@@ -171,6 +171,10 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
                   </p>
                 )}
                 
+                <p className="text-sm font-semibold text-brand-cyan mb-4">
+                  {plan.aiSubtitle}
+                </p>
+                
                 <ul className="space-y-3 flex-1 mb-6">
                   {plan.features.map((f, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
@@ -238,81 +242,246 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
         </div>
       </div>
 
+      {/* COPY COMERCIAL */}
+      <div className="pt-16 pb-8 text-center max-w-3xl mx-auto">
+        <h3 className="text-3xl font-bold mb-4 text-white">Compara qué desbloquea cada plan</h3>
+        <p className="text-slate-400 text-lg">
+          Los planes superiores no solo aumentan límites: agregan más control, más asistentes, más dominios y herramientas para convertir conversaciones en clientes.
+        </p>
+        <p className="text-sm text-brand-cyan mt-4 font-medium">
+          Growth es ideal si quieres escalar atención sin complicarte. Business está pensado para operaciones con más volumen, áreas o sucursales.
+        </p>
+      </div>
+
       {/* DETAILED COMPARISON TABLE */}
-      <div className="pt-10">
-        <h3 className="text-2xl font-bold mb-6 text-center">Comparativa completa de funcionalidades</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[800px]">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="py-4 px-4 text-text-soft font-medium">Característica</th>
-                <th className="py-4 px-4 font-semibold text-center w-32">Trial</th>
-                <th className="py-4 px-4 font-semibold text-center w-32">Starter</th>
-                <th className="py-4 px-4 font-semibold text-center w-32">Pro</th>
-                <th className="py-4 px-4 font-semibold text-center w-32 text-brand-cyan">Growth</th>
-                <th className="py-4 px-4 font-semibold text-center w-32">Business</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm">
-              <tr className="border-b border-white/5">
-                <td className="py-4 px-4 text-text-secondary">Mensajes al mes</td>
-                <td className="py-4 px-4 text-center">100</td>
-                <td className="py-4 px-4 text-center">500</td>
-                <td className="py-4 px-4 text-center">2.500</td>
-                <td className="py-4 px-4 text-center font-medium">8.000</td>
-                <td className="py-4 px-4 text-center">20.000</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-4 px-4 text-text-secondary">Asistentes IA</td>
-                <td className="py-4 px-4 text-center">1</td>
-                <td className="py-4 px-4 text-center">1</td>
-                <td className="py-4 px-4 text-center">3</td>
-                <td className="py-4 px-4 text-center font-medium">8</td>
-                <td className="py-4 px-4 text-center">20</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-4 px-4 text-text-secondary">Dominios permitidos</td>
-                <td className="py-4 px-4 text-center">1</td>
-                <td className="py-4 px-4 text-center">1</td>
-                <td className="py-4 px-4 text-center">3</td>
-                <td className="py-4 px-4 text-center font-medium">10</td>
-                <td className="py-4 px-4 text-center">25</td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-4 px-4 text-text-secondary">Canal Web Chat</td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-              </tr>
-              <tr className="border-b border-white/5 bg-white/[0.01]">
-                <td className="py-4 px-4 text-text-secondary">Mini CRM e Inbox</td>
-                <td className="py-4 px-4 text-center"><X className="w-4 h-4 mx-auto text-slate-600" /></td>
-                <td className="py-4 px-4 text-center">Básico</td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-                <td className="py-4 px-4 text-center">Avanzado</td>
-              </tr>
-              <tr className="border-b border-white/5 bg-white/[0.01]">
-                <td className="py-4 px-4 text-text-secondary">Exportar Leads CSV</td>
-                <td className="py-4 px-4 text-center"><X className="w-4 h-4 mx-auto text-slate-600" /></td>
-                <td className="py-4 px-4 text-center"><X className="w-4 h-4 mx-auto text-slate-600" /></td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-                <td className="py-4 px-4 text-center"><Check className="w-4 h-4 mx-auto text-brand-success" /></td>
-              </tr>
-              <tr className="border-b border-white/5">
-                <td className="py-4 px-4 text-text-secondary">Canal Telegram</td>
-                <td className="py-4 px-4 text-center"><span className="text-[10px] uppercase text-slate-500">Pronto</span></td>
-                <td className="py-4 px-4 text-center"><span className="text-[10px] uppercase text-slate-500">Pronto</span></td>
-                <td className="py-4 px-4 text-center"><span className="text-[10px] uppercase text-slate-500">Pronto</span></td>
-                <td className="py-4 px-4 text-center"><span className="text-[10px] uppercase text-brand-cyan">Pronto</span></td>
-                <td className="py-4 px-4 text-center"><span className="text-[10px] uppercase text-slate-500">Pronto</span></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div className="overflow-x-auto pb-6">
+        <table className="w-full text-left border-collapse min-w-[1000px]">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className="py-6 px-4 text-slate-400 font-medium w-[22%] align-bottom">Característica</th>
+              <th className="py-6 px-4 w-[15.6%] align-bottom">
+                <div className="font-bold text-lg text-white mb-1">Trial</div>
+                <div className="text-xs text-slate-500 font-medium mb-3">Para probar</div>
+                <div className="text-[10px] text-slate-600 leading-tight border-t border-white/5 pt-2">&nbsp;</div>
+              </th>
+              <th className="py-6 px-4 w-[15.6%] align-bottom">
+                <div className="font-bold text-lg text-white mb-1">Starter</div>
+                <div className="text-xs text-slate-400 font-medium mb-3">Para negocios pequeños</div>
+                <div className="text-[10px] text-slate-500 leading-tight border-t border-white/5 pt-2">Empieza con atención básica</div>
+              </th>
+              <th className="py-6 px-4 w-[15.6%] align-bottom">
+                <div className="font-bold text-lg text-white mb-1">Pro</div>
+                <div className="text-xs text-brand-violet font-medium mb-3">Para vender más</div>
+                <div className="text-[10px] text-slate-400 leading-tight border-t border-white/5 pt-2">Agrega más asistentes, CRM y exportación</div>
+              </th>
+              <th className="py-6 px-4 w-[15.6%] align-bottom relative">
+                <div className="absolute inset-0 bg-brand-cyan/5 rounded-t-2xl border-t border-x border-brand-cyan/20 -z-10" />
+                <div className="font-bold text-lg text-brand-cyan mb-1 flex items-center gap-2">Growth <span className="text-[9px] bg-brand-cyan/20 px-2 py-0.5 rounded-full uppercase tracking-wider text-brand-cyan">Recomendado</span></div>
+                <div className="text-xs text-brand-cyan/80 font-medium mb-3">Escala atención</div>
+                <div className="text-[10px] text-brand-cyan/60 leading-tight border-t border-brand-cyan/10 pt-2">Escala conversaciones, dominios y automatizaciones</div>
+              </th>
+              <th className="py-6 px-4 w-[15.6%] align-bottom">
+                <div className="font-bold text-lg text-amber-500 mb-1">Business</div>
+                <div className="text-xs text-amber-500/80 font-medium mb-3">Para operación seria</div>
+                <div className="text-[10px] text-amber-500/60 leading-tight border-t border-amber-500/10 pt-2">Control avanzado para operaciones más grandes</div>
+              </th>
+            </tr>
+          </thead>
+          <tbody className="text-sm">
+            {/* A. Capacidad */}
+            <tr className="bg-white/[0.02]">
+              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white">A. Capacidad</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Mensajes al mes</td>
+              <td className="py-4 px-4 font-semibold">100</td>
+              <td className="py-4 px-4 font-semibold text-white">500</td>
+              <td className="py-4 px-4 font-semibold text-white">2.500</td>
+              <td className="py-4 px-4 font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">8.000</td>
+              <td className="py-4 px-4 font-bold text-amber-500">20.000</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Asistentes IA</td>
+              <td className="py-4 px-4">1</td>
+              <td className="py-4 px-4">1</td>
+              <td className="py-4 px-4 font-medium text-white">3</td>
+              <td className="py-4 px-4 font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">8</td>
+              <td className="py-4 px-4 font-bold text-amber-500">20</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Dominios permitidos</td>
+              <td className="py-4 px-4">1</td>
+              <td className="py-4 px-4">1</td>
+              <td className="py-4 px-4 font-medium text-white">3</td>
+              <td className="py-4 px-4 font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">10</td>
+              <td className="py-4 px-4 font-bold text-amber-500">25</td>
+            </tr>
+
+            {/* B. Captación y atención */}
+            <tr className="bg-white/[0.02]">
+              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white mt-4 border-t border-transparent">B. Captación y atención</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Canal Web Chat</td>
+              <td className="py-4 px-4 text-xs">Demo básica</td>
+              <td className="py-4 px-4 text-xs text-white">Básico</td>
+              <td className="py-4 px-4 text-xs font-medium text-white">Web Chat + leads</td>
+              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Web Chat escalable</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Web Chat avanzado</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Mini CRM e Inbox</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-xs text-white">Básico</td>
+              <td className="py-4 px-4 text-xs font-medium text-white">Completo</td>
+              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Avanzado</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzado + operación</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Exportar Leads CSV</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-brand-violet bg-brand-violet/10 px-2 py-1 rounded">Incluido</span></td>
+              <td className="py-4 px-4 bg-brand-cyan/[0.02] border-x border-brand-cyan/10"><span className="text-[10px] uppercase font-bold text-brand-cyan bg-brand-cyan/10 px-2 py-1 rounded">Incluido</span></td>
+              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Incluido</span></td>
+            </tr>
+
+            {/* C. Inteligencia IA */}
+            <tr className="bg-white/[0.02]">
+              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white mt-4 border-t border-transparent">C. Inteligencia IA</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Calidad de IA</td>
+              <td className="py-4 px-4 text-xs">Básica</td>
+              <td className="py-4 px-4 text-xs text-white">Estándar</td>
+              <td className="py-4 px-4 text-xs font-medium text-white">Mejorada</td>
+              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Avanzada</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzada prioritaria</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Contexto del asistente</td>
+              <td className="py-4 px-4 text-xs">Limitado</td>
+              <td className="py-4 px-4 text-xs text-white">Básico</td>
+              <td className="py-4 px-4 text-xs font-medium text-white">Ampliado</td>
+              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Alto</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Máximo</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Mejora de entrenamiento con IA</td>
+              <td className="py-4 px-4 text-xs text-slate-500">Limitada</td>
+              <td className="py-4 px-4 text-xs text-white">Básica</td>
+              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-brand-violet bg-brand-violet/10 px-2 py-1 rounded">Incluida</span></td>
+              <td className="py-4 px-4 bg-brand-cyan/[0.02] border-x border-brand-cyan/10"><span className="text-[10px] uppercase font-bold text-brand-cyan bg-brand-cyan/10 px-2 py-1 rounded">Avanzada</span></td>
+              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Avanzada + prioridad</span></td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Análisis de conversaciones</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-xs text-slate-400">Básico (Próx)</td>
+              <td className="py-4 px-4 text-xs font-semibold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Avanzado (Próx)</td>
+              <td className="py-4 px-4 text-xs font-semibold text-amber-500">Avanzado (Próx)</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Optimización para ventas/leads</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-xs text-white">Básica</td>
+              <td className="py-4 px-4 text-xs font-medium text-white">Mejorada</td>
+              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Avanzada</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzada</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Prioridad de respuesta IA</td>
+              <td className="py-4 px-4 text-xs">Normal</td>
+              <td className="py-4 px-4 text-xs">Normal</td>
+              <td className="py-4 px-4 text-xs font-medium text-white">Mejorada</td>
+              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Alta</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Máxima</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Escalamiento inteligente de modelo</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-xs text-white">Parcial</td>
+              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-brand-cyan bg-brand-cyan/10 px-2 py-1 rounded">Incluido</span></td>
+              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Incluido</span></td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Plantillas por industria</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-brand-violet bg-brand-violet/10 px-2 py-1 rounded">Incluido</span></td>
+              <td className="py-4 px-4 bg-brand-cyan/[0.02] border-x border-brand-cyan/10"><span className="text-[10px] uppercase font-bold text-brand-cyan bg-brand-cyan/10 px-2 py-1 rounded">Incluido</span></td>
+              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Incluido</span></td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Automatizaciones / Reglas</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-xs text-brand-cyan/70 font-medium bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Próximamente</td>
+              <td className="py-4 px-4 text-xs text-amber-500/70 font-medium">Próximamente</td>
+            </tr>
+
+            {/* D. Canales */}
+            <tr className="bg-white/[0.02]">
+              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white mt-4 border-t border-transparent">D. Canales</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Telegram</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-xs text-slate-500">Próximamente</td>
+              <td className="py-4 px-4 text-xs text-slate-400">Próximamente</td>
+              <td className="py-4 px-4 text-xs font-semibold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Próx. prioritario</td>
+              <td className="py-4 px-4 text-xs font-semibold text-amber-500">Próx. prioritario</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">WhatsApp</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-xs text-slate-400">Próximamente</td>
+              <td className="py-4 px-4 text-xs font-semibold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Próx. prioritario</td>
+              <td className="py-4 px-4 text-xs font-semibold text-amber-500">Próx. prioritario</td>
+            </tr>
+
+            {/* E. Gestión y soporte */}
+            <tr className="bg-white/[0.02]">
+              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white mt-4 border-t border-transparent">E. Gestión y soporte</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Diagnóstico de cuenta</td>
+              <td className="py-4 px-4 text-xs">Básico</td>
+              <td className="py-4 px-4 text-xs text-white">Básico</td>
+              <td className="py-4 px-4 text-xs font-medium text-white">Completo</td>
+              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Completo</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzado</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Soporte</td>
+              <td className="py-4 px-4 text-xs">Autoayuda</td>
+              <td className="py-4 px-4 text-xs text-white">Estándar</td>
+              <td className="py-4 px-4 text-xs font-medium text-white">Estándar</td>
+              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Prioritario</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Prioritario</td>
+            </tr>
+            <tr className="border-b border-white/5">
+              <td className="py-4 px-4 text-slate-400">Seguridad / Auditoría</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-slate-600">—</td>
+              <td className="py-4 px-4 text-xs text-white">Básico</td>
+              <td className="py-4 px-4 text-xs font-medium text-white bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Básico</td>
+              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzado</td>
+            </tr>
+            <tr>
+              <td className="py-2"></td>
+              <td className="py-2"></td>
+              <td className="py-2"></td>
+              <td className="py-2"></td>
+              <td className="py-2 bg-brand-cyan/[0.02] border-x border-b border-brand-cyan/10 rounded-b-2xl"></td>
+              <td className="py-2"></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
     </div>
