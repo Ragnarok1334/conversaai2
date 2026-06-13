@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Loader2, MessageSquare, Users } from 'lucide-react'
 import Link from 'next/link'
 import { login } from '@/app/auth/actions'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 import { AuthInput } from '@/components/auth/AuthInput'
+import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   'Invalid login credentials': 'Correo o contraseña incorrectos.',
@@ -60,14 +61,42 @@ export default function LoginPage() {
             <span className="text-xl font-bold text-white tracking-tight">ConversaAI</span>
           </Link>
 
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Bienvenido de nuevo</h1>
             <p className="text-slate-400 text-sm leading-relaxed">
-              Accede a tu panel para gestionar asistentes, conversaciones y leads en tiempo real.
+              Gestiona tus asistentes, conversaciones y leads desde un solo panel.
             </p>
           </div>
 
+          {/* Decorative Mock Metrics */}
+          <div className="flex gap-3 mb-6">
+            <div className="flex-1 bg-white/[0.02] border border-white/[0.05] rounded-xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-brand-cyan/10 flex items-center justify-center flex-shrink-0">
+                <MessageSquare className="w-4 h-4 text-brand-cyan" />
+              </div>
+              <div>
+                <p className="text-white text-xs font-semibold">3 nuevas</p>
+                <p className="text-slate-500 text-[10px] uppercase tracking-wider">Conversaciones</p>
+              </div>
+            </div>
+            <div className="flex-1 bg-white/[0.02] border border-white/[0.05] rounded-xl p-3 flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-brand-violet/10 flex items-center justify-center flex-shrink-0">
+                <Users className="w-4 h-4 text-brand-violet" />
+              </div>
+              <div>
+                <p className="text-white text-xs font-semibold">1 capturado</p>
+                <p className="text-slate-500 text-[10px] uppercase tracking-wider">Lead reciente</p>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+            <div className="mb-5 text-center">
+              <p className="text-slate-400 text-sm">Accede rápido con tu cuenta social.</p>
+            </div>
+            
+            <SocialAuthButtons mode="login" disabled={isLoading} />
+
             <form action={handleSubmit} className="space-y-5">
               <AuthInput
                 id="email"
@@ -132,6 +161,17 @@ export default function LoginPage() {
             <Link href="/register" className="text-brand-violet font-medium hover:text-brand-violet/80 transition-colors">
               Crea una gratis
             </Link>
+          </p>
+
+          <p className="mt-8 text-center text-[11px] text-slate-500 leading-relaxed px-4">
+            Al continuar, aceptas nuestros{' '}
+            <Link href="/terminos" target="_blank" className="underline hover:text-slate-300 transition-colors">
+              Términos
+            </Link>
+            {' '}y nuestra{' '}
+            <Link href="/privacidad" target="_blank" className="underline hover:text-slate-300 transition-colors">
+              Política de Privacidad
+            </Link>.
           </p>
         </motion.div>
       </div>

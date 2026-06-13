@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Mail, Lock, User, Building2, Phone, MapPin,
@@ -15,12 +15,13 @@ import { AuthInput } from '@/components/auth/AuthInput'
 import { PasswordStrength } from '@/components/auth/PasswordStrength'
 import { BusinessTypeSelect } from '@/components/auth/BusinessTypeSelect'
 import { CountrySelect } from '@/components/auth/CountrySelect'
+import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
 
 
 
 const CHANNELS = [
-  { key: 'webchat', label: 'Web Chat', icon: Globe, available: true },
-  { key: 'telegram', label: 'Telegram', icon: Send, available: true },
+  { key: 'webchat', label: 'Web Chat', icon: Globe, available: true, badge: 'Recomendado para empezar' },
+  { key: 'telegram', label: 'Telegram', icon: Send, available: false, badge: 'Próximamente' },
   { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, available: false, badge: 'Próximamente' },
 ]
 
@@ -104,8 +105,39 @@ export default function RegisterPage() {
   const [marketingOptIn, setMarketingOptIn] = useState(false)
   const [step3Errors, setStep3Errors] = useState<Record<string, string>>({})
 
+  const [businessWebsite, setBusinessWebsite] = useState('')
   // Honeypot
   const [website, setWebsite] = useState('')
+
+  // ── Autosave Draft ──
+  useEffect(() => {
+    const draft = localStorage.getItem('conversaai_register_draft')
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft)
+        if (parsed.name) setName(parsed.name)
+        if (parsed.email) setEmail(parsed.email)
+        if (parsed.companyName) setCompanyName(parsed.companyName)
+        if (parsed.businessType) setBusinessType(parsed.businessType)
+        if (parsed.country) setCountry(parsed.country)
+        if (parsed.phone) setPhone(parsed.phone)
+        if (parsed.businessWebsite) setBusinessWebsite(parsed.businessWebsite)
+        if (parsed.channel) setChannel(parsed.channel)
+        if (parsed.goal) setGoal(parsed.goal)
+        if (parsed.marketingOptIn !== undefined) setMarketingOptIn(parsed.marketingOptIn)
+      } catch (err) {}
+    }
+  }, [])
+
+  useEffect(() => {
+    // Only save if we actually have some data
+    if (name || email || companyName || country || channel || goal) {
+      const draftToSave = {
+        name, email, companyName, businessType, country, phone, businessWebsite, channel, goal, marketingOptIn
+      }
+      localStorage.setItem('conversaai_register_draft', JSON.stringify(draftToSave))
+    }
+  }, [name, email, companyName, businessType, country, phone, businessWebsite, channel, goal, marketingOptIn])
 
   function handleCountryChange(newCountry: string, newDialCode: string) {
     setCountry(newCountry)
@@ -173,6 +205,7 @@ export default function RegisterPage() {
     formData.set('onboarding_goal', goal)
     formData.set('marketing_opt_in', String(marketingOptIn))
     formData.set('terms_accepted', String(acceptTerms))
+    formData.set('business_website', businessWebsite)
     formData.set('website', website)
 
     const result = await signup(formData)
@@ -180,6 +213,7 @@ export default function RegisterPage() {
       setError(result.error)
       setIsLoading(false)
     } else if (result?.success) {
+      localStorage.removeItem('conversaai_register_draft')
       // Si requiere confirmación (Supabase lo indica sin devolver sesión)
       if (result.requiresEmailConfirmation) {
         setIsSuccess(true)
@@ -204,15 +238,17 @@ export default function RegisterPage() {
           <div className="w-16 h-16 bg-brand-success/15 border border-brand-success/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
             <CheckCircle2 className="w-8 h-8 text-brand-success" />
           </div>
-          <h2 className="text-2xl font-bold text-white mb-2">¡Cuenta creada!</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Cuenta creada correctamente</h2>
           <p className="text-slate-400 text-sm mb-8">
-            Si configuraste confirmación de email en Supabase, revisa tu bandeja de entrada. De lo contrario, ya puedes acceder a tu panel.
+            Te enviamos un correo de confirmación. Revisa tu bandeja de entrada para activar tu cuenta.
+            <br/><br/>
+            Si no recibiste el correo, asegúrate de revisar tu carpeta de spam.
           </p>
           <Link
             href="/login"
             className="gradient-btn w-full py-3.5 rounded-xl text-white font-semibold inline-flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
           >
-            Iniciar sesión <ArrowRight className="w-4 h-4" />
+            Ir a Iniciar Sesión <ArrowRight className="w-4 h-4" />
           </Link>
         </motion.div>
       </div>
@@ -290,6 +326,11 @@ export default function RegisterPage() {
                   className="space-y-4"
                 >
                   <p className="text-xs font-semibold text-brand-cyan uppercase tracking-wider mb-4">Paso 1 · Datos de acceso</p>
+
+                  <div className="mb-5 text-center">
+                    <p className="text-slate-400 text-sm mb-3">Crea tu cuenta en segundos con Google o Facebook.</p>
+                    <SocialAuthButtons mode="register" disabled={isLoading} />
+                  </div>
 
                   {/* Honeypot field - visually hidden */}
                   <input
@@ -430,6 +471,17 @@ export default function RegisterPage() {
                     autoComplete="tel"
                   />
 
+                  <AuthInput
+                    id="businessWebsite"
+                    name="business_website"
+                    type="text"
+                    label="Sitio web del negocio (opcional)"
+                    placeholder="https://mi-empresa.com"
+                    icon={<Globe className="w-4 h-4" />}
+                    value={businessWebsite}
+                    onChange={(e) => setBusinessWebsite(e.target.value)}
+                  />
+
                   <div className="flex gap-3 pt-2">
                     <button
                       type="button"
@@ -556,6 +608,17 @@ export default function RegisterPage() {
             <Link href="/login" className="text-brand-cyan font-medium hover:text-brand-cyan/80 transition-colors">
               Inicia sesión
             </Link>
+          </p>
+
+          <p className="mt-8 text-center text-[11px] text-slate-500 leading-relaxed px-4">
+            Al continuar, aceptas nuestros{' '}
+            <Link href="/terminos" target="_blank" className="underline hover:text-slate-300 transition-colors">
+              Términos
+            </Link>
+            {' '}y nuestra{' '}
+            <Link href="/privacidad" target="_blank" className="underline hover:text-slate-300 transition-colors">
+              Política de Privacidad
+            </Link>.
           </p>
         </motion.div>
       </div>

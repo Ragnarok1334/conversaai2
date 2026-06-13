@@ -60,6 +60,7 @@ export async function generateConversaBotReply(userMessage: string): Promise<str
     try {
       const client = getOpenAIClient();
 
+      // TODO: Pendiente: integrar getModelForPlan en Telegram cuando el bot resuelva owner subscription.
       const response = await client.responses.create({
         model: DEFAULT_OPENAI_MODEL,
         instructions: CONVERSA_BOT_SYSTEM_PROMPT,

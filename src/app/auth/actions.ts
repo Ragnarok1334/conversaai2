@@ -65,6 +65,7 @@ export async function signup(formData: FormData) {
   const onboarding_goal = (formData.get('onboarding_goal') as string)?.trim() || null
   const marketing_opt_in = formData.get('marketing_opt_in') === 'true'
   const terms_accepted = formData.get('terms_accepted') === 'true'
+  const business_website = (formData.get('business_website') as string)?.trim() || null
   const website_honeypot = (formData.get('website') as string) || ''
 
   const ip = await getIpFromHeaders()
@@ -145,6 +146,7 @@ export async function signup(formData: FormData) {
           preferred_channel,
           onboarding_goal,
           marketing_opt_in,
+          website: business_website, // La columna 'website' en profiles debe haber sido creada
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'id' }

@@ -84,14 +84,24 @@ export function PaymentHistory() {
       const res = await fetch(`/api/billing/payments/${id}/cancel`, {
         method: 'POST'
       })
+      
+      const contentType = res.headers.get("content-type") || ""
+      if (!contentType.includes("application/json")) {
+        setCancelError("El servidor devolvió una respuesta inválida.")
+        console.error("Respuesta no-JSON de cancelación de pago:", await res.text())
+        return
+      }
+      
       const data = await res.json()
       if (res.ok && data.success) {
         setPayments(prev => prev.map(p => p.id === id ? { ...p, status: 'cancelled' } : p))
         setConfirmCancelId(null)
       } else {
         setCancelError(data.error || 'No se pudo cancelar el pago.')
+        if (data.error) console.error("Error al cancelar:", data.error)
       }
     } catch (error) {
+      console.error("Error de red al cancelar el pago:", error)
       setCancelError('Error de red al cancelar.')
     } finally {
       setIsCanceling(null)

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Globe, Plus, Trash2, CheckCircle2, Clock, Lock, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface Domain {
   id: string
@@ -68,6 +69,11 @@ export function AssistantDomainsPanel({ assistantId }: { assistantId: string }) 
   const [newDomain, setNewDomain] = useState('')
   const [isAdding, setIsAdding] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteDomainId, setConfirmDeleteDomainId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  
   // Ref para saber si estamos montados (evitar setState en componente desmontado)
   const isMounted = useRef(true)
 
@@ -159,20 +165,34 @@ export function AssistantDomainsPanel({ assistantId }: { assistantId: string }) 
     }
   }
 
-  const handleDelete = async (domainId: string) => {
-    if (!confirm('¿Seguro que deseas eliminar este dominio? El Web Chat dejará de funcionar en él.')) return
+  const handleConfirmDelete = async () => {
+    if (!confirmDeleteDomainId) return
+    const id = confirmDeleteDomainId
+    setDeletingId(id)
+    setDeleteError(null)
+
     try {
-      const res = await fetch(`/api/assistants/${assistantId}/domains/${domainId}`, {
-        method: 'DELETE',
+      const res = await fetch(`/api/assistants/${assistantId}/domains/${id}`, {
+        method: 'DELETE'
       })
+
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}))
-        throw new Error(errData.error || 'Error al eliminar')
+        throw new Error(errData.error || 'Error al eliminar dominio')
       }
-      await fetchDomains()
+
+      setDomains(prev => prev.filter(d => d.id !== id))
+      setConfirmDeleteDomainId(null)
     } catch (err: any) {
-      setError(err.message)
+      setDeleteError(err.message || 'Error al eliminar dominio')
+    } finally {
+      setDeletingId(null)
     }
+  }
+
+  const handleDelete = (id: string) => {
+    setConfirmDeleteDomainId(id)
+    setDeleteError(null)
   }
 
   return (
@@ -260,17 +280,38 @@ export function AssistantDomainsPanel({ assistantId }: { assistantId: string }) 
                   </p>
                 )}
               </div>
-              <button
-                onClick={() => handleDelete(d.id)}
-                className="ml-3 p-2 rounded-lg text-text-soft hover:text-brand-pink hover:bg-brand-pink/10 transition-colors flex-shrink-0"
-                title="Eliminar dominio"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button
+                  onClick={() => handleDelete(d.id)}
+                  disabled={deletingId === d.id}
+                  className="ml-3 p-2 rounded-lg text-text-soft hover:text-brand-pink hover:bg-brand-pink/10 transition-colors flex-shrink-0"
+                  title="Eliminar dominio"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+                {deleteError && confirmDeleteDomainId === d.id && (
+                  <span className="text-[10px] text-red-400">{deleteError}</span>
+                )}
+              </div>
             </div>
           )
         })}
       </div>
+
+      <ConfirmDialog
+        open={confirmDeleteDomainId !== null}
+        title="Eliminar dominio autorizado"
+        description="El Web Chat dejará de funcionar en este dominio. Puedes volver a autorizarlo después."
+        confirmLabel="Eliminar dominio"
+        cancelLabel="Mantener dominio"
+        variant="danger"
+        loading={deletingId !== null}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => {
+          setConfirmDeleteDomainId(null)
+          setDeleteError(null)
+        }}
+      />
     </div>
   )
 }

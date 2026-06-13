@@ -121,14 +121,14 @@ export function Footer() {
 
           <div className="flex items-center gap-6">
             <Link
-              href="/privacy"
+              href="/privacidad"
               className="text-[#94A3B8] hover:text-white transition-colors"
             >
               Privacidad
             </Link>
 
             <Link
-              href="/terms"
+              href="/terminos"
               className="text-[#94A3B8] hover:text-white transition-colors"
             >
               Términos

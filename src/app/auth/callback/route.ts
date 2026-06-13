@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 // The client you created from the Server-Side Auth instructions
 import { createClient } from '@/lib/supabase/server'
+import { createSupabaseAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -10,8 +11,49 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
+    const { data: sessionData, error } = await supabase.auth.exchangeCodeForSession(code)
+    if (!error && sessionData?.user) {
+      const user = sessionData.user
+
+      // Onboarding para usuarios de OAuth que no tienen profile/subscription
+      const admin = createSupabaseAdmin()
+
+      // 1. Check Profile
+      const { data: existingProfile } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single()
+
+      if (!existingProfile) {
+        const metadata = user.user_metadata || {}
+        const fullName = metadata.full_name || metadata.name || user.email || 'Usuario'
+
+        await admin.from('profiles').insert({
+          id: user.id,
+          email: user.email,
+          full_name: fullName,
+          updated_at: new Date().toISOString()
+        })
+      }
+
+      // 2. Check Subscription
+      const { data: existingSub } = await admin
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
+
+      if (!existingSub) {
+        await admin.from('subscriptions').insert({
+          user_id: user.id,
+          plan: 'free',
+          status: 'active',
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(new Date().setFullYear(new Date().getFullYear() + 10)).toISOString()
+        })
+      }
+
       const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
       const isLocalhost = process.env.NODE_ENV === 'development'
       if (isLocalhost) {

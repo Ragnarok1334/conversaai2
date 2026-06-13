@@ -43,10 +43,33 @@ export async function POST(req: NextRequest) {
     const safeMotivo = escapeHtml(motivo)
     const safePrioridad = escapeHtml(prioridad)
     const safeMensaje = escapeHtml(mensaje)
-    const safeContexto = escapeHtml(contexto_tecnico || 'Sin contexto técnico')
+    const safeFrontendContexto = escapeHtml(contexto_tecnico || 'Sin contexto técnico')
+
+    // Fetch secure context from DB
+    const { data: subData } = await supabase
+      .from('subscriptions')
+      .select('plan, status')
+      .eq('user_id', user.id)
+      .single()
+
+    const { count: assistCount } = await supabase
+      .from('assistants')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+
+    const secureContext = `=== SERVER CONTEXT ===
+ID: ${user.id}
+Email: ${user.email}
+Plan: ${subData?.plan || 'Ninguno'} (Estado: ${subData?.status || 'N/A'})
+Asistentes: ${assistCount || 0}
+======================
+
+=== FRONTEND CONTEXT ===
+${safeFrontendContexto}
+======================`
 
     const RESEND_API_KEY = process.env.RESEND_API_KEY
-    const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'soporte@conversaai.store'
+    const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'contacto@conversaai.store'
     const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'ConversaAI Support <noreply@conversaai.store>'
 
     if (!RESEND_API_KEY) {
@@ -67,8 +90,8 @@ export async function POST(req: NextRequest) {
         </div>
 
         <div style="background-color: #2b2b2b; color: #10B981; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px; margin: 20px 0; overflow-x: auto;">
-          <p style="margin: 0; color: #fff;"><strong>Contexto Técnico:</strong></p>
-          <pre style="margin-top: 10px; white-space: pre-wrap;">${safeContexto}</pre>
+          <p style="margin: 0; color: #fff;"><strong>Contexto de Sistema y Técnico:</strong></p>
+          <pre style="margin-top: 10px; white-space: pre-wrap;">${secureContext}</pre>
         </div>
         
         <p style="font-size: 12px; color: #888;">

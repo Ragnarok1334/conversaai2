@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { PLAN_CONFIGS } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
 import { BorderBeam } from '@/components/magicui/border-beam'
 import { ShimmerButton } from '@/components/magicui/shimmer-button'
 import { BlurFade } from '@/components/magicui/blur-fade'
@@ -15,6 +16,8 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [trialUsed, setTrialUsed] = useState(false)
   const [startingTrial, setStartingTrial] = useState(false)
+  const [trialError, setTrialError] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     const supabase = createClient()
@@ -51,6 +54,7 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
     }
     
     setStartingTrial(true)
+    setTrialError(null)
     try {
       const res = await fetch('/api/billing/trial/start', { method: 'POST' })
       const data = await res.json()
@@ -58,7 +62,7 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
       
       window.location.href = '/dashboard'
     } catch (err: any) {
-      alert(err.message)
+      setTrialError(err.message || 'No se pudo iniciar la prueba. Intenta nuevamente.')
       setStartingTrial(false)
     }
   }
@@ -124,13 +128,20 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
                     Prueba ya utilizada
                   </button>
                 ) : (
-                  <button 
-                    onClick={handleStartTrial}
-                    disabled={startingTrial}
-                    className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-center bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/20 hover:scale-[1.02]"
-                  >
-                    {startingTrial ? 'Activando...' : 'Comenzar prueba'}
-                  </button>
+                  <>
+                    <button 
+                      onClick={handleStartTrial}
+                      disabled={startingTrial}
+                      className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-center bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/20 hover:scale-[1.02]"
+                    >
+                      {startingTrial ? 'Iniciando...' : 'Comenzar prueba de 7 días'}
+                    </button>
+                    {trialError && (
+                      <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-2">
+                        <p className="text-xs text-red-400 text-left leading-relaxed">{trialError}</p>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
