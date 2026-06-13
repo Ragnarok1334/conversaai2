@@ -8,7 +8,7 @@ export const CONTACT_INFO = {
     : null,
 
   // Telegram bot — must be https://t.me/USERNAME (no @ symbol)
-  telegram: process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || "https://t.me/ConversaAIChatBot",
+  telegram: process.env.NEXT_PUBLIC_TELEGRAM_BOT_URL || "https://t.me/conversaaix",
 
   // Schedule text (displayed in messages, not as a URL)
   schedule: "Lunes a viernes, 8:00 a 18:00"

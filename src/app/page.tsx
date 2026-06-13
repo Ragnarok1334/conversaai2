@@ -12,6 +12,8 @@ import { FAQ } from "@/components/FAQ";
 import { CTA } from "@/components/CTA";
 import { Footer } from "@/components/Footer";
 import { CursorGlow } from "@/components/CursorGlow";
+import { AboutSection } from "@/components/home/AboutSection";
+import { OAuthDisclaimer } from "@/components/home/OAuthDisclaimer";
 
 export default function Home() {
   return (
@@ -20,6 +22,7 @@ export default function Home() {
       <Header />
       <Hero />
       <Stats />
+      <AboutSection />
 
       <HowItWorks />
       {/* FeaturesSection: modular, con modal de detalle por feature */}
@@ -30,6 +33,7 @@ export default function Home() {
       <ReviewsSection />
       <FAQ />
       <CTA />
+      <OAuthDisclaimer />
       <Footer />
     </main>
   );

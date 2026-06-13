@@ -12,9 +12,9 @@ const geistSans = Geist({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://conversaai.store"),
-  title: "ConversaAI — Asistentes de IA para ventas y atención",
+  title: "ConversaAI | Asistentes IA para atención y leads",
   description:
-    "Automatiza conversaciones, capta leads y atiende clientes 24/7 con asistentes de inteligencia artificial para tu negocio.",
+    "Crea asistentes de inteligencia artificial para atender clientes, responder preguntas y capturar leads desde tu sitio web.",
   icons: {
     icon: [
       { url: "/logo.png", sizes: "any" },
