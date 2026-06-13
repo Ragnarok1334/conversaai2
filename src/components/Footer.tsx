@@ -74,7 +74,7 @@ export function Footer() {
               </Link>
 
               <p className="text-[#94A3B8] max-w-md mb-8 leading-relaxed">
-                Crea asistentes IA para vender, atender y capturar leads desde tu sitio web.
+                Asistentes IA para atención, leads y seguimiento comercial.
               </p>
 
               <div className="flex items-center gap-4">

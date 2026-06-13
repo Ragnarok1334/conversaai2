@@ -90,7 +90,7 @@ export default function ContactPage() {
                   <Mail className="w-6 h-6 text-brand-violet" />
                 </div>
                 <h4 className="text-white font-semibold mb-2">Email</h4>
-                <p className="text-sm text-text-soft">contacto@conversaai.store</p>
+                <p className="text-sm text-text-soft">soporte@conversaai.store</p>
               </Link>
 
             </div>

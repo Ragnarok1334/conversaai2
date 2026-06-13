@@ -62,28 +62,28 @@ export function Hero() {
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] backdrop-blur-xl border border-white/10 w-fit shadow-[0_0_20px_rgba(124,58,237,0.1)]">
                 <Sparkles className="w-3.5 h-3.5 text-[#06B6D4]" />
                 <span className="text-xs font-semibold text-white/80">
-                  IA para ventas y atención 24/7
+                  Plataforma SaaS de asistentes IA para negocios
                 </span>
               </div>
             </BlurFade>
 
             <BlurFade delay={0.2}>
               {/* Title */}
-              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl xl:text-7xl">
-                 Atiende clientes al instante y convierte cada conversación{" "}
+              <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl max-w-2xl">
+                 Atiende clientes con IA y convierte{" "}
                  <AuroraText
                    colors={["#8b5cf6", "#06b6d4", "#3b82f6", "#a855f7"]}
                    speed={1}
                 >
-                   en una oportunidad
+                   conversaciones en leads
                  </AuroraText>
                </h1>
             </BlurFade>
 
             <BlurFade delay={0.3}>
               {/* Description */}
-              <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-                ConversaAI automatiza respuestas, captura leads y ayuda a tu negocio a responder desde Web Chat, Telegram y próximamente WhatsApp, incluso fuera de horario.
+              <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
+                ConversaAI te permite crear asistentes de inteligencia artificial para responder preguntas, capturar datos de contacto y organizar conversaciones desde un panel centralizado.
               </p>
             </BlurFade>
 
@@ -92,7 +92,7 @@ export function Hero() {
               <div className="flex flex-wrap items-center gap-4 mt-2">
                 <Link href={isLoggedIn ? "/dashboard/create-assistant" : "/register"}>
                   <ShimmerButton className="font-semibold text-lg" shimmerColor="#A855F7" background="linear-gradient(90deg, #7C3AED, #2563EB, #06B6D4)">
-                    Crear asistente
+                    Comenzar gratis
                   </ShimmerButton>
                 </Link>
                 <Link href="/#como-funciona" className="px-8 py-4 rounded-[100px] bg-white/[0.06] border border-white/10 text-white font-semibold text-lg hover:bg-white/10 transition-colors">
@@ -100,7 +100,7 @@ export function Hero() {
                 </Link>
               </div>
               <p className="mt-4 text-sm text-[#94A3B8]">
-                Instala tu Web Chat en minutos. Telegram disponible según tu plan. WhatsApp próximamente.
+                Web Chat listo para instalar. Telegram disponible según plan. WhatsApp próximamente.
               </p>
             </BlurFade>
 
@@ -169,17 +169,17 @@ export function Hero() {
 
                 <div className="self-end bg-[#7C3AED]/20 border border-[#7C3AED]/30 rounded-2xl rounded-tr-none p-4 max-w-[80%]">
                   <p className="text-sm text-white">
-                    ¡Hola! Me gustaría saber el precio del plan Pro.
+                    Hola, quiero saber cómo puede ayudarme el asistente.
                   </p>
                 </div>
 
                 <div className="self-start bg-white/[0.05] border border-white/10 rounded-2xl rounded-tl-none p-4 max-w-[80%]">
                   <TypeAnimation
   sequence={[
-    "¡Hola! 👋 El plan Pro cuesta $49/mes e incluye integraciones con WhatsApp, respuestas ilimitadas y soporte prioritario.",
-    2000,
-    "También puedes entrenar tu asistente con documentos y automatizar conversaciones las 24 horas.",
-    2000,
+    "¡Claro! ConversaAI responde preguntas frecuentes, captura datos de contacto y organiza conversaciones para que puedas dar seguimiento desde tu panel.",
+    4000,
+    "Puedes entrenarlo con información de tu negocio e instalarlo como Web Chat en tu sitio.",
+    4000,
   ]}
   wrapper="p"
   speed={55}

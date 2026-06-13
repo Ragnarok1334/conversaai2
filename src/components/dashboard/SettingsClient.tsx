@@ -274,7 +274,7 @@ function EditProfileModal({
                 <p className="text-xs text-text-soft">
                   <Mail className="w-3 h-3 inline mr-1 mb-0.5" />
                   Para cambiar tu correo, escríbenos a{' '}
-                  <span className="text-brand-cyan">contacto@conversaai.store</span>
+                  <span className="text-brand-cyan">soporte@conversaai.store</span>
                 </p>
               </div>
               <div className="flex gap-3 pt-1">

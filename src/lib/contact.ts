@@ -1,6 +1,6 @@
 export const CONTACT_INFO = {
   // Plain email address — used in text messages only, NOT in inline buttons
-  email: "contacto@conversaai.store",
+  email: "soporte@conversaai.store",
 
   // WhatsApp — must be https://wa.me/PHONENUMBER (no spaces, no dashes)
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER 

@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://conversaai.store"),
   title: "ConversaAI | Asistentes IA para atención y leads",
   description:
-    "Crea asistentes de inteligencia artificial para atender clientes, responder preguntas y capturar leads desde tu sitio web.",
+    "Crea asistentes de inteligencia artificial para atender clientes, responder preguntas frecuentes y capturar leads desde tu sitio web.",
   icons: {
     icon: [
       { url: "/logo.png", sizes: "any" },

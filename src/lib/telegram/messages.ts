@@ -49,13 +49,13 @@ Elige el plan que mejor se adapta a tu negocio:
 • 100 mensajes/mes
 • Webchat básico
 
-⚡ *Pro — $19/mes*
+⚡ *Pro*
 • 5 asistentes
 • 5,000 mensajes/mes
 • Telegram + WhatsApp
 • Captura de leads
 
-🚀 *Business — $49/mes*
+🚀 *Business*
 • 20 asistentes
 • 50,000 mensajes/mes
 • Todos los canales

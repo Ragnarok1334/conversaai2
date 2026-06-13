@@ -54,7 +54,7 @@ export default function PrivacyPage() {
             <p className="mb-4">
               El responsable de esta plataforma es ConversaAI.<br />
               Sitio web: <a href="https://conversaai.store" className="text-brand-cyan hover:underline">https://conversaai.store</a><br />
-              Correo de contacto: <a href="mailto:contacto@conversaai.store" className="text-brand-cyan hover:underline">contacto@conversaai.store</a>
+              Correo de contacto: <a href="mailto:soporte@conversaai.store" className="text-brand-cyan hover:underline">soporte@conversaai.store</a>
             </p>
             <p>
               Si en el futuro ConversaAI opera bajo una razón social, RUT o entidad legal específica, esta sección podrá actualizarse para reflejar dicha información.
@@ -80,22 +80,8 @@ export default function PrivacyPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-bold text-white mb-4">3. Información obtenida mediante Google o Facebook</h2>
             <p className="mb-4">
-              Cuando decides iniciar sesión con Google o Facebook, podemos recibir información básica autorizada por el proveedor, como:
+              Cuando inicias sesión con Google o Facebook, ConversaAI puede recibir tu nombre y correo electrónico para autenticarte y crear o acceder a tu cuenta. No publicamos en tus redes, no leemos mensajes privados y no solicitamos permisos innecesarios.
             </p>
-            <ul className="list-disc pl-5 space-y-2 text-slate-400 mb-4">
-              <li>Nombre.</li>
-              <li>Correo electrónico.</li>
-              <li>Identificador del proveedor.</li>
-              <li>Información básica del perfil autorizada por el usuario.</li>
-            </ul>
-            <p className="mb-4">
-              ConversaAI utiliza esta información únicamente para crear o iniciar sesión en tu cuenta, autenticarte de forma segura y asociar tu acceso con tu perfil dentro de la plataforma.
-            </p>
-            <ul className="list-disc pl-5 space-y-2 text-slate-400">
-              <li>No publicamos en tu cuenta de Google o Facebook.</li>
-              <li>No vendemos información obtenida mediante Google o Facebook.</li>
-              <li>No solicitamos permisos innecesarios para el funcionamiento básico de inicio de sesión.</li>
-            </ul>
           </section>
 
           <section className="mb-10">
@@ -198,7 +184,7 @@ export default function PrivacyPage() {
               <li>Información sobre el uso de tus datos.</li>
             </ul>
             <p>
-              Para ejercer estos derechos, escríbenos a: <a href="mailto:contacto@conversaai.store" className="text-brand-cyan hover:underline">contacto@conversaai.store</a>
+              Para ejercer estos derechos, escríbenos a: <a href="mailto:soporte@conversaai.store" className="text-brand-cyan hover:underline">soporte@conversaai.store</a>
             </p>
           </section>
 
@@ -226,7 +212,7 @@ export default function PrivacyPage() {
           <section className="mb-10">
             <h2 className="text-2xl font-bold text-white mb-4">16. Contacto</h2>
             <p>
-              Para dudas sobre privacidad, tratamiento de datos o eliminación de información, contáctanos en: <a href="mailto:contacto@conversaai.store" className="text-brand-cyan hover:underline">contacto@conversaai.store</a>
+              Para dudas sobre privacidad, tratamiento de datos o eliminación de información, contáctanos en: <a href="mailto:soporte@conversaai.store" className="text-brand-cyan hover:underline">soporte@conversaai.store</a>
             </p>
           </section>
           

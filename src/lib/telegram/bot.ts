@@ -113,7 +113,7 @@ export function createConversaBot(): Bot {
       // Fallback: send plain text without parse_mode if Markdown fails
       try {
         await ctx.reply(
-          "Puedes contactarnos por:\n\n• WhatsApp\n• Email: contacto@conversaai.store\n• Web: conversaai.store/contact",
+          "Puedes contactarnos por:\n\n• WhatsApp\n• Email: soporte@conversaai.store\n• Web: conversaai.store/contact",
           { reply_markup: contactKeyboard() }
         );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

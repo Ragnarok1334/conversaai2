@@ -34,8 +34,8 @@ const features = [
   },
   {
     Icon: MessageSquare,
-    name: "Web Chat, Telegram y WhatsApp",
-    description: "Conecta los canales donde tus clientes ya conversan con tu negocio.",
+    name: "Web Chat y Telegram",
+    description: "Conecta los canales donde tus clientes ya conversan con tu negocio (WhatsApp próximamente).",
     href: "/",
     cta: "Saber más",
     className: "lg:col-span-1",

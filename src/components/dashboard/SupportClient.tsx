@@ -477,14 +477,14 @@ export default function SupportClient({ user }: SupportClientProps) {
             </a>
             
             <a 
-              href="mailto:contacto@conversaai.store"
+              href="mailto:soporte@conversaai.store"
               className="flex items-center justify-between p-4 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:bg-white/[0.06] transition-all group max-w-md"
             >
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-text-soft" />
                 <div>
                   <p className="font-medium text-white">Correo Electrónico</p>
-                  <p className="text-xs text-slate-500">contacto@conversaai.store</p>
+                  <p className="text-xs text-slate-500">soporte@conversaai.store</p>
                 </div>
               </div>
               <ArrowRight className="w-4 h-4 text-slate-500 group-hover:translate-x-1 transition-transform" />

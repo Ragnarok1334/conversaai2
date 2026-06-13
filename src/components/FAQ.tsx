@@ -19,7 +19,7 @@ export function FAQ() {
     {
       question: "¿Puedo usarlo con WhatsApp?",
       answer:
-        "Sí. ConversaAI puede integrarse con WhatsApp, redes sociales y sitios web, dependiendo del plan y la configuración que necesite tu negocio.",
+        "ConversaAI ya incluye Web Chat para instalar en tu sitio web y Telegram según tu plan. La integración con WhatsApp estará disponible próximamente.",
     },
     {
       question: "¿Puedo personalizar las respuestas?",

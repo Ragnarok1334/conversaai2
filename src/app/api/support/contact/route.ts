@@ -69,7 +69,7 @@ ${safeFrontendContexto}
 ======================`
 
     const RESEND_API_KEY = process.env.RESEND_API_KEY
-    const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'contacto@conversaai.store'
+    const CONTACT_TO_EMAIL = process.env.CONTACT_TO_EMAIL || 'soporte@conversaai.store'
     const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'ConversaAI Support <noreply@conversaai.store>'
 
     if (!RESEND_API_KEY) {

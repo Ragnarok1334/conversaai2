@@ -61,7 +61,7 @@ export default function TermsPage() {
             </p>
             <p>
               Correo de contacto:<br />
-              <a href="mailto:contacto@conversaai.store" className="text-brand-cyan hover:underline">contacto@conversaai.store</a>
+              <a href="mailto:soporte@conversaai.store" className="text-brand-cyan hover:underline">soporte@conversaai.store</a>
             </p>
           </section>
 
@@ -278,7 +278,7 @@ export default function TermsPage() {
             <h2 className="text-2xl font-bold text-white mb-4">19. Contacto</h2>
             <p>
               Para dudas sobre estos Términos y Condiciones, escríbenos a: <br />
-              <a href="mailto:contacto@conversaai.store" className="text-brand-cyan hover:underline">contacto@conversaai.store</a>
+              <a href="mailto:soporte@conversaai.store" className="text-brand-cyan hover:underline">soporte@conversaai.store</a>
             </p>
           </section>
           

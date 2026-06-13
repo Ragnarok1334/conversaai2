@@ -10,10 +10,10 @@ ConversaAI es una plataforma SaaS para crear asistentes de IA que automatizan co
 PLANES ACTUALES:
 - Free: $0/mes — 1 asistente, 100 mensajes
 - Pro: $19/mes — 5 asistentes, 5,000 mensajes
-- Business: $49/mes — 20 asistentes, 50,000 mensajes
+- Business: 20 asistentes, 50,000 mensajes
 - Enterprise: personalizado, sin límites, SLA garantizado
 
-CANALES COMPATIBLES: Webchat, Telegram, WhatsApp
+CANALES COMPATIBLES: Webchat, Telegram (WhatsApp próximamente)
 
 FUNCIONES PRINCIPALES:
 - Crear asistentes de IA personalizados

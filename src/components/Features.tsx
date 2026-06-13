@@ -32,9 +32,9 @@ export function Features() {
     },
     {
       icon: <Share2 className="w-6 h-6 text-[#EC4899]" />,
-      title: "Integración con WhatsApp y redes",
+      title: "Integración multicanal",
       description:
-        "Conecta tu asistente con WhatsApp, Instagram, Facebook y tu sitio web fácilmente.",
+        "Conecta tu asistente en tu sitio web y Telegram fácilmente (WhatsApp próximamente).",
     },
     {
       icon: <BarChart3 className="w-6 h-6 text-[#22C55E]" />,
