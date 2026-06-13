@@ -13,6 +13,16 @@ export function TurnstileWidget({ onVerify, onError, onExpire }: TurnstileWidget
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | null>(null);
   const [isReady, setIsReady] = useState(false);
+
+  const onVerifyRef = useRef(onVerify);
+  const onErrorRef = useRef(onError);
+  const onExpireRef = useRef(onExpire);
+
+  useEffect(() => {
+    onVerifyRef.current = onVerify;
+    onErrorRef.current = onError;
+    onExpireRef.current = onExpire;
+  }, [onVerify, onError, onExpire]);
   
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
@@ -31,13 +41,13 @@ export function TurnstileWidget({ onVerify, onError, onExpire }: TurnstileWidget
         sitekey: siteKey,
         theme: "dark",
         callback: (token: string) => {
-          onVerify(token);
+          onVerifyRef.current(token);
         },
         "error-callback": () => {
-          if (onError) onError();
+          if (onErrorRef.current) onErrorRef.current();
         },
         "expired-callback": () => {
-          if (onExpire) onExpire();
+          if (onExpireRef.current) onExpireRef.current();
         },
       });
     } catch (error) {
@@ -49,7 +59,7 @@ export function TurnstileWidget({ onVerify, onError, onExpire }: TurnstileWidget
         (window as any).turnstile.remove(widgetIdRef.current);
       }
     };
-  }, [isReady, siteKey, onVerify, onError, onExpire]);
+  }, [isReady, siteKey]);
 
   if (!siteKey) {
     if (process.env.NODE_ENV === "development") {
