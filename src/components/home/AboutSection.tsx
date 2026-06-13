@@ -6,23 +6,23 @@ export function AboutSection() {
   const cards = [
     {
       icon: <Bot className="w-6 h-6 text-[#06B6D4]" />,
-      title: "Asistentes IA personalizados",
-      desc: "Entrénalos con servicios, horarios, precios y reglas de atención."
+      title: "Asistentes IA",
+      desc: "Entrena asistentes con información real de tu negocio."
     },
     {
       icon: <Code2 className="w-6 h-6 text-[#8b5cf6]" />,
-      title: "Web Chat para tu sitio",
-      desc: "Instala el asistente en tu página para atender visitantes."
+      title: "Web Chat",
+      desc: "Instala el asistente en tu sitio web para atender visitantes."
     },
     {
       icon: <Users className="w-6 h-6 text-[#22C55E]" />,
-      title: "Captura de leads",
-      desc: "Guarda datos de contacto e intereses de clientes potenciales."
+      title: "Leads",
+      desc: "Captura datos de contacto e intereses de clientes potenciales."
     },
     {
       icon: <LayoutDashboard className="w-6 h-6 text-[#F59E0B]" />,
       title: "Panel centralizado",
-      desc: "Gestiona asistentes, conversaciones, leads, planes y soporte."
+      desc: "Gestiona asistentes, conversaciones, planes y soporte."
     }
   ];
 
@@ -35,10 +35,10 @@ export function AboutSection() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">
-              ¿Qué hace ConversaAI?
+              ¿Qué es ConversaAI?
             </h2>
             <p className="text-base md:text-lg text-slate-300 leading-relaxed max-w-3xl mx-auto">
-              ConversaAI ayuda a negocios a automatizar parte de su atención digital mediante asistentes IA entrenados con información del negocio. Los asistentes pueden atender visitantes, responder dudas comunes, recopilar datos de clientes interesados y organizar conversaciones para seguimiento comercial.
+              ConversaAI es una plataforma SaaS diseñada para negocios que quieren automatizar parte de su atención digital con asistentes IA. Permite responder dudas frecuentes, capturar leads y organizar conversaciones desde un solo panel.
             </p>
           </div>
 

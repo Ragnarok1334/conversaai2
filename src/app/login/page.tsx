@@ -8,6 +8,7 @@ import { login } from '@/app/auth/actions'
 import { AuthBrandPanel } from '@/components/auth/AuthBrandPanel'
 import { AuthInput } from '@/components/auth/AuthInput'
 import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget'
 
 const FRIENDLY_ERRORS: Record<string, string> = {
   'Invalid login credentials': 'Correo o contraseña incorrectos.',
@@ -25,10 +26,21 @@ function friendlyError(msg: string): string {
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   async function handleSubmit(formData: FormData) {
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !captchaToken) {
+      setError('Completa la verificación de seguridad para continuar.')
+      return
+    }
+
     setIsLoading(true)
     setError(null)
+    
+    if (captchaToken) {
+      formData.append('captchaToken', captchaToken)
+    }
+
     const result = await login(formData)
     if (result?.error) {
       setError(friendlyError(result.error))
@@ -141,6 +153,18 @@ export default function LoginPage() {
                   {error}
                 </motion.div>
               )}
+
+              <TurnstileWidget
+                onVerify={(token) => {
+                  setCaptchaToken(token);
+                  setError(null);
+                }}
+                onError={() => setError('No se pudo validar la verificación de seguridad.')}
+                onExpire={() => {
+                  setCaptchaToken(null);
+                  setError('La verificación expiró. Inténtalo nuevamente.');
+                }}
+              />
 
               <button
                 type="submit"

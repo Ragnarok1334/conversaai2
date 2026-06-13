@@ -59,7 +59,7 @@ export function Footer() {
       <div className="container mx-auto px-4 md:px-6 relative z-10">
         {/* Main footer card */}
         <div className="rounded-[2rem] bg-white/[0.04] backdrop-blur-2xl border border-white/10 p-8 md:p-10 shadow-[0_0_60px_rgba(124,58,237,0.08)] mb-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-12">
             {/* Brand */}
             <div className="col-span-1 md:col-span-2">
               <Link href="/" className="flex items-center gap-3 mb-6 group w-fit">
@@ -147,6 +147,23 @@ export function Footer() {
                     </a>
                   </li>
                 ))}
+              </ul>
+            </div>
+
+            {/* Contacto */}
+            <div>
+              <h4 className="font-semibold text-white mb-6">Contacto</h4>
+              <ul className="space-y-4">
+                <li>
+                  <a href="mailto:soporte@conversaai.store" className="group inline-flex items-center gap-2 text-[#94A3B8] hover:text-[#06B6D4] transition-colors">
+                    soporte@conversaai.store
+                  </a>
+                </li>
+                <li>
+                  <a href="https://t.me/conversaaix" target="_blank" rel="noopener noreferrer" className="group inline-flex items-center gap-2 text-[#94A3B8] hover:text-[#06B6D4] transition-colors">
+                    Telegram
+                  </a>
+                </li>
               </ul>
             </div>
           </div>

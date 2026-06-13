@@ -100,15 +100,7 @@ export function Hero() {
                 </Link>
               </div>
               <div className="mt-4 text-sm text-[#94A3B8] max-w-xl">
-                <p className="mb-2">Puedes iniciar sesión con correo, Google o Facebook. Si usas Google o Facebook, solo utilizamos tu nombre y correo electrónico para crear o acceder a tu cuenta.</p>
-                <div className="flex flex-wrap items-center gap-4">
-                  <Link href="/privacidad" className="text-[#06B6D4] hover:text-white transition-colors">
-                    Política de Privacidad &rarr;
-                  </Link>
-                  <Link href="/terminos" className="text-[#06B6D4] hover:text-white transition-colors">
-                    Términos &rarr;
-                  </Link>
-                </div>
+                <p>Web Chat listo para instalar. Telegram disponible según configuración. WhatsApp próximamente.</p>
               </div>
             </BlurFade>
 

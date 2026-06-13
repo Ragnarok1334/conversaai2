@@ -16,6 +16,7 @@ import { PasswordStrength } from '@/components/auth/PasswordStrength'
 import { BusinessTypeSelect } from '@/components/auth/BusinessTypeSelect'
 import { CountrySelect } from '@/components/auth/CountrySelect'
 import { SocialAuthButtons } from '@/components/auth/SocialAuthButtons'
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget'
 
 
 
@@ -83,6 +84,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isSuccess, setIsSuccess] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
 
   // Step 1 fields
   const [name, setName] = useState('')
@@ -189,6 +191,12 @@ export default function RegisterPage() {
 
   async function handleSubmit() {
     if (!validateStep3()) return
+    
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !captchaToken) {
+      setError('Completa la verificación de seguridad para continuar.')
+      return
+    }
+
     setIsLoading(true)
     setError(null)
 
@@ -207,6 +215,9 @@ export default function RegisterPage() {
     formData.set('terms_accepted', String(acceptTerms))
     formData.set('business_website', businessWebsite)
     formData.set('website', website)
+    if (captchaToken) {
+      formData.set('captchaToken', captchaToken)
+    }
 
     const result = await signup(formData)
     if (result?.error) {
@@ -566,6 +577,18 @@ export default function RegisterPage() {
                       </span>
                     </label>
                   </div>
+
+                  <TurnstileWidget
+                    onVerify={(token) => {
+                      setCaptchaToken(token);
+                      setError(null);
+                    }}
+                    onError={() => setError('No se pudo validar la verificación de seguridad.')}
+                    onExpire={() => {
+                      setCaptchaToken(null);
+                      setError('La verificación expiró. Inténtalo nuevamente.');
+                    }}
+                  />
 
                   {error && (
                     <motion.div

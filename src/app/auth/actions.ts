@@ -17,6 +17,7 @@ async function getIpFromHeaders(): Promise<string> {
 export async function login(formData: FormData) {
   const email = formData.get('email') as string
   const password = formData.get('password') as string
+  const captchaToken = formData.get('captchaToken') as string
   
   if (!email || !password) {
     return { error: 'Por favor completa todos los campos' }
@@ -37,6 +38,9 @@ export async function login(formData: FormData) {
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
+    options: {
+      captchaToken: captchaToken || undefined
+    }
   })
 
   if (error) {
@@ -55,6 +59,7 @@ export async function signup(formData: FormData) {
   const password = formData.get('password') as string
   const confirmPassword = formData.get('confirmPassword') as string
   const name = (formData.get('name') as string)?.trim()
+  const captchaToken = formData.get('captchaToken') as string
 
   // Extended profile fields from step 2 & 3
   const company_name = (formData.get('company_name') as string)?.trim() || null
@@ -115,6 +120,7 @@ export async function signup(formData: FormData) {
     email,
     password,
     options: {
+      captchaToken: captchaToken || undefined,
       data: { name },
       emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
     },

@@ -17,7 +17,7 @@ export function OAuthDisclaimer() {
               Inicio de sesión seguro
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
-              ConversaAI permite crear o acceder a una cuenta usando correo, Google o Facebook. Cuando eliges Google o Facebook, utilizamos únicamente tu nombre y correo electrónico para autenticarte y asociar tu acceso con tu cuenta.
+              Puedes acceder con correo, Google o Facebook. Si usas Google o Facebook, ConversaAI utiliza únicamente tu nombre y correo electrónico para crear o acceder a tu cuenta.
             </p>
             <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-slate-400 mb-5">
               <li className="flex items-center gap-2">
@@ -32,13 +32,9 @@ export function OAuthDisclaimer() {
                 <div className="w-1.5 h-1.5 rounded-full bg-brand-cyan" />
                 No solicitamos permisos de Gmail, Drive, Calendar ni contactos.
               </li>
-              <li className="flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-brand-cyan" />
-                Puedes revisar más detalles en nuestra Política de Privacidad.
-              </li>
             </ul>
             <Link href="/privacidad" className="text-sm font-semibold text-brand-cyan hover:text-white transition-colors flex items-center gap-1 w-fit">
-              Ver Política de Privacidad <span aria-hidden="true">&rarr;</span>
+              Política de Privacidad <span aria-hidden="true">&rarr;</span>
             </Link>
           </div>
         </div>
