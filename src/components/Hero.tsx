@@ -83,7 +83,7 @@ export function Hero() {
             <BlurFade delay={0.3}>
               {/* Description */}
               <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-                ConversaAI te permite crear asistentes de inteligencia artificial para responder preguntas, capturar datos de contacto y organizar conversaciones desde un panel centralizado.
+                ConversaAI es una plataforma SaaS que permite crear asistentes de inteligencia artificial para responder preguntas, capturar datos de contacto y gestionar conversaciones desde un panel centralizado.
               </p>
             </BlurFade>
 
@@ -99,9 +99,12 @@ export function Hero() {
                   Ver cómo funciona
                 </Link>
               </div>
-              <p className="mt-4 text-sm text-[#94A3B8]">
-                Web Chat listo para instalar. Telegram disponible según plan. WhatsApp próximamente.
-              </p>
+              <div className="mt-4 text-sm text-[#94A3B8] max-w-xl">
+                <p>Puedes iniciar sesión con correo, Google o Facebook. Si usas Google o Facebook, solo utilizamos tu nombre y correo electrónico para crear o acceder a tu cuenta.</p>
+                <Link href="/privacidad" className="text-[#06B6D4] hover:text-white transition-colors inline-block mt-2">
+                  Política de Privacidad &rarr;
+                </Link>
+              </div>
             </BlurFade>
 
             <BlurFade delay={0.5}>

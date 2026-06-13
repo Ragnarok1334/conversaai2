@@ -6,23 +6,23 @@ export function AboutSection() {
   const cards = [
     {
       icon: <Bot className="w-6 h-6 text-[#06B6D4]" />,
-      title: "Crea asistentes IA",
-      desc: "Entrena asistentes con información real de tu negocio, servicios, horarios, precios y reglas de atención."
+      title: "Asistentes IA personalizados",
+      desc: "Entrénalos con servicios, horarios, precios y reglas de atención."
     },
     {
       icon: <Code2 className="w-6 h-6 text-[#8b5cf6]" />,
-      title: "Instala Web Chat",
-      desc: "Agrega el asistente a tu sitio web para atender visitantes y responder dudas de forma automática."
+      title: "Web Chat para tu sitio",
+      desc: "Instala el asistente en tu página para atender visitantes."
     },
     {
       icon: <Users className="w-6 h-6 text-[#22C55E]" />,
-      title: "Captura leads",
-      desc: "Guarda datos de contacto, intereses y conversaciones importantes para dar seguimiento comercial."
+      title: "Captura de leads",
+      desc: "Guarda datos de contacto e intereses de clientes potenciales."
     },
     {
       icon: <LayoutDashboard className="w-6 h-6 text-[#F59E0B]" />,
-      title: "Gestiona desde el panel",
-      desc: "Revisa asistentes, conversaciones, leads, diagnósticos, planes y soporte desde un dashboard centralizado."
+      title: "Panel centralizado",
+      desc: "Gestiona asistentes, conversaciones, leads, planes y soporte."
     }
   ];
 
@@ -35,13 +35,10 @@ export function AboutSection() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 tracking-tight">
-              ¿Qué es ConversaAI?
+              ¿Qué hace ConversaAI?
             </h2>
             <p className="text-base md:text-lg text-slate-300 leading-relaxed max-w-3xl mx-auto">
-              ConversaAI es una plataforma SaaS que ayuda a negocios a crear asistentes de inteligencia artificial para atender clientes, responder preguntas frecuentes y capturar leads desde su sitio web.
-            </p>
-            <p className="mt-3 text-sm text-[#94A3B8]">
-              Desde un solo panel puedes configurar tus asistentes, gestionar conversaciones, revisar clientes potenciales, controlar dominios autorizados y administrar tu plan.
+              ConversaAI ayuda a negocios a automatizar parte de su atención digital mediante asistentes IA entrenados con información del negocio. Los asistentes pueden responder preguntas frecuentes, recopilar datos de clientes interesados y organizar conversaciones para seguimiento comercial.
             </p>
           </div>
 
