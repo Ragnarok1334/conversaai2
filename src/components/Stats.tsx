@@ -18,23 +18,23 @@ export function Stats() {
             
             <div className="flex flex-col items-center justify-center text-center px-4">
               <span className="text-4xl md:text-5xl font-bold text-white mb-2 flex items-center">
-                <NumberTicker value={50000} className="text-white" />+
+                <NumberTicker value={20000} className="text-white" />+
               </span>
-              <span className="text-sm text-text-soft">Mensajes al mes en Business</span>
+              <span className="text-sm text-text-soft">Mensajes de capacidad</span>
             </div>
 
             <div className="flex flex-col items-center justify-center text-center px-4">
               <span className="text-4xl md:text-5xl font-bold text-white mb-2 flex items-center">
                 <NumberTicker value={20} className="text-white" />+
               </span>
-              <span className="text-sm text-text-soft">Asistentes IA en Business</span>
+              <span className="text-sm text-text-soft">Asistentes por cuenta</span>
             </div>
 
             <div className="flex flex-col items-center justify-center text-center px-4">
               <span className="text-4xl md:text-5xl font-bold text-white mb-2">
-                <NumberTicker value={3} className="text-white" />
+                <NumberTicker value={2} className="text-white" />
               </span>
-              <span className="text-sm text-text-soft">Canales principales</span>
+              <span className="text-sm text-text-soft">Canales activos</span>
             </div>
           </div>
         </BlurFade>

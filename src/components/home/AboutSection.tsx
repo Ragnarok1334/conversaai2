@@ -38,7 +38,7 @@ export function AboutSection() {
               ¿Qué hace ConversaAI?
             </h2>
             <p className="text-base md:text-lg text-slate-300 leading-relaxed max-w-3xl mx-auto">
-              ConversaAI ayuda a negocios a automatizar parte de su atención digital mediante asistentes IA entrenados con información del negocio. Los asistentes pueden responder preguntas frecuentes, recopilar datos de clientes interesados y organizar conversaciones para seguimiento comercial.
+              ConversaAI ayuda a negocios a automatizar parte de su atención digital mediante asistentes IA entrenados con información del negocio. Los asistentes pueden atender visitantes, responder dudas comunes, recopilar datos de clientes interesados y organizar conversaciones para seguimiento comercial.
             </p>
           </div>
 

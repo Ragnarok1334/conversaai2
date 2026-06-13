@@ -70,12 +70,12 @@ export function Hero() {
             <BlurFade delay={0.2}>
               {/* Title */}
               <h1 className="text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl max-w-2xl">
-                 Atiende clientes con IA y convierte{" "}
+                 Crea asistentes IA para atender clientes y{" "}
                  <AuroraText
                    colors={["#8b5cf6", "#06b6d4", "#3b82f6", "#a855f7"]}
                    speed={1}
                 >
-                   conversaciones en leads
+                   capturar leads
                  </AuroraText>
                </h1>
             </BlurFade>
@@ -83,7 +83,7 @@ export function Hero() {
             <BlurFade delay={0.3}>
               {/* Description */}
               <p className="mt-6 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
-                ConversaAI es una plataforma SaaS que permite crear asistentes de inteligencia artificial para responder preguntas, capturar datos de contacto y gestionar conversaciones desde un panel centralizado.
+                ConversaAI es una plataforma SaaS que permite a negocios crear asistentes de inteligencia artificial para responder preguntas frecuentes, capturar datos de contacto y gestionar conversaciones desde un panel centralizado.
               </p>
             </BlurFade>
 
@@ -100,10 +100,15 @@ export function Hero() {
                 </Link>
               </div>
               <div className="mt-4 text-sm text-[#94A3B8] max-w-xl">
-                <p>Puedes iniciar sesión con correo, Google o Facebook. Si usas Google o Facebook, solo utilizamos tu nombre y correo electrónico para crear o acceder a tu cuenta.</p>
-                <Link href="/privacidad" className="text-[#06B6D4] hover:text-white transition-colors inline-block mt-2">
-                  Política de Privacidad &rarr;
-                </Link>
+                <p className="mb-2">Puedes iniciar sesión con correo, Google o Facebook. Si usas Google o Facebook, solo utilizamos tu nombre y correo electrónico para crear o acceder a tu cuenta.</p>
+                <div className="flex flex-wrap items-center gap-4">
+                  <Link href="/privacidad" className="text-[#06B6D4] hover:text-white transition-colors">
+                    Política de Privacidad &rarr;
+                  </Link>
+                  <Link href="/terminos" className="text-[#06B6D4] hover:text-white transition-colors">
+                    Términos &rarr;
+                  </Link>
+                </div>
               </div>
             </BlurFade>
 

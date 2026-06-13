@@ -160,7 +160,7 @@ export function Footer() {
           <p className="text-[11px] text-[#64748B] max-w-xl">
             Al usar ConversaAI aceptas nuestros{' '}
             <Link href="/terminos" className="underline hover:text-[#CBD5E1] transition-colors">
-              Términos
+              Términos y Condiciones
             </Link>
             {' '}y nuestra{' '}
             <Link href="/privacidad" className="underline hover:text-[#CBD5E1] transition-colors">
