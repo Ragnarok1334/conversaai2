@@ -14,9 +14,21 @@ import { CONTACT_INFO } from "@/lib/contact";
 export function Footer() {
   const productLinks = [
     { name: "Funciones", href: "#funciones" },
+    { name: "Beneficios", href: "#beneficios" },
+    { name: "Cómo funciona", href: "#como-funciona" },
     { name: "Precios", href: "#precios" },
     { name: "FAQ", href: "#faq" },
+  ];
+
+  const accountLinks = [
+    { name: "Iniciar sesión", href: "/login" },
+    { name: "Comenzar gratis", href: "/register" },
     { name: "Contacto", href: "/contact" },
+  ];
+
+  const legalLinks = [
+    { name: "Política de Privacidad", href: "/privacidad" },
+    { name: "Términos y Condiciones", href: "/terminos" },
   ];
 
   const socialLinks = [
@@ -47,9 +59,9 @@ export function Footer() {
       <div className="container mx-auto px-4 md:px-6 relative z-10">
         {/* Main footer card */}
         <div className="rounded-[2rem] bg-white/[0.04] backdrop-blur-2xl border border-white/10 p-8 md:p-10 shadow-[0_0_60px_rgba(124,58,237,0.08)] mb-10">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12">
             {/* Brand */}
-            <div className="col-span-1 md:col-span-3">
+            <div className="col-span-1 md:col-span-2">
               <Link href="/" className="flex items-center gap-3 mb-6 group w-fit">
                 <div className="relative w-11 h-11 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(124,58,237,0.45)] group-hover:scale-105 transition-transform duration-300">
                   <Image src="/logo.png" alt="ConversaAI logo" width={44} height={44} className="rounded-2xl" />
@@ -62,15 +74,8 @@ export function Footer() {
               </Link>
 
               <p className="text-[#94A3B8] max-w-md mb-8 leading-relaxed">
-                Automatiza tus conversaciones con inteligencia artificial.
-                Atiende clientes las 24 horas, organiza prospectos y aumenta tus
-                ventas con asistentes inteligentes.
+                Crea asistentes IA para vender, atender y capturar leads desde tu sitio web.
               </p>
-
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.06] border border-white/10 text-[#CBD5E1] text-sm mb-8">
-                <Sparkles className="w-4 h-4 text-[#06B6D4]" />
-                IA para ventas, soporte y automatización
-              </div>
 
               <div className="flex items-center gap-4">
                 {socialLinks.map((item) => {
@@ -94,9 +99,44 @@ export function Footer() {
             {/* Product */}
             <div>
               <h4 className="font-semibold text-white mb-6">Producto</h4>
-
               <ul className="space-y-4">
                 {productLinks.map((link) => (
+                  <li key={link.name}>
+                    <a
+                      href={link.href}
+                      className="group inline-flex items-center gap-2 text-[#94A3B8] hover:text-[#06B6D4] transition-colors"
+                    >
+                      {link.name}
+                      <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Cuenta */}
+            <div>
+              <h4 className="font-semibold text-white mb-6">Cuenta</h4>
+              <ul className="space-y-4">
+                {accountLinks.map((link) => (
+                  <li key={link.name}>
+                    <a
+                      href={link.href}
+                      className="group inline-flex items-center gap-2 text-[#94A3B8] hover:text-[#06B6D4] transition-colors"
+                    >
+                      {link.name}
+                      <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Legal */}
+            <div>
+              <h4 className="font-semibold text-white mb-6">Legal</h4>
+              <ul className="space-y-4">
+                {legalLinks.map((link) => (
                   <li key={link.name}>
                     <a
                       href={link.href}
@@ -113,27 +153,20 @@ export function Footer() {
         </div>
 
         {/* Bottom */}
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm">
-          <p className="text-[#94A3B8]">
-            © {new Date().getFullYear()} ConversaAI. Todos los derechos
-            reservados.
+        <div className="flex flex-col items-center justify-center gap-4 text-center">
+          <p className="text-[#94A3B8] text-sm">
+            © {new Date().getFullYear()} ConversaAI. Todos los derechos reservados.
           </p>
-
-          <div className="flex items-center gap-6">
-            <Link
-              href="/privacidad"
-              className="text-[#94A3B8] hover:text-white transition-colors"
-            >
-              Privacidad
-            </Link>
-
-            <Link
-              href="/terminos"
-              className="text-[#94A3B8] hover:text-white transition-colors"
-            >
+          <p className="text-[11px] text-[#64748B] max-w-xl">
+            Al usar ConversaAI aceptas nuestros{' '}
+            <Link href="/terminos" className="underline hover:text-[#CBD5E1] transition-colors">
               Términos
             </Link>
-          </div>
+            {' '}y nuestra{' '}
+            <Link href="/privacidad" className="underline hover:text-[#CBD5E1] transition-colors">
+              Política de Privacidad
+            </Link>.
+          </p>
         </div>
       </div>
     </footer>
