@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit, consumeMessageCredit } from '@/lib/security'
 import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { getModelForPlan } from '@/lib/ai/model-router'
+import { canUsePremiumFeatures } from '@/lib/billing/subscription-status'
 
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY
@@ -43,14 +44,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Check plan and consume credit atomically
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('trial_ends_at')
+      .eq('id', user.id)
+      .single()
+
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('plan, status')
+      .select('*')
       .eq('user_id', user.id)
       .single()
 
-    if (!sub || sub.status !== 'active') {
-      return NextResponse.json({ error: 'Suscripción inactiva.' }, { status: 403 })
+    if (!canUsePremiumFeatures(sub, profile)) {
+      return NextResponse.json({ error: 'Suscripción inactiva o vencida.' }, { status: 403 })
     }
 
     const planConfig = getPlanConfig(normalizePlan(sub.plan))

@@ -8,6 +8,7 @@ import { BuilderFormData, KnowledgeBlock, KnowledgeBlockType } from './types'
 interface Props {
   form: BuilderFormData
   setForm: (form: BuilderFormData) => void
+  errors?: Record<string, string>
 }
 
 function generateId() {
@@ -224,7 +225,7 @@ const TEMPLATES: Record<string, Partial<Record<KnowledgeBlockType, string>>> = {
   }
 }
 
-export function TrainingStep({ form, setForm }: Props) {
+export function TrainingStep({ form, setForm, errors = {} }: Props) {
   const [activeTab, setActiveTab] = useState<KnowledgeBlockType | 'legacy'>('general')
   const [isImproving, setIsImproving] = useState(false)
   const [improvedText, setImprovedText] = useState<string | null>(null)
@@ -233,6 +234,7 @@ export function TrainingStep({ form, setForm }: Props) {
   const [templateMsg, setTemplateMsg] = useState<string | null>(null)
   const [showAllTemplates, setShowAllTemplates] = useState(false)
   const [activeTemplateName, setActiveTemplateName] = useState<string | null>(null)
+  const [showTemplateModal, setShowTemplateModal] = useState<string | null>(null)
 
   // Initialization
   useEffect(() => {
@@ -258,6 +260,15 @@ export function TrainingStep({ form, setForm }: Props) {
     if (chars === 0) return 'empty'
     if (chars >= 80) return 'complete'
     return 'partial'
+  }
+
+  const handleTemplateClick = (templateName: string) => {
+    const hasContent = blocks.some(b => b.is_active && b.content.trim().length >= 80) || form.instructions.trim().length >= 80
+    if (hasContent) {
+      setShowTemplateModal(templateName)
+    } else {
+      applyTemplate(templateName)
+    }
   }
 
   const applyTemplate = (templateName: string) => {
@@ -411,6 +422,13 @@ export function TrainingStep({ form, setForm }: Props) {
         </p>
       </div>
 
+      {errors.knowledge && (
+        <div className="p-4 rounded-xl bg-brand-pink/10 border border-brand-pink/20 text-brand-pink text-sm flex gap-3 shadow-lg">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <p>{errors.knowledge}</p>
+        </div>
+      )}
+
       <div className="space-y-6">
         
         {/* BLOQUE 1: PLANTILLAS */}
@@ -422,7 +440,7 @@ export function TrainingStep({ form, setForm }: Props) {
             {visibleTemplates.map(key => (
               <button
                 key={key}
-                onClick={() => applyTemplate(key)}
+                onClick={() => handleTemplateClick(key)}
                 className="py-2.5 px-3 rounded-xl border border-white/10 bg-white/[0.03] text-sm text-slate-300 hover:border-brand-cyan/50 hover:bg-brand-cyan/10 hover:text-white transition-all font-medium text-center"
               >
                 {key}
@@ -664,6 +682,46 @@ export function TrainingStep({ form, setForm }: Props) {
         </section>
 
       </div>
+
+      {/* Clear Template Modal */}
+      <AnimatePresence>
+        {showTemplateModal && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.95 }} animate={{ scale: 1 }} exit={{ scale: 0.95 }}
+              className="bg-slate-900 border border-white/10 p-6 rounded-2xl max-w-sm w-full shadow-2xl"
+            >
+              <div className="flex gap-3 mb-4 text-amber-500">
+                <AlertTriangle className="w-6 h-6 flex-shrink-0" />
+                <h3 className="font-bold text-lg text-white">¿Aplicar plantilla?</h3>
+              </div>
+              <p className="text-sm text-slate-300 mb-6">
+                Ya tienes información agregada. Si aplicas esta plantilla, se reemplazarán los bloques correspondientes con el texto de la plantilla.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowTemplateModal(null)}
+                  className="px-4 py-2 rounded-xl border border-white/10 text-white font-medium hover:bg-white/5 transition-all text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => {
+                    applyTemplate(showTemplateModal)
+                    setShowTemplateModal(null)
+                  }}
+                  className="px-4 py-2 rounded-xl bg-amber-500 text-black font-bold hover:bg-amber-400 transition-all text-sm shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                >
+                  Aplicar plantilla
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

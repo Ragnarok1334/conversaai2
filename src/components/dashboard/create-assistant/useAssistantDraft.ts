@@ -33,13 +33,23 @@ function mergeWithInitialBuilderForm(storedForm: any): BuilderFormData {
   }
 }
 
-export function useAssistantDraft(userId: string) {
-  const draftKey = `conversaai_create_assistant_draft_${userId}`
+export function useAssistantDraft(
+  userId: string,
+  mode: 'create' | 'edit' = 'create',
+  assistantId?: string,
+  initialData?: BuilderFormData
+) {
+  const draftKey = mode === 'edit' && assistantId 
+    ? `conversaai_edit_assistant_draft_${assistantId}` 
+    : `conversaai_create_assistant_draft_${userId}`
+    
+  const baseForm = mode === 'edit' && initialData ? initialData : initialBuilderForm
   
-  const [form, setForm] = useState<BuilderFormData>(initialBuilderForm)
+  const [form, setForm] = useState<BuilderFormData>(baseForm)
   const [currentStep, setCurrentStep] = useState<number>(1)
   const [isLoaded, setIsLoaded] = useState(false)
   const [savedAt, setSavedAt] = useState<Date | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   // Load on mount
   useEffect(() => {
@@ -47,6 +57,9 @@ export function useAssistantDraft(userId: string) {
       const stored = localStorage.getItem(draftKey)
       if (stored) {
         const parsed = JSON.parse(stored)
+        if (mode === 'edit') {
+           setHasUnsavedChanges(true)
+        }
         if (parsed.form) {
           setForm(mergeWithInitialBuilderForm(parsed.form))
         }
@@ -58,7 +71,7 @@ export function useAssistantDraft(userId: string) {
     } finally {
       setIsLoaded(true)
     }
-  }, [draftKey])
+  }, [draftKey, mode])
 
   // Save on change
   useEffect(() => {
@@ -66,8 +79,16 @@ export function useAssistantDraft(userId: string) {
     
     const delayDebounceFn = setTimeout(() => {
       try {
+        // Strip sensitive data before saving to localStorage
+        const sanitizedForm = {
+          ...form,
+          channels: {
+            ...form.channels,
+            telegram: { ...form.channels.telegram, token: '' }
+          }
+        }
         localStorage.setItem(draftKey, JSON.stringify({
-          form,
+          form: sanitizedForm,
           currentStep,
           timestamp: new Date().toISOString()
         }))
@@ -82,9 +103,14 @@ export function useAssistantDraft(userId: string) {
 
   const clearDraft = () => {
     localStorage.removeItem(draftKey)
-    setForm(initialBuilderForm)
+    setForm(baseForm)
     setCurrentStep(1)
     setSavedAt(null)
+  }
+
+  const discardDraftAndLoadDB = () => {
+    clearDraft()
+    setHasUnsavedChanges(false)
   }
 
   return {
@@ -94,6 +120,9 @@ export function useAssistantDraft(userId: string) {
     setCurrentStep,
     isLoaded,
     savedAt,
-    clearDraft
+    clearDraft,
+    hasUnsavedChanges,
+    discardDraftAndLoadDB,
+    setHasUnsavedChanges
   }
 }

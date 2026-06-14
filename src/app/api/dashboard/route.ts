@@ -65,13 +65,13 @@ export async function GET() {
     const subscription = subscriptionResult.data || {
       id: 'fallback',
       user_id: user.id,
-      plan: 'trial',
+      plan: 'free',
       status: 'active',
       current_messages_used: 0,
     }
 
     const profileData = profileResult.data
-    const planKey = normalizePlan(subscription.plan ?? 'trial')
+    const planKey = normalizePlan(subscription.plan ?? 'free')
     const effectiveStatus = getEffectiveSubscriptionStatus(subscription, profileData)
     
     const isPremiumActive = ['active', 'trialing', 'past_due'].includes(effectiveStatus)

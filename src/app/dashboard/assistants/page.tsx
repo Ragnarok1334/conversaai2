@@ -99,7 +99,7 @@ export default function AssistantsPage() {
     setAssistants(prev => prev.map(a => a.id === id ? { ...a, status } : a))
   }
 
-  const plan = normalizePlan(subData?.subscription?.plan ?? 'trial')
+  const plan = normalizePlan(subData?.subscription?.plan ?? 'free')
   const planLimits = getPlanLimits(plan)
   const isUnlimitedAssistants = planLimits.assistants === null
   const isUnlimitedMessages = planLimits.messagesPerMonth === null

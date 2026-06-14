@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { calculateAssistantHealth } from '@/lib/assistant/assistant-health'
 import { normalizePlan } from '@/lib/plans'
+import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,13 +18,13 @@ export async function GET(req: NextRequest) {
     // Default response structure
     const diagnosis: any = {
       account: { status: 'ok', message: 'Cuenta en orden.' },
-      plan: { status: 'ok', plan: 'trial', subscriptionStatus: 'none', message: 'Suscripción activa.' },
+      plan: { status: 'ok', plan: 'free', subscriptionStatus: 'none', message: 'Suscripción activa.' },
       assistants: { status: 'ok', total: 0, active: 0, needsTraining: 0, needsInstallation: 0, message: 'Ningún asistente.' },
       webchat: { status: 'ok', verifiedDomains: 0, pendingDomains: 0, lastSeenAt: null, message: 'Sin dominios instalados.' },
       payments: { status: 'ok', pendingPayments: 0, lastPaymentStatus: null, message: 'Pagos al día.' },
       activity: { conversationsCount: 0, leadsCount: 0, lastConversationAt: null, lastLeadAt: null },
       recommendations: [],
-      supportContext: { userId: user.id, email: user.email, plan: 'trial', assistantsTotal: 0, generatedAt: new Date().toISOString() }
+      supportContext: { userId: user.id, email: user.email, plan: 'free', assistantsTotal: 0, generatedAt: new Date().toISOString() }
     }
 
     // 1. Fetch Profile
@@ -61,9 +62,11 @@ export async function GET(req: NextRequest) {
       .order('created_at', { ascending: false })
       .limit(10)
 
-    const currentPlan = normalizePlan(subData?.plan ?? 'trial')
+    const currentPlan = normalizePlan(subData?.plan ?? 'free')
     diagnosis.plan.plan = currentPlan
-    diagnosis.plan.subscriptionStatus = subData?.status ?? 'none'
+
+    const effectiveStatus = getEffectiveSubscriptionStatus(subData, profile)
+    diagnosis.plan.subscriptionStatus = effectiveStatus
     diagnosis.supportContext.plan = currentPlan
 
     const lastPayment = payments && payments.length > 0 ? payments[0] : null
@@ -72,21 +75,21 @@ export async function GET(req: NextRequest) {
     diagnosis.payments.pendingPayments = pendingPayments
     diagnosis.payments.lastPaymentStatus = lastPayment?.status || null
 
-    if (subData?.status === 'active' || subData?.status === 'trialing') {
+    if (effectiveStatus === 'active' || effectiveStatus === 'trialing') {
       diagnosis.plan.status = 'ok'
-      diagnosis.plan.message = `Suscripción ${subData?.status === 'trialing' ? 'en prueba' : 'activa'}.`
-    } else if (subData?.status === 'canceled') {
+      diagnosis.plan.message = `Suscripción ${effectiveStatus === 'trialing' ? 'en prueba' : 'activa'}.`
+    } else if (effectiveStatus === 'cancelled') {
       diagnosis.plan.status = 'warning'
       diagnosis.plan.message = 'Suscripción cancelada.'
-    } else if (!subData && currentPlan === 'trial') {
+    } else if (effectiveStatus === 'free') {
       diagnosis.plan.status = 'ok'
-      diagnosis.plan.message = 'Plan Trial activo.'
+      diagnosis.plan.message = 'Plan Free activo.'
     } else {
       diagnosis.plan.status = 'error'
       diagnosis.plan.message = 'Problemas con la suscripción.'
     }
 
-    const isActive = subData?.status === 'active' || subData?.status === 'trialing'
+    const isActive = ['active', 'trialing', 'past_due'].includes(effectiveStatus)
 
     if (pendingPayments > 0) {
       diagnosis.plan.status = diagnosis.plan.status === 'ok' ? 'warning' : diagnosis.plan.status

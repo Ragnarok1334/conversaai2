@@ -58,12 +58,13 @@ export function getEffectiveSubscriptionStatus(
     return 'expired';
   }
 
-  // Fallback if no dates exist but status is active (legacy behavior, or right after manual DB insert)
+  // Fallback if no dates exist but status is active (legacy behavior without dates)
+  // To avoid permanent free access, this must be expired/blocked.
   if (subscription.status === 'active') {
-    return 'active';
+    return 'expired';
   }
 
-  return subscription.status as EffectiveStatus;
+  return 'expired';
 }
 
 export function canUsePremiumFeatures(subscription: any, profile: any): boolean {

@@ -748,7 +748,7 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   }
 
   // ── Plan info helpers ──────────────────────────────────────────────────────
-  const plan = normalizePlan(subData?.subscription?.plan ?? 'trial')
+  const plan = normalizePlan(subData?.subscription?.plan ?? 'free')
   const planConfig = subData?.planConfig as PlanConfig | undefined
   const usage = subData?.usage
   const planLimits = getPlanLimits(plan)

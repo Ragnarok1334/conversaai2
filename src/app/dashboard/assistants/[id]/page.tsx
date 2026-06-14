@@ -5,8 +5,10 @@ import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
 import { AssistantInstallation } from '@/components/dashboard/AssistantInstallation'
 import { getPlanLimits, normalizePlan } from '@/lib/plans'
 import { calculateAssistantHealth } from '@/lib/assistant/assistant-health'
-import { Bot, Globe, MessageCircle, Send, Calendar, CheckCircle2, XCircle, ArrowLeft, Pencil, Settings, Play, Info, Activity, Users, Plug, Target, ShieldAlert, Sparkles } from 'lucide-react'
+import { Bot, Globe, MessageCircle, Send, Calendar, CheckCircle2, XCircle, ArrowLeft, Pencil, Settings, Play, Info, Activity, Users, Plug, Target, ShieldAlert, Sparkles, Lock } from 'lucide-react'
 import Link from 'next/link'
+import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
+import { AssistantBuilder } from '@/components/dashboard/create-assistant/AssistantBuilder'
 
 const channelLabel: Record<string, string> = { webchat: 'Web Chat', telegram: 'Telegram', whatsapp: 'WhatsApp' }
 const channelIcon: Record<string, React.ReactNode> = {
@@ -30,13 +32,15 @@ export default async function AssistantDetailPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) notFound()
 
-  // Use Admin to get plan
+  // Use Admin to get plan and profile
   const supabaseAdmin = createSupabaseAdmin()
-  const { data: sub } = await supabaseAdmin
-    .from('subscriptions')
-    .select('plan, status')
-    .eq('user_id', user.id)
-    .single()
+  const [{ data: sub }, { data: profile }] = await Promise.all([
+    supabaseAdmin.from('subscriptions').select('*').eq('user_id', user.id).single(),
+    supabaseAdmin.from('profiles').select('*').eq('id', user.id).single()
+  ])
+
+  const effStatus = sub && profile ? getEffectiveSubscriptionStatus(sub, profile) : 'free'
+  const canEdit = effStatus === 'active' || effStatus === 'trialing' || effStatus === 'past_due'
 
   const planLimits = sub && sub.status === 'active' 
     ? getPlanLimits(normalizePlan(sub.plan)) 
@@ -87,6 +91,39 @@ export default async function AssistantDetailPage({
     language: assistant.language,
   }
 
+  const initialData = {
+    assistant_name: assistant.assistant_name || '',
+    business_name: assistant.business_name || '',
+    business_type: assistant.business_type || '',
+    instructions: assistant.instructions || '',
+    language: assistant.language || 'es',
+    faqs: assistant.faqs || '',
+    services: assistant.services || '',
+    schedule: assistant.schedule || '',
+    fallback_message: assistant.fallback_message || '',
+    behavior: {
+      initialChannel: assistant.channel || 'webchat',
+      tone: assistant.tone || 'professional',
+      goal: assistant.main_goal || 'support',
+      salesLevel: assistant.behavior?.salesLevel || 'soft',
+      rules: {
+        askName: assistant.behavior?.rules?.askName ?? true,
+        askContact: assistant.behavior?.rules?.askContact ?? true,
+        offerPricesWhenAsked: assistant.behavior?.rules?.offerPricesWhenAsked ?? true,
+        suggestAppointment: assistant.behavior?.rules?.suggestAppointment ?? false,
+        escalateIfUnknown: assistant.behavior?.rules?.escalateIfUnknown ?? true,
+        doNotInvent: assistant.behavior?.rules?.doNotInvent ?? true,
+        alwaysSpanish: assistant.behavior?.rules?.alwaysSpanish ?? true,
+      }
+    },
+    channels: {
+      webchat: { enabled: true, domains: [] },
+      telegram: { enabled: false, token: '' },
+      whatsapp: { enabled: false, phone: '', provider: 'meta' }
+    },
+    knowledgeBlocks: assistant.knowledge_blocks || []
+  }
+
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: <Info className="w-4 h-4" /> },
     { id: 'test', label: 'Prueba', icon: <Play className="w-4 h-4" /> },
@@ -126,9 +163,21 @@ export default async function AssistantDetailPage({
       {/* Breadcrumb */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <Link href="/dashboard/assistants" className="p-2.5 rounded-xl bg-card-bg border border-card-border hover:bg-white/10 transition-colors text-slate-400 hover:text-white">
+          <Link href="/dashboard/assistants" className="p-2.5 rounded-xl bg-card-bg border border-card-border hover:bg-white/10 transition-colors text-slate-400 hover:text-white flex items-center gap-2">
             <ArrowLeft className="w-5 h-5" />
           </Link>
+          <div className="flex items-center text-sm font-medium text-slate-400">
+            <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
+            <span className="mx-2">/</span>
+            <Link href="/dashboard/assistants" className="hover:text-white transition-colors">Asistentes</Link>
+            <span className="mx-2">/</span>
+            <span className="text-white">{assistant.assistant_name}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-xl gradient-btn flex items-center justify-center text-white font-bold text-xl shadow-lg">
               {assistant.assistant_name.charAt(0).toUpperCase()}
@@ -377,16 +426,29 @@ export default async function AssistantDetailPage({
 
       {/* TAB CONTENT: SETTINGS (EDIT) */}
       {(tab === 'settings' || tab === 'edit') && (
-        <div className="max-w-3xl bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 text-center mx-auto">
-          <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Pencil className="w-8 h-8 text-slate-400" />
+        !canEdit ? (
+          <div className="max-w-3xl bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 text-center mx-auto">
+            <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-amber-500" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Edición bloqueada</h2>
+            <p className="text-slate-400 mb-6">Tu plan actual no te permite editar asistentes. Mejora tu plan para continuar.</p>
+            <Link href="/dashboard/billing" className="gradient-btn px-6 py-3 rounded-xl font-semibold text-white inline-block">
+              Ver planes
+            </Link>
           </div>
-          <h2 className="text-xl font-bold mb-2">Editar configuración</h2>
-          <p className="text-slate-400 mb-6">Redirigiendo a la vista de edición avanzada del asistente...</p>
-          <Link href={`/dashboard/assistants/${id}?tab=edit`} className="gradient-btn px-6 py-3 rounded-xl font-semibold text-white">
-            Abrir editor
-          </Link>
-        </div>
+        ) : (
+          <AssistantBuilder 
+            mode="edit"
+            assistantId={assistant.id}
+            initialData={initialData}
+            userId={user.id}
+            hasReachedLimit={false}
+            currentUsage={conversationsCount} // It doesn't use it for limit check in edit mode, so we just pass anything
+            planLimit={planLimits.assistants}
+            currentPlan={sub ? normalizePlan(sub.plan) : 'free'}
+          />
+        )
       )}
 
     </div>

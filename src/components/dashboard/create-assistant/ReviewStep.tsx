@@ -14,9 +14,10 @@ interface Props {
   onSubmit: () => void
   status: 'idle' | 'saving' | 'success' | 'error'
   errorMsg: string
+  mode?: 'create' | 'edit'
 }
 
-export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, currentPlan, onSubmit, status, errorMsg }: Props) {
+export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, currentPlan, onSubmit, status, errorMsg, mode = 'create' }: Props) {
   const router = useRouter()
 
   const blocks = form.knowledgeBlocks || []
@@ -54,9 +55,10 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
   }
 
   const checklist = [
+    { label: 'Plan activo o en prueba', done: true },
     { label: 'Información básica completa', done: form.assistant_name.trim() !== '' && form.business_name.trim() !== '' },
     { label: 'Entrenamiento agregado', done: form.instructions.trim().length >= 80 || blocks.some(b => b.content.trim().length >= 80) },
-    { label: 'Canal seleccionado', done: form.channels.webchat.enabled || form.channels.telegram.enabled },
+    { label: 'Canal seleccionado', done: form.channels.webchat.enabled },
   ]
 
   const allReady = checklist.every(i => i.done)
@@ -82,8 +84,8 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
     >
       <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 lg:p-8 space-y-6 shadow-xl">
         <div className="border-b border-white/[0.06] pb-4">
-          <h2 className="font-semibold text-xl mb-1 text-white">Revisar y Guardar</h2>
-          <p className="text-sm text-slate-400">Verifica que todo esté correcto antes de crear el asistente.</p>
+          <h2 className="font-semibold text-xl mb-1 text-white">Revisión final</h2>
+          <p className="text-sm text-slate-400">Confirma que tu asistente tiene la información mínima para responder correctamente.</p>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-6">
@@ -162,7 +164,7 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
           
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-white">Lista de verificación</h3>
-            <ul className="space-y-3">
+            <ul className="space-y-3 mb-4">
               {checklist.map((item, i) => (
                 <li key={i} className={`flex items-center gap-2 text-sm ${item.done ? 'text-brand-success' : 'text-slate-500'}`}>
                   {item.done ? <CheckCircle2 className="w-4 h-4" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-700" />}
@@ -170,6 +172,7 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
                 </li>
               ))}
             </ul>
+            <p className="text-xs text-slate-400">Después de guardar, podrás instalar el Web Chat, probar respuestas y revisar conversaciones desde el panel.</p>
           </div>
         </div>
 
@@ -212,7 +215,9 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
               >
                 {status === 'saving' && <Loader2 className="w-5 h-5 animate-spin" />}
                 {status === 'success' && <CheckCircle2 className="w-5 h-5" />}
-                {status === 'saving' ? 'Creando asistente...' : status === 'success' ? '¡Creado con éxito!' : 'Guardar asistente'}
+                {status === 'saving' ? (mode === 'edit' ? 'Guardando cambios...' : 'Creando asistente...') : 
+                 status === 'success' ? (mode === 'edit' ? 'Cambios guardados correctamente' : 'Asistente creado correctamente') : 
+                 (mode === 'edit' ? 'Guardar cambios' : 'Crear asistente')}
               </button>
             </div>
           )}

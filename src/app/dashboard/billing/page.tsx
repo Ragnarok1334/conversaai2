@@ -41,7 +41,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
 
-  const currentPlan = subscription?.plan || 'trial'
+  const currentPlan = subscription?.plan || 'free'
   const planKey = normalizePlan(currentPlan)
   const planConfig = getPlanConfig(planKey)
   const planLimits = getPlanLimits(planKey)

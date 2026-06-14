@@ -93,7 +93,7 @@ export async function PATCH(
       'assistant_name', 'name', 'business_name', 'business_type',
       'instructions', 'behavior', 'channel', 'tone',
       'objective', 'main_goal', 'fallback_message', 'welcome_message',
-      'status', 'knowledge_blocks'
+      'status', 'knowledge_blocks', 'faqs', 'services', 'schedule', 'language'
     ]
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
@@ -105,6 +105,9 @@ export async function PATCH(
         // Validation for string fields
         if (typeof val === 'string') {
           val = val.trim()
+          if (key === 'channel' && (val === 'telegram' || val === 'whatsapp')) {
+             return NextResponse.json({ error: `El canal ${val} no está disponible en este momento.` }, { status: 400 })
+          }
           if (['assistant_name', 'name', 'business_name', 'channel', 'tone', 'objective'].includes(key) && val.length > 100) {
             return NextResponse.json({ error: `El campo ${key} excede la longitud máxima permitida (100).` }, { status: 400 })
           }

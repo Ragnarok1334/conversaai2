@@ -4,6 +4,7 @@ import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { consumeMessageCredit } from '@/lib/security'
 import { getModelForPlan } from '@/lib/ai/model-router'
+import { canUsePremiumFeatures } from '@/lib/billing/subscription-status'
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,13 +23,19 @@ export async function POST(request: NextRequest) {
     }
 
     // --- Subscription Limits ---
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('trial_ends_at')
+      .eq('id', user.id)
+      .single()
+
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('plan, current_messages_used, status')
+      .select('*')
       .eq('user_id', user.id)
       .single()
 
-    if (!sub || sub.status !== 'active') {
+    if (!canUsePremiumFeatures(sub, profile)) {
       return NextResponse.json({ error: 'Suscripción inactiva o no encontrada' }, { status: 403 })
     }
 

@@ -3,13 +3,15 @@
 import { motion } from 'framer-motion'
 import { BuilderFormData } from './types'
 import { BusinessTypeSelect } from './BusinessTypeSelect'
+import { AlertCircle } from 'lucide-react'
 
 interface Props {
   form: BuilderFormData
   setForm: (form: BuilderFormData) => void
+  errors?: Record<string, string>
 }
 
-export function BasicInfoStep({ form, setForm }: Props) {
+export function BasicInfoStep({ form, setForm, errors = {} }: Props) {
   const setField = (key: keyof BuilderFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [key]: e.target.value })
   }
@@ -36,9 +38,17 @@ export function BasicInfoStep({ form, setForm }: Props) {
               value={form.assistant_name}
               onChange={setField('assistant_name')}
               placeholder="Ej: Asistente de Ventas"
-              className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/20 transition-all"
+              className={`w-full bg-slate-950/50 border rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 transition-all ${
+                errors.assistant_name 
+                  ? 'border-brand-pink focus:border-brand-pink focus:ring-brand-pink/20' 
+                  : 'border-white/10 focus:border-cyan-400/60 focus:ring-cyan-400/20'
+              }`}
             />
-            <p className="text-xs text-slate-500">Puedes crear asistentes diferentes para Ventas, Soporte, Reservas o Sucursal Centro.</p>
+            {errors.assistant_name ? (
+              <p className="text-xs text-brand-pink flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3" />{errors.assistant_name}</p>
+            ) : (
+              <p className="text-xs text-slate-500">Puedes crear asistentes diferentes para Ventas, Soporte, Reservas o Sucursal Centro.</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -50,8 +60,15 @@ export function BasicInfoStep({ form, setForm }: Props) {
               value={form.business_name}
               onChange={setField('business_name')}
               placeholder="Ej: Clínica San Rafael"
-              className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/20 transition-all"
+              className={`w-full bg-slate-950/50 border rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 transition-all ${
+                errors.business_name 
+                  ? 'border-brand-pink focus:border-brand-pink focus:ring-brand-pink/20' 
+                  : 'border-white/10 focus:border-cyan-400/60 focus:ring-cyan-400/20'
+              }`}
             />
+            {errors.business_name && (
+              <p className="text-xs text-brand-pink flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3" />{errors.business_name}</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -61,7 +78,7 @@ export function BasicInfoStep({ form, setForm }: Props) {
             <BusinessTypeSelect
               value={form.business_type}
               onChange={(val) => setForm({ ...form, business_type: val })}
-              error={!form.business_type ? 'Selecciona el rubro de tu empresa para continuar.' : undefined}
+              error={errors.business_type || undefined}
             />
           </div>
         </div>
