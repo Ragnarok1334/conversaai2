@@ -62,15 +62,27 @@ export async function GET(req: Request) {
         .eq('user_id', payment.user_id)
         .single();
 
+      const now = new Date();
+      const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const graceEnd = new Date(now.getTime() + 32 * 24 * 60 * 60 * 1000);
+
+      const subscriptionData = {
+        plan: planKey,
+        status: 'active',
+        assistants_limit: planConfig.limits.assistants,
+        messages_limit: planConfig.limits.messagesPerMonth,
+        current_period_start: now.toISOString(),
+        current_period_end: periodEnd.toISOString(),
+        grace_ends_at: graceEnd.toISOString(),
+        cancel_at_period_end: false,
+        cancelled_at: null,
+        cancellation_reason: null
+      };
+
       if (subscription) {
         await supabaseAdmin
           .from('subscriptions')
-          .update({
-            plan: planKey,
-            status: 'active',
-            assistants_limit: planConfig.limits.assistants,
-            messages_limit: planConfig.limits.messagesPerMonth,
-          })
+          .update(subscriptionData)
           .eq('user_id', payment.user_id);
       } else {
         // Create if missing
@@ -78,10 +90,7 @@ export async function GET(req: Request) {
           .from('subscriptions')
           .insert({
             user_id: payment.user_id,
-            plan: planKey,
-            status: 'active',
-            assistants_limit: planConfig.limits.assistants,
-            messages_limit: planConfig.limits.messagesPerMonth,
+            ...subscriptionData,
             current_messages_used: 0
           });
       }

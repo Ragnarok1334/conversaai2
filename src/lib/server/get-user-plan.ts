@@ -1,33 +1,43 @@
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { normalizePlan, getPlanConfig, PlanKey } from '@/lib/plans'
+import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 
 /**
  * Returns the normalized plan key for a given userId.
  * Always reads from DB via admin client (bypasses RLS).
- * Falls back to 'trial' if no active subscription exists or it's expired.
+ * Falls back to 'free' if no active subscription exists or it's expired.
  */
 export async function getUserPlan(userId: string): Promise<PlanKey> {
   try {
     const supabaseAdmin = createSupabaseAdmin()
-    const { data: sub } = await supabaseAdmin
-      .from('subscriptions')
-      .select('plan, status, current_period_end')
-      .eq('user_id', userId)
-      .single()
+    
+    const [subRes, profileRes] = await Promise.all([
+      supabaseAdmin
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .single(),
+      supabaseAdmin
+        .from('profiles')
+        .select('trial_used, trial_ends_at')
+        .eq('id', userId)
+        .single()
+    ])
 
-    if (!sub) return 'trial'
-    if (sub.status !== 'active') return 'trial'
+    const sub = subRes.data
+    const profile = profileRes.data
 
-    // Check expiry if the column exists
-    if (sub.current_period_end) {
-      const now = new Date()
-      const end = new Date(sub.current_period_end)
-      if (now > end) return 'trial'
+    if (!sub) return 'free'
+
+    const status = getEffectiveSubscriptionStatus(sub, profile)
+    
+    if (status === 'free' || status === 'expired' || status === 'cancelled') {
+      return 'free'
     }
 
     return normalizePlan(sub.plan)
   } catch {
-    return 'trial'
+    return 'free'
   }
 }
 

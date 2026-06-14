@@ -11,9 +11,10 @@ interface PlanComparisonProps {
   plans: PlanConfig[]
   currentPlan: string
   trialUsed: boolean
+  trialEndsAt?: string | null
 }
 
-export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparisonProps) {
+export function PlanComparison({ plans, currentPlan, trialUsed, trialEndsAt }: PlanComparisonProps) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [startingTrial, setStartingTrial] = useState(false)
@@ -142,7 +143,7 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
             </div>
             <p className="text-[#94A3B8] text-sm max-w-lg mb-2">
               {currentPlan === 'trial' 
-                ? 'Disfruta de ConversaAI y no olvides elegir un plan antes de que termine.' 
+                ? `Disfruta de ConversaAI. Tu prueba termina el ${trialEndsAt ? new Date(trialEndsAt).toLocaleDateString('es-CL') : 'pronto'}. No olvides elegir un plan antes de que termine.` 
                 : trialUsed 
                   ? 'Tu prueba ha finalizado. Elige un plan pagado para continuar usando ConversaAI.' 
                   : 'Activa tu prueba gratuita solo cuando quieras comenzar a probar asistentes, Web Chat y captura de leads. No empezaremos a contar los días hasta que la actives.'}

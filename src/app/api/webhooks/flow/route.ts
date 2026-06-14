@@ -84,7 +84,10 @@ export async function POST(req: Request) {
             current_messages_used: 0,
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            grace_ends_at: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000).toISOString()
+            grace_ends_at: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000).toISOString(),
+            cancel_at_period_end: false,
+            cancelled_at: null,
+            cancellation_reason: null
           })
           .eq('user_id', payment.user_id);
       } else {
@@ -99,7 +102,10 @@ export async function POST(req: Request) {
             current_messages_used: 0,
             current_period_start: new Date().toISOString(),
             current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-            grace_ends_at: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000).toISOString()
+            grace_ends_at: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000).toISOString(),
+            cancel_at_period_end: false,
+            cancelled_at: null,
+            cancellation_reason: null
           });
       }
 

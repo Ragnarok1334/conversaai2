@@ -3,7 +3,7 @@ import { CONTACT_INFO } from './contact'
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const telegramBase = process.env.NEXT_PUBLIC_TELEGRAM_URL || CONTACT_INFO.telegram
 
-export type PlanKey = 'trial' | 'starter' | 'pro' | 'growth' | 'business' | 'enterprise'
+export type PlanKey = 'free' | 'trial' | 'starter' | 'pro' | 'growth' | 'business' | 'enterprise'
 export type ChannelKey = 'webchat' | 'telegram' | 'whatsapp'
 export type PlanStatus = 'active' | 'cancelled' | 'past_due'
 export type PaymentCurrency = 'CLP' | 'USD'
@@ -54,6 +54,31 @@ export interface PlanConfig {
 }
 
 export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
+  free: {
+    key: 'free',
+    label: 'Free',
+    priceCLP: 0,
+    prices: { CLP: 0, USD: 0 },
+    priceLabel: '$0',
+    priceLabelCLP: '$0 CLP',
+    priceLabelUSD: '$0 USD',
+    period: '',
+    description: 'Cuenta base para configurar tu perfil y activar tu prueba cuando estés listo.',
+    aiSubtitle: 'Prueba disponible manualmente',
+    purchaseMode: 'placeholder',
+    limits: { assistants: 0, messagesPerMonth: 0, domains: 0, users: 1 },
+    channels: { webchat: false, telegram: false, whatsapp: false },
+    features: [
+      'Panel de cuenta',
+      'Acceso a facturación',
+      'Prueba gratis disponible'
+    ],
+    futureFeatures: [],
+    supportLevel: 'Sin soporte',
+    cta: 'Actualizar plan',
+    href: '/dashboard/billing',
+    highlighted: false,
+  },
   trial: {
     key: 'trial',
     label: 'Prueba Gratis',
@@ -245,20 +270,20 @@ export interface UserSubscription {
 // ─── HELPERS UNIFICADOS ─────────────────────────────────────────
 
 export function normalizePlan(plan: unknown): PlanKey {
-  const value = String(plan || "trial").toLowerCase().trim()
-  if (value.includes("free")) return "trial" // LEGACY: usuarios 'free' se mapean a 'trial'
+  const value = String(plan || "free").toLowerCase().trim()
+  if (value.includes("free")) return "free"
   if (value.includes("trial")) return "trial"
   if (value.includes("starter")) return "starter"
   if (value.includes("pro")) return "pro"
   if (value.includes("growth")) return "growth"
   if (value.includes("business")) return "business"
   if (value.includes("enterprise")) return "enterprise"
-  return "trial"
+  return "free"
 }
 
 export function getPlanConfig(plan: PlanKey | string): PlanConfig {
   const normalized = normalizePlan(plan)
-  return PLAN_CONFIGS[normalized] || PLAN_CONFIGS.trial
+  return PLAN_CONFIGS[normalized] || PLAN_CONFIGS.free
 }
 
 export function getPlanLimits(plan: PlanKey | string) {

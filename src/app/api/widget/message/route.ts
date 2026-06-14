@@ -5,6 +5,7 @@ import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
 import { checkRateLimit, consumeMessageCredit, validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
 import { getModelForPlan } from '@/lib/ai/model-router'
+import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -75,17 +76,30 @@ export async function POST(request: NextRequest) {
     }
 
     // 4. Fetch owner subscription limits
-    const { data: sub } = await supabaseAdmin
-      .from('subscriptions')
-      .select('plan, current_messages_used, messages_limit, status')
-      .eq('user_id', ownerId)
-      .single()
+    const [subRes, profileRes] = await Promise.all([
+      supabaseAdmin
+        .from('subscriptions')
+        .select('plan, current_messages_used, messages_limit, status, current_period_end, grace_ends_at, cancel_at_period_end')
+        .eq('user_id', ownerId)
+        .single(),
+      supabaseAdmin
+        .from('profiles')
+        .select('trial_used, trial_ends_at')
+        .eq('id', ownerId)
+        .single()
+    ])
 
-    if (!sub || sub.status !== 'active') {
-      return NextResponse.json({ error: 'El servicio del asistente no está activo.' }, { status: 403, headers: corsHeaders })
+    const sub = subRes.data
+    const profile = profileRes.data
+
+    const effectiveStatus = getEffectiveSubscriptionStatus(sub, profile)
+
+    if (effectiveStatus === 'free' || effectiveStatus === 'expired' || effectiveStatus === 'cancelled') {
+      return NextResponse.json({ error: 'El plan del asistente no está activo. Renueva tu plan o activa tu prueba para continuar.' }, { status: 403, headers: corsHeaders })
     }
 
-    const normalizedPlan = normalizePlan(sub.plan)
+    const rawPlan = sub ? sub.plan : 'free'
+    const normalizedPlan = normalizePlan(rawPlan)
     const planConfig = getPlanConfig(normalizedPlan)
     const effectiveLimit = planConfig.limits.messagesPerMonth
 

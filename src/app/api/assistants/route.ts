@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plans'
+import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { logAuditEvent } from '@/lib/audit'
 
 export const dynamic = 'force-dynamic'
@@ -135,15 +136,36 @@ export async function POST(request: NextRequest) {
 
     // --- Subscription & Limit Checks via admin client (bypasses RLS) ---
     const supabaseAdmin = createSupabaseAdmin()
-    const { data: sub } = await supabaseAdmin
-      .from('subscriptions')
-      .select('plan, assistants_limit, status')
-      .eq('user_id', user.id)
-      .single()
+    
+    const [subRes, profileRes] = await Promise.all([
+      supabaseAdmin
+        .from('subscriptions')
+        .select('plan, assistants_limit, status, current_period_end, grace_ends_at, cancel_at_period_end')
+        .eq('user_id', user.id)
+        .single(),
+      supabaseAdmin
+        .from('profiles')
+        .select('trial_used, trial_ends_at')
+        .eq('id', user.id)
+        .single()
+    ])
 
-    const isActiveSub = sub && sub.status === 'active'
-    // Usar "trial" por defecto si no hay sub o no está activa
-    const rawPlan = isActiveSub ? sub.plan : 'trial'
+    const sub = subRes.data
+    const profile = profileRes.data
+
+    const effectiveStatus = getEffectiveSubscriptionStatus(sub, profile)
+    
+    if (effectiveStatus === 'free' || effectiveStatus === 'expired' || effectiveStatus === 'cancelled') {
+      return NextResponse.json(
+        { 
+          error: 'No tienes un plan activo. Renueva tu plan o activa tu prueba gratis para crear asistentes.',
+          code: 'PLAN_NOT_ACTIVE'
+        },
+        { status: 403 }
+      )
+    }
+
+    const rawPlan = sub ? sub.plan : 'free'
     const planKey = normalizePlan(rawPlan) as PlanKey
     const planLimits = getPlanLimits(planKey)
     const assistantsLimit = planLimits.assistants

@@ -20,18 +20,18 @@ export async function GET() {
       
     let subscription = subscriptionData
 
-    // If subscription doesn't exist, create a fallback trial one using admin (bypasses RLS)
+    // If subscription doesn't exist, create a fallback free one using admin (bypasses RLS)
     if (!subscription) {
-      const planConfig = getPlanConfig('trial')
+      const planConfig = getPlanConfig('free')
       const supabaseAdmin = createSupabaseAdmin()
       const { data: newSub, error: insertError } = await supabaseAdmin
         .from('subscriptions')
         .insert({
           user_id: user.id,
-          plan: 'trial',
+          plan: 'free',
           status: 'active',
-          assistants_limit: planConfig.limits.assistants ?? 1,
-          messages_limit: planConfig.limits.messagesPerMonth ?? 100,
+          assistants_limit: planConfig.limits.assistants ?? 0,
+          messages_limit: planConfig.limits.messagesPerMonth ?? 0,
           current_messages_used: 0
         })
         .select()
