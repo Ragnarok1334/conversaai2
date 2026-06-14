@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
         diagnosis.assistants.needsTraining++
         needsTrainingIds.push(a.id)
       }
-      if (health.baseState === 'Falta instalación' || health.baseState === 'Falta canal') {
+      if (health.baseState === 'Falta instalación' || health.baseState === 'En configuración') {
         diagnosis.assistants.needsInstallation++
         needsInstallationIds.push(a.id)
       }

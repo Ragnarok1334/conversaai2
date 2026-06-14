@@ -3,7 +3,7 @@ import { KnowledgeBlock } from '@/components/dashboard/create-assistant/types'
 export type AssistantBaseState = 
   | 'Requiere atención'
   | 'Necesita entrenamiento'
-  | 'Falta canal'
+  | 'En configuración'
   | 'Falta instalación'
   | 'Activo'
 
@@ -123,10 +123,10 @@ export function calculateAssistantHealth(
     baseState = 'Requiere atención'
   } else if (trainingScore < 20) {
     baseState = 'Necesita entrenamiento'
-  } else if (!hasWebchat) { // Though we assume true now
-    baseState = 'Falta canal'
   } else if (!hasVerifiedDomain) {
     baseState = 'Falta instalación'
+  } else if (counts.conversations === 0) {
+    baseState = 'En configuración'
   }
 
   // Badges de actividad
@@ -144,8 +144,8 @@ export function calculateAssistantHealth(
     nextStep = 'Revisa los dominios bloqueados o alertas de configuración.'
   } else if (baseState === 'Necesita entrenamiento') {
     nextStep = 'Completa la base de conocimiento para mejorar respuestas.'
-  } else if (baseState === 'Falta canal') {
-    nextStep = 'Configura un canal para empezar a recibir conversaciones.'
+  } else if (baseState === 'En configuración') {
+    nextStep = 'Tu asistente está instalado. Pruébalo para recibir la primera conversación.'
   } else if (baseState === 'Falta instalación') {
     if (hasPendingDomain) {
       nextStep = 'Instala el script en tu sitio y verifica la conexión.'

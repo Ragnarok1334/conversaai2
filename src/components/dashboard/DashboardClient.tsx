@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useProfile } from '@/providers/ProfileProvider'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Plus, ArrowRight, Bot, Globe, Send, Pencil, Play,
@@ -13,6 +14,10 @@ import { DashboardStatsRow } from '@/components/dashboard/DashboardStatsRow'
 import { DashboardActivity } from '@/components/dashboard/DashboardActivity'
 import { DashboardChannels } from '@/components/dashboard/DashboardChannels'
 import { ExecutiveSummaryCard, ExecutiveSummary } from '@/components/dashboard/ExecutiveSummaryCard'
+import { QuickActions } from '@/components/dashboard/QuickActions'
+import { SetupChecklist } from '@/components/dashboard/SetupChecklist'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { DashboardCard } from '@/components/dashboard/DashboardCard'
 
 // Types mirroring API response
 interface DashboardData {
@@ -97,6 +102,7 @@ export function DashboardClient({ initialData, userId }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const isMounted = useRef(true)
+  const router = useRouter()
 
   // Greeting based on current hour
   const hour = new Date().getHours()
@@ -136,8 +142,11 @@ export function DashboardClient({ initialData, userId }: Props) {
         setRefreshing(false)
         setLoading(false)
       }
+      if (!silent) {
+        router.refresh()
+      }
     }
-  }, [])
+  }, [router])
 
   const debouncedRefresh = useCallback(() => {
     if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current)
@@ -222,17 +231,19 @@ export function DashboardClient({ initialData, userId }: Props) {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-success opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-success"></span>
                 </span>
-                En vivo - Actualizado {formatUpdateTime(data.timestamps.lastUpdatedAt)}
+                En vivo · Actualizado {formatUpdateTime(data.timestamps.lastUpdatedAt)}
               </div>
             )}
           </div>
-          <p className="text-text-soft text-sm mt-1">Este es el estado actual de tu automatización.</p>
+          <p className="text-text-soft text-sm mt-1">Monitorea tus asistentes, conversaciones, leads, canales y uso del plan desde un solo lugar.</p>
         </div>
         <div className="flex items-center gap-3">
           <button 
             onClick={() => refreshDashboard(false)}
-            className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] transition-colors"
-            title="Actualizar"
+            disabled={refreshing}
+            className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+            title="Actualizar dashboard"
+            aria-label="Actualizar dashboard"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -272,65 +283,43 @@ export function DashboardClient({ initialData, userId }: Props) {
       )}
 
       {/* B. Resumen Ejecutivo */}
-      <ExecutiveSummaryCard summary={data.executiveSummary} />
+      <ExecutiveSummaryCard summary={{
+        ...data.executiveSummary,
+        // Override "attention" to "setup" if there are no assistants yet (avoiding false alarms)
+        status: (data.executiveSummary.status === 'attention' && data.stats.assistantCount === 0) ? 'setup' : data.executiveSummary.status
+      }} />
 
-      {/* C & D. Hero Operativo / Uso y Health */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        
-        {/* Health Panel (Checklist de cuenta) */}
-        <div className="lg:col-span-1 rounded-[2rem] bg-card-bg/80 backdrop-blur-2xl border border-card-border p-6 md:p-8 flex flex-col relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-5">
-            <Activity className="w-32 h-32" />
-          </div>
-          
-          <div className="relative z-10 flex-1 flex flex-col justify-center">
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-white">Preparación de cuenta</span>
-                <span className="text-xs font-bold text-brand-cyan">{data.health.score}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-white/[0.04] rounded-full overflow-hidden mb-5">
-                <div 
-                  className="h-full bg-gradient-to-r from-brand-violet to-brand-cyan transition-all duration-1000" 
-                  style={{ width: `${data.health.score}%` }} 
-                />
-              </div>
-              <div className="space-y-3">
-                {data.health.items.map(item => (
-                  <Link key={item.key} href={item.href} className="flex items-center gap-2 group cursor-pointer">
-                    <CheckCircle className={`w-4 h-4 ${item.done ? 'text-brand-success' : 'text-slate-600'}`} />
-                    <span className={`text-sm font-medium transition-colors ${item.done ? 'text-slate-400' : 'text-slate-300 group-hover:text-white'}`}>
-                      {item.label}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Plan & Usage */}
-        <div className="lg:col-span-2 flex">
-          <PlanUsageCard plan={data.plan} usage={data.usage} />
-        </div>
-
-      </div>
-
-      {/* D. Métricas Clave */}
+      {/* C. Indicadores Clave */}
       <DashboardStatsRow stats={data.stats} usage={data.usage} />
 
-      {/* E & F. Actividad Reciente & Canales */}
+      {/* D & E. Onboarding y Acciones Rápidas */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1">
+          <SetupChecklist steps={data.health.items.map(item => ({
+            id: item.key,
+            label: item.label,
+            completed: item.done,
+            href: item.href
+          }))} />
+        </div>
+        <div className="lg:col-span-2 flex flex-col justify-center">
+          <h2 className="text-lg font-bold text-white mb-4">Acciones Rápidas</h2>
+          <QuickActions hasAssistant={data.stats.assistantCount > 0} />
+        </div>
+      </div>
+
+      {/* F & G. Canales y Actividad Reciente */}
       <div className="grid lg:grid-cols-2 gap-6">
-        <DashboardActivity activity={data.activity} />
         <DashboardChannels
           channels={data.channels}
           planKey={data.plan.key}
           firstAssistantId={firstAssistantId}
         />
+        <DashboardActivity activity={data.activity} />
       </div>
 
-      {/* G. Asistentes Recientes */}
-      <div className="bg-card-bg/60 backdrop-blur-xl border border-white/10 rounded-[2rem] p-6 md:p-8">
+      {/* H. Asistentes Recientes */}
+      <DashboardCard className="relative z-0">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-bold text-white">Asistentes recientes</h2>
           <Link href="/dashboard/assistants" className="text-xs font-semibold text-brand-cyan hover:text-brand-cyan/80 flex items-center gap-1 transition-colors">
@@ -339,19 +328,13 @@ export function DashboardClient({ initialData, userId }: Props) {
         </div>
 
         {data.recentAssistants.length === 0 ? (
-          <div className="text-center py-10 border border-dashed border-white/10 rounded-2xl">
-            <div className="w-14 h-14 rounded-2xl bg-brand-violet/10 border border-brand-violet/20 flex items-center justify-center mx-auto mb-3">
-              <Bot className="w-7 h-7 text-brand-violet/50" />
-            </div>
-            <p className="font-bold text-white mb-1">Aún no tienes asistentes</p>
-            <p className="text-xs text-text-soft mb-5">Crea tu primer asistente IA en minutos y automatiza tus ventas.</p>
-            <Link
-              href="/dashboard/create-assistant"
-              className="gradient-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold hover:opacity-90 transition-all glow-violet"
-            >
-              <Plus className="w-4 h-4" /> Crear asistente
-            </Link>
-          </div>
+          <EmptyState 
+            icon={Bot}
+            title="Crea tu primer asistente IA"
+            description="Configura la información de tu negocio, instala el Web Chat y empieza a capturar conversaciones útiles."
+            actionLabel="Crear asistente"
+            actionHref="/dashboard/create-assistant"
+          />
         ) : (
           <div className="divide-y divide-white/[0.04]">
             {data.recentAssistants.map((a) => (
@@ -405,6 +388,11 @@ export function DashboardClient({ initialData, userId }: Props) {
             ))}
           </div>
         )}
+      </DashboardCard>
+
+      {/* I. Plan Usage */}
+      <div className="mt-8">
+        <PlanUsageCard plan={data.plan} usage={data.usage} />
       </div>
     </div>
   )

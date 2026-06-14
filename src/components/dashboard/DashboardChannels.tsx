@@ -2,6 +2,7 @@
 
 import { Globe, Send, MessageCircle, CheckCircle2, Clock, Lock, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
+import { DashboardCard } from '@/components/dashboard/DashboardCard'
 
 interface Props {
   channels: {
@@ -110,7 +111,7 @@ export function DashboardChannels({ channels, planKey, firstAssistantId }: Props
   ]
 
   return (
-    <div className="bg-card-bg/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+    <DashboardCard className="h-full relative z-0">
       <h2 className="text-base font-semibold text-white mb-5">Canales e integraciones</h2>
       <div className="space-y-3">
         {channelList.map((ch) => {
@@ -157,6 +158,6 @@ export function DashboardChannels({ channels, planKey, firstAssistantId }: Props
           )
         })}
       </div>
-    </div>
+    </DashboardCard>
   )
 }

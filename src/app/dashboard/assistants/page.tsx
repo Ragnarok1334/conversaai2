@@ -27,11 +27,12 @@ interface SubscriptionData {
 }
 
 // Ocultamos WhatsApp por ahora ya que es "Próximamente"
-const FILTER_CHANNELS = ['todos', 'webchat', 'telegram']
-const CHANNEL_LABEL: Record<string, string> = {
+const FILTER_STATUSES = ['todos', 'activos', 'configuracion', 'atencion']
+const STATUS_LABEL: Record<string, string> = {
   todos: 'Todos',
-  webchat: 'Web Chat',
-  telegram: 'Telegram',
+  activos: 'Activos',
+  configuracion: 'En configuración',
+  atencion: 'Requieren atención',
 }
 
 function PlanIcon({ plan }: { plan: string }) {
@@ -49,7 +50,7 @@ export default function AssistantsPage() {
   const [loading, setLoading] = useState(true)
   const [subLoading, setSubLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [filterChannel, setFilterChannel] = useState('todos')
+  const [filterStatus, setFilterStatus] = useState('todos')
   const [refreshing, setRefreshing] = useState(false)
 
   const fetchData = async () => {
@@ -80,8 +81,14 @@ export default function AssistantsPage() {
   const filtered = assistants.filter(a => {
     const matchSearch = a.assistant_name.toLowerCase().includes(search.toLowerCase()) ||
       (a.business_name || '').toLowerCase().includes(search.toLowerCase())
-    const matchChannel = filterChannel === 'todos' || a.channel === filterChannel
-    return matchSearch && matchChannel
+    
+    let matchStatus = true
+    const baseState = (a as any).health?.baseState
+    if (filterStatus === 'activos') matchStatus = a.status === 'active' && baseState !== 'Falta instalación'
+    if (filterStatus === 'configuracion') matchStatus = baseState === 'En configuración' || baseState === 'Falta instalación' || !baseState
+    if (filterStatus === 'atencion') matchStatus = baseState === 'Requiere atención' || baseState === 'Necesita entrenamiento'
+    
+    return matchSearch && matchStatus
   })
 
   const handleDelete = (id: string) => {
@@ -103,8 +110,8 @@ export default function AssistantsPage() {
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Mis asistentes</h1>
-            <p className="text-text-soft mt-1">Administra, prueba e instala tus asistentes en los canales donde tus clientes ya te escriben.</p>
+            <h1 className="text-3xl font-bold tracking-tight">Asistentes IA</h1>
+            <p className="text-text-soft mt-1">Gestiona tus asistentes, revisa su estado, instala canales y mejora su entrenamiento.</p>
           </div>
           <div className="flex items-center gap-3">
             <button 
@@ -128,57 +135,28 @@ export default function AssistantsPage() {
         {/* STATS BAR */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex flex-col justify-center">
-            <span className="text-xs text-text-soft mb-1 flex items-center gap-1.5"><Bot className="w-3.5 h-3.5"/> Asistentes creados</span>
-            <span className="text-lg font-bold text-white">
-              {!subLoading ? `${assistants.length} / ${isUnlimitedAssistants ? '∞' : planLimits.assistants}` : '...'}
+            <span className="text-[10px] uppercase font-bold text-text-soft tracking-wider mb-1 flex items-center gap-1.5"><Bot className="w-3.5 h-3.5"/> Total Asistentes</span>
+            <span className="text-xl font-bold text-white">
+              {!subLoading ? `${assistants.length} ${!isUnlimitedAssistants ? `/ ${planLimits.assistants}` : ''}` : '...'}
             </span>
           </div>
           <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex flex-col justify-center">
-            <span className="text-xs text-text-soft mb-1 flex items-center gap-1.5"><MessagesSquare className="w-3.5 h-3.5"/> Mensajes este mes</span>
-            <span className="text-lg font-bold text-white">
-              {!subLoading ? `${subData?.usage?.messagesUsed ?? 0} / ${isUnlimitedMessages ? '∞' : planLimits.messagesPerMonth}` : '...'}
+            <span className="text-[10px] uppercase font-bold text-text-soft tracking-wider mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-brand-success"/> Activos</span>
+            <span className="text-xl font-bold text-white">
+              {!subLoading ? assistants.filter(a => a.status === 'active').length : '...'}
             </span>
           </div>
           <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex flex-col justify-center">
-            <span className="text-xs text-text-soft mb-1 flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5"/> Canales activos</span>
-            <span className="text-lg font-bold text-white">{assistants.length > 0 ? '1' : '0'}</span>
+            <span className="text-[10px] uppercase font-bold text-text-soft tracking-wider mb-1 flex items-center gap-1.5"><Crown className="w-3.5 h-3.5 text-amber-500"/> Atención requerida</span>
+            <span className="text-xl font-bold text-white">
+              {!subLoading ? assistants.filter(a => (a as any).health?.baseState === 'Requiere atención' || (a as any).health?.baseState === 'Falta instalación').length : '...'}
+            </span>
           </div>
-          <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex items-center justify-between">
-            <div className="flex flex-col justify-center">
-              <span className="text-xs text-text-soft mb-1 flex items-center gap-1.5">Plan actual</span>
-              <span className="text-lg font-bold text-white capitalize flex items-center gap-2">
-                {!subLoading ? (
-                  <>
-                    <div className="w-6 h-6 rounded-full bg-gradient-to-r from-brand-violet to-brand-blue flex items-center justify-center shadow-lg">
-                      <PlanIcon plan={plan} />
-                    </div>
-                    {plan} {plan === 'business' && <span className="text-[10px] bg-brand-cyan/20 text-brand-cyan px-2 py-0.5 rounded-full">Activo</span>}
-                  </>
-                ) : '...'}
-              </span>
-            </div>
-            {!subLoading && (plan === 'trial' || plan === 'starter') && (
-              <Link href="/dashboard/billing" className="text-[10px] px-2.5 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.1] hover:bg-white/[0.08] transition-colors font-medium">
-                Mejorar
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="pt-4 border-t border-white/[0.05]">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-8">
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-white mb-1">Organiza tu atención por áreas</h2>
-            <p className="text-sm text-text-soft">
-              Crea asistentes separados para ventas, soporte, reservas, sucursales o servicios específicos.
-              Cada asistente puede tener su propio objetivo, tono, reglas e información — sin mezclar datos ni perder precisión.
-            </p>
-          </div>
-          <div className="shrink-0 hidden sm:flex gap-3 text-[11px] text-slate-500 flex-col items-end pt-1">
-            <span className="flex items-center gap-1.5">🛒 <span className="text-slate-400">Ventas</span> → precios y cierre</span>
-            <span className="flex items-center gap-1.5">🎧 <span className="text-slate-400">Soporte</span> → dudas y seguimiento</span>
-            <span className="flex items-center gap-1.5">📅 <span className="text-slate-400">Reservas</span> → horarios y citas</span>
+          <div className="bg-card-bg/80 backdrop-blur border border-card-border rounded-2xl p-4 flex flex-col justify-center">
+            <span className="text-[10px] uppercase font-bold text-text-soft tracking-wider mb-1 flex items-center gap-1.5"><Globe className="w-3.5 h-3.5 text-brand-cyan"/> Canales instalados</span>
+            <span className="text-xl font-bold text-white">
+              {!subLoading ? assistants.filter(a => (a as any).health?.badges?.hasVerifiedDomain).length : '...'}
+            </span>
           </div>
         </div>
       </div>
@@ -195,20 +173,27 @@ export default function AssistantsPage() {
           />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
-          {FILTER_CHANNELS.map(ch => {
-            const count = ch === 'todos' ? assistants.length : assistants.filter(a => a.channel === ch).length
+          {FILTER_STATUSES.map(st => {
+            const count = st === 'todos' ? assistants.length : assistants.filter(a => {
+              const baseState = (a as any).health?.baseState
+              if (st === 'activos') return a.status === 'active' && baseState !== 'Falta instalación'
+              if (st === 'configuracion') return baseState === 'En configuración' || baseState === 'Falta instalación' || !baseState
+              if (st === 'atencion') return baseState === 'Requiere atención' || baseState === 'Necesita entrenamiento'
+              return false
+            }).length
+
             return (
               <button
-                key={ch}
-                onClick={() => setFilterChannel(ch)}
+                key={st}
+                onClick={() => setFilterStatus(st)}
                 className={`whitespace-nowrap flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium border transition-all ${
-                  filterChannel === ch
+                  filterStatus === st
                     ? 'gradient-btn text-white border-transparent shadow-[0_0_15px_rgba(124,58,237,0.3)]'
                     : 'bg-card-bg border-card-border text-text-soft hover:text-text-main hover:border-brand-violet/30'
                 }`}
               >
-                {CHANNEL_LABEL[ch]}
-                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${filterChannel === ch ? 'bg-black/20' : 'bg-white/5'}`}>
+                {STATUS_LABEL[st]}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${filterStatus === st ? 'bg-black/20' : 'bg-white/5'}`}>
                   {count}
                 </span>
               </button>
@@ -225,7 +210,7 @@ export default function AssistantsPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        search || filterChannel !== 'todos' ? (
+        search || filterStatus !== 'todos' ? (
           <div className="text-center py-20 bg-card-bg/40 border border-card-border rounded-3xl">
             <Bot className="w-12 h-12 text-text-soft/50 mx-auto mb-4" />
             <h3 className="text-xl font-bold text-white mb-2">No encontramos coincidencias</h3>
@@ -234,40 +219,46 @@ export default function AssistantsPage() {
         ) : (
           <div className="text-center py-20 px-4 bg-card-bg/40 border border-card-border rounded-3xl relative overflow-hidden flex flex-col items-center justify-center">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-violet to-brand-cyan opacity-20" />
-            <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mb-6 shadow-2xl">
-              <Bot className="w-10 h-10 text-brand-violet" />
+            <div className="w-16 h-16 bg-white/[0.02] border border-white/10 rounded-2xl flex items-center justify-center mb-6 shadow-2xl">
+              <Bot className="w-8 h-8 text-brand-violet" />
             </div>
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">Aún no tienes asistentes creados</h2>
-            <p className="text-slate-400 max-w-lg mx-auto mb-8 text-sm md:text-base">
-              Crea tu primer asistente para atender clientes, responder preguntas y capturar leads desde tu sitio web, trabajando por ti 24/7.
+            <h2 className="text-xl md:text-2xl font-bold text-white mb-3">Crea tu primer asistente IA</h2>
+            <p className="text-slate-400 max-w-lg mx-auto mb-8 text-sm">
+              Configura la información de tu negocio, instala el Web Chat y empieza a atender visitantes desde tu sitio web.
             </p>
             
-            <div className="flex flex-col md:flex-row gap-4 mb-10 max-w-2xl mx-auto w-full justify-center">
-              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1">
+            <div className="flex flex-col md:flex-row gap-3 mb-8 max-w-3xl mx-auto w-full justify-center">
+              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1 text-left">
                 <div className="w-8 h-8 rounded-lg bg-brand-violet/10 flex items-center justify-center shrink-0">
                   <Sparkles className="w-4 h-4 text-brand-violet" />
                 </div>
-                <p className="text-xs text-left text-slate-300">Entrénalo con información de tu negocio</p>
+                <p className="text-[11px] font-semibold text-slate-300">1. Entrena con tu negocio</p>
               </div>
-              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1">
+              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1 text-left">
                 <div className="w-8 h-8 rounded-lg bg-brand-cyan/10 flex items-center justify-center shrink-0">
                   <Globe className="w-4 h-4 text-brand-cyan" />
                 </div>
-                <p className="text-xs text-left text-slate-300">Instálalo en tu web o canales</p>
+                <p className="text-[11px] font-semibold text-slate-300">2. Instala Web Chat</p>
               </div>
-              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1">
+              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1 text-left">
                 <div className="w-8 h-8 rounded-lg bg-brand-success/10 flex items-center justify-center shrink-0">
-                  <Users className="w-4 h-4 text-brand-success" />
+                  <MessagesSquare className="w-4 h-4 text-brand-success" />
                 </div>
-                <p className="text-xs text-left text-slate-300">Recibe conversaciones y leads</p>
+                <p className="text-[11px] font-semibold text-slate-300">3. Captura conversaciones</p>
+              </div>
+              <div className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.05] p-3 rounded-xl flex-1 text-left">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                  <Users className="w-4 h-4 text-amber-500" />
+                </div>
+                <p className="text-[11px] font-semibold text-slate-300">4. Da seguimiento a leads</p>
               </div>
             </div>
 
             <Link
               href="/dashboard/create-assistant"
-              className="gradient-btn px-8 py-3.5 rounded-xl text-white font-semibold hover:opacity-90 transition-all glow-violet shadow-xl text-lg flex items-center gap-2"
+              className="gradient-btn px-8 py-3 rounded-xl text-white font-semibold hover:opacity-90 transition-all glow-violet text-sm flex items-center gap-2"
             >
-              <Plus className="w-5 h-5" /> Crear mi primer asistente
+              <Plus className="w-4 h-4" /> Crear asistente
             </Link>
           </div>
         )

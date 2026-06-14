@@ -39,7 +39,7 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
   const [deleting, setDeleting] = useState(false)
 
   const health = assistant.health || {
-    baseState: 'Falta canal',
+    baseState: 'Falta instalación',
     score: 0,
     scoreLevel: 'Bajo',
     badges: { isReceivingConversations: false, isGeneratingLeads: false, hasVerifiedDomain: false, hasPendingDomain: false },
@@ -84,8 +84,8 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
   const getBaseStateColor = (state: string) => {
     switch (state) {
       case 'Activo': return 'bg-brand-success/10 text-brand-success border-brand-success/20'
-      case 'Falta instalación': return 'bg-brand-cyan/10 text-brand-cyan border-brand-cyan/20'
-      case 'Falta canal': return 'bg-white/10 text-slate-300 border-white/20'
+      case 'En configuración': return 'bg-brand-cyan/10 text-brand-cyan border-brand-cyan/20'
+      case 'Falta instalación': return 'bg-brand-violet/10 text-brand-violet border-brand-violet/20'
       case 'Necesita entrenamiento': return 'bg-amber-500/10 text-amber-500 border-amber-500/20'
       case 'Requiere atención': return 'bg-brand-pink/10 text-brand-pink border-brand-pink/20'
       default: return 'bg-white/10 text-slate-300 border-white/20'
@@ -228,39 +228,46 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
         {/* Actions */}
         <div className="mt-auto space-y-2">
           {health.baseState === 'Falta instalación' ? (
-            <button onClick={() => setShowInstall(true)} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-brand-cyan/20 border border-brand-cyan/40 text-brand-cyan text-sm font-semibold hover:bg-brand-cyan/30 transition-all shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-              <Plug className="w-4 h-4" /> Instalar en mi web
+            <button onClick={() => setShowInstall(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-violet/10 border border-brand-violet/20 text-brand-violet text-sm font-semibold hover:bg-brand-violet/20 transition-all">
+              <Plug className="w-4 h-4" /> Instalar Web Chat
             </button>
           ) : health.baseState === 'Necesita entrenamiento' ? (
-            <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-500 text-sm font-semibold hover:bg-amber-500/30 transition-all">
-              <Pencil className="w-4 h-4" /> Completar entrenamiento
+            <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm font-semibold hover:bg-amber-500/20 transition-all">
+              <Pencil className="w-4 h-4" /> Mejorar entrenamiento
+            </Link>
+          ) : health.baseState === 'En configuración' ? (
+            <button onClick={() => setShowTest(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-sm font-semibold hover:bg-brand-cyan/20 transition-all">
+              <Play className="w-4 h-4" /> Probar asistente
+            </button>
+          ) : health.baseState === 'Activo' ? (
+            <Link href={`/dashboard/conversations?assistantId=${assistant.id}`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan text-sm font-semibold hover:bg-brand-cyan/20 transition-all">
+              <MessageCircle className="w-4 h-4" /> Ver conversaciones
             </Link>
           ) : (
-            <button onClick={() => setShowTest(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl gradient-btn text-white text-sm font-semibold hover:opacity-90 transition-all glow-violet shadow-lg">
-              <Play className="w-4 h-4 fill-white" /> Probar asistente
+            <button onClick={() => setShowTest(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold hover:bg-white/10 transition-all">
+              <Play className="w-4 h-4" /> Probar asistente
             </button>
           )}
           
-          <div className="flex gap-2">
-            {health.baseState !== 'Falta instalación' && (
-              <button onClick={() => setShowInstall(true)} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.1] text-white text-xs font-semibold hover:bg-white/[0.08] transition-colors">
-                <Plug className="w-3.5 h-3.5 text-brand-cyan" /> Instalar
-              </button>
-            )}
-            {health.baseState !== 'Necesita entrenamiento' && (
-              <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.1] text-white text-xs font-semibold hover:bg-white/[0.08] transition-colors">
-                <Pencil className="w-3 h-3" /> Editar
-              </Link>
-            )}
-            <button onClick={() => setShowDelete(true)} className="px-3.5 py-2 rounded-xl bg-white/[0.02] border border-white/[0.05] text-slate-500 text-xs hover:bg-brand-pink/10 hover:border-brand-pink/20 hover:text-brand-pink transition-colors" title="Eliminar">
-              <Trash2 className="w-4 h-4" />
+          <div className="flex gap-2 pt-1">
+            <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-xs font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
+              <Pencil className="w-3.5 h-3.5" /> Editar
+            </Link>
+            <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-xs font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
+              <Users className="w-3.5 h-3.5" /> Leads
+            </Link>
+            <button onClick={() => setShowInstall(true)} className="px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-cyan hover:bg-brand-cyan/10 hover:border-brand-cyan/20 transition-colors" title="Canales">
+              <Globe className="w-3.5 h-3.5" />
+            </button>
+            <button onClick={() => setShowDelete(true)} className="px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-pink hover:bg-brand-pink/10 hover:border-brand-pink/20 transition-colors" title="Eliminar">
+              <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
         {/* Footer info */}
-        <div className="mt-4 pt-3 border-t border-white/[0.05] flex items-center justify-between text-[10px] text-slate-500">
-          <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Actividad: {formatDate(assistant.lastActivityAt)}</span>
+        <div className="mt-4 pt-4 border-t border-white/[0.05] flex items-center justify-between text-[10px] text-slate-500 font-medium">
+          <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Últ. act: {formatDate(assistant.lastActivityAt)}</span>
         </div>
       </motion.div>
     </>

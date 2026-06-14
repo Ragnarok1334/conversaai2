@@ -1,7 +1,9 @@
 'use client'
 
-import { Bot, MessageSquare, Users, Bell, Clock } from 'lucide-react'
+import { Bot, MessageSquare, Users, Bell, Clock, Activity } from 'lucide-react'
 import Link from 'next/link'
+import { EmptyState } from '@/components/dashboard/EmptyState'
+import { DashboardCard } from '@/components/dashboard/DashboardCard'
 
 interface ActivityItem {
   id: string
@@ -43,20 +45,18 @@ function getIcon(type: string) {
 
 export function DashboardActivity({ activity }: Props) {
   return (
-    <div className="bg-card-bg/60 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+    <DashboardCard className="h-full">
       <div className="flex items-center gap-2 mb-5">
         <Clock className="w-4 h-4 text-slate-400" />
         <h2 className="text-base font-semibold text-white">Actividad reciente</h2>
       </div>
 
       {activity.length === 0 ? (
-        <div className="text-center py-8">
-          <Bell className="w-10 h-10 text-slate-700 mx-auto mb-3" />
-          <p className="text-sm text-slate-400 font-medium">Aún no hay actividad reciente</p>
-          <p className="text-xs text-slate-500 mt-1 max-w-[260px] mx-auto">
-            Cuando tus asistentes empiecen a responder, verás los eventos aquí.
-          </p>
-        </div>
+        <EmptyState 
+          icon={Activity}
+          title="Tu actividad aparecerá aquí"
+          description="Cuando tus asistentes reciban conversaciones, capturen leads o actualices configuraciones, lo verás en este timeline."
+        />
       ) : (
         <div className="space-y-1">
           {activity.map((item, i) => {
@@ -88,6 +88,6 @@ export function DashboardActivity({ activity }: Props) {
           })}
         </div>
       )}
-    </div>
+    </DashboardCard>
   )
 }

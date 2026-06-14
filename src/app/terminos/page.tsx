@@ -114,7 +114,20 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">5. Prueba gratuita</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">5. Cancelación de suscripción</h2>
+            <p className="mb-4">
+              El usuario puede cancelar su suscripción en cualquier momento desde el panel de facturación. La cancelación evita futuras renovaciones o cobros posteriores, pero no genera devolución del dinero correspondiente al periodo ya pagado.
+            </p>
+            <p className="mb-4">
+              Mientras el periodo pagado siga vigente, el usuario conservará acceso a las funciones incluidas en su plan hasta la fecha de finalización del periodo. Una vez terminado dicho periodo, la cuenta podrá volver al plan gratuito o perder acceso a funciones premium.
+            </p>
+            <p>
+              Los pagos ya confirmados no son reembolsables, salvo que exista una obligación legal aplicable o una excepción aprobada expresamente por ConversaAI.
+            </p>
+          </section>
+
+          <section className="mb-10">
+            <h2 className="text-2xl font-bold text-white mb-4">6. Prueba gratuita</h2>
             <p className="mb-4">
               ConversaAI puede ofrecer una prueba gratuita con límites específicos. La disponibilidad, duración y condiciones de la prueba pueden cambiar.
             </p>
@@ -124,7 +137,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">6. Cancelación de intentos de pago</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">7. Cancelación de intentos de pago</h2>
             <p className="mb-4">
               El usuario puede cancelar o descartar intentos de pago pendientes dentro de la plataforma cuando estén disponibles.
             </p>
@@ -134,7 +147,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">7. Uso aceptable</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">8. Uso aceptable</h2>
             <p className="mb-4">El usuario se compromete a no usar ConversaAI para:</p>
             <ul className="list-disc pl-5 space-y-2 text-slate-400">
               <li>Actividades ilegales.</li>
@@ -149,7 +162,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">8. Contenido del usuario</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">9. Contenido del usuario</h2>
             <p className="mb-4">
               El usuario conserva la responsabilidad sobre la información que ingresa en la plataforma, incluyendo:
             </p>
@@ -167,7 +180,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">9. Asistentes de inteligencia artificial</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">10. Asistentes de inteligencia artificial</h2>
             <p className="mb-4">
               Los asistentes IA pueden generar respuestas automáticas con base en la información configurada por el usuario.
             </p>
@@ -181,7 +194,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">10. Instalación del Web Chat</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">11. Instalación del Web Chat</h2>
             <p className="mb-4">
               El usuario debe instalar el script del Web Chat únicamente en dominios propios o autorizados.
             </p>
@@ -191,7 +204,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">11. Canales de comunicación</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">12. Canales de comunicación</h2>
             <p className="mb-4">
               ConversaAI puede ofrecer canales como Web Chat, Telegram, WhatsApp u otras integraciones, según disponibilidad.
             </p>
@@ -201,7 +214,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">12. Disponibilidad del servicio</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">13. Disponibilidad del servicio</h2>
             <p className="mb-4">
               Trabajamos para mantener ConversaAI disponible y estable, pero no garantizamos disponibilidad ininterrumpida.
             </p>
@@ -217,7 +230,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">13. Limitación de responsabilidad</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">14. Limitación de responsabilidad</h2>
             <p className="mb-4">
               ConversaAI se ofrece como herramienta tecnológica de apoyo. No garantizamos resultados comerciales específicos, ventas, clientes, ingresos o conversiones.
             </p>
@@ -227,7 +240,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">14. Proveedores externos</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">15. Proveedores externos</h2>
             <p className="mb-4">
               ConversaAI utiliza servicios de terceros para autenticación, pagos, inteligencia artificial, hosting, seguridad, correos y otros componentes.
             </p>
@@ -237,7 +250,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">15. Propiedad intelectual</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">16. Propiedad intelectual</h2>
             <p className="mb-4">
               ConversaAI, su marca, interfaz, diseño, software y elementos visuales pertenecen a sus titulares correspondientes.
             </p>
@@ -247,7 +260,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">16. Suspensión o terminación</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">17. Suspensión o terminación</h2>
             <p className="mb-4">Podemos suspender o cancelar cuentas si detectamos:</p>
             <ul className="list-disc pl-5 space-y-2 text-slate-400">
               <li>Incumplimiento de estos términos.</li>
@@ -260,14 +273,14 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">17. Cambios en los planes o funciones</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">18. Cambios en los planes o funciones</h2>
             <p>
               ConversaAI puede modificar planes, límites, precios o funciones. Cuando corresponda, se informará al usuario mediante la plataforma o canales de contacto disponibles.
             </p>
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">18. Privacidad</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">19. Privacidad</h2>
             <p>
               El uso de ConversaAI también se rige por nuestra Política de Privacidad disponible en: <br />
               <a href="https://conversaai.store/privacidad" className="text-brand-cyan hover:underline">https://conversaai.store/privacidad</a>
@@ -275,7 +288,7 @@ export default function TermsPage() {
           </section>
 
           <section className="mb-10">
-            <h2 className="text-2xl font-bold text-white mb-4">19. Contacto</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">20. Contacto</h2>
             <p>
               Para dudas sobre estos Términos y Condiciones, escríbenos a: <br />
               <a href="mailto:soporte@conversaai.store" className="text-brand-cyan hover:underline">soporte@conversaai.store</a>

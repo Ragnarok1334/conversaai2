@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { normalizePlan, getPlanConfig, getPlanLimits, getUsagePercentage, formatLimit } from '@/lib/plans'
+import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,15 +70,22 @@ export async function GET() {
       current_messages_used: 0,
     }
 
+    const profileData = profileResult.data
     const planKey = normalizePlan(subscription.plan ?? 'trial')
+    const effectiveStatus = getEffectiveSubscriptionStatus(subscription, profileData)
+    
+    const isPremiumActive = ['active', 'trialing', 'past_due'].includes(effectiveStatus)
+    const activePlanKey = isPremiumActive ? planKey : 'free'
+    
     const planConfig = getPlanConfig(planKey)
-    const planLimits = getPlanLimits(planKey)
+    const activePlanLimits = getPlanLimits(activePlanKey)
+    const activePlanConfig = getPlanConfig(activePlanKey)
     
     const assistantsUsed = assistantsResult.count ?? 0
     const messagesUsed = subscription.current_messages_used ?? 0
     
-    const messagesLimit = planLimits.messagesPerMonth === Infinity ? null : planLimits.messagesPerMonth
-    const assistantsLimit = planLimits.assistants === Infinity ? null : planLimits.assistants
+    const messagesLimit = activePlanLimits.messagesPerMonth === Infinity ? null : activePlanLimits.messagesPerMonth
+    const assistantsLimit = activePlanLimits.assistants === Infinity ? null : activePlanLimits.assistants
     
     const messagesPercentage = messagesLimit ? Math.round((messagesUsed / messagesLimit) * 100) : 0
     const assistantsPercentage = assistantsLimit ? Math.round((assistantsUsed / assistantsLimit) * 100) : 0
@@ -116,7 +124,7 @@ export async function GET() {
 
     const channelRows = assistantChannelsResult.data ?? []
     const hasTelegramActive = channelRows.some((r) => r.channel === 'telegram' && r.is_enabled === true && (r.config as any)?.telegram_token)
-    const telegramAllowed = planConfig.channels.telegram
+    const telegramAllowed = activePlanConfig.channels.telegram
     const telegramStatus = !telegramAllowed ? 'locked' : hasTelegramActive ? 'connected' : 'pending'
 
     const channels = {
@@ -170,34 +178,34 @@ export async function GET() {
     } else {
       if (!hasAssistant) {
         execStatus = "empty"
-        execTitle = "Tu cuenta está lista para comenzar"
-        execMessage = "Crea tu primer asistente para empezar a responder clientes, capturar leads e instalar el Web Chat en tu sitio."
-        execNextStep = { title: "Crea tu primer asistente", description: "Configura la IA que responderá por ti.", cta: "Crear asistente", href: "/dashboard/create-assistant" }
+        execTitle = "Configura tu centro de atención IA"
+        execMessage = "Crea tu primer asistente, instala el Web Chat y empieza a capturar conversaciones desde tu sitio."
+        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Crear asistente", href: "/dashboard/create-assistant" }
       } else if (!hasDomain) {
         execStatus = "setup"
-        execTitle = "Tu asistente ya está creado"
-        execMessage = "Ahora agrega el dominio de tu sitio para poder instalar el Web Chat y empezar a recibir conversaciones."
-        execNextStep = { title: "Agrega tu dominio", description: "Autoriza tu web para instalar el chat.", cta: "Agregar dominio", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install` }
+        execTitle = "Hay pasos pendientes para activar tu asistente"
+        execMessage = "Completa la configuración recomendada para que ConversaAI pueda atender visitantes y capturar leads."
+        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Agregar dominio", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install` }
       } else if (!hasVerifiedWidget) {
         execStatus = "setup"
-        execTitle = "Falta instalar el Web Chat"
-        execMessage = "El dominio ya está autorizado, pero todavía no detectamos el script instalado en tu sitio."
-        execNextStep = { title: "Instala el Web Chat", description: "Copia y pega el código en tu sitio web.", cta: "Ver instrucciones", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install` }
+        execTitle = "Hay pasos pendientes para activar tu asistente"
+        execMessage = "Completa la configuración recomendada para que ConversaAI pueda atender visitantes y capturar leads."
+        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Instalar Web Chat", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install` }
       } else if (!hasConversations) {
         execStatus = "ready"
-        execTitle = "Web Chat instalado correctamente"
-        execMessage = "El asistente ya está listo en tu sitio. Prueba una conversación para validar cómo responde."
-        execNextStep = { title: "Prueba tu asistente", description: "Asegúrate de que todo funciona bien.", cta: "Probar asistente", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=playground` }
+        execTitle = "Hay pasos pendientes para activar tu asistente"
+        execMessage = "Completa la configuración recomendada para que ConversaAI pueda atender visitantes y capturar leads."
+        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Probar asistente", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=playground` }
       } else if (!hasLeads) {
         execStatus = "active"
-        execTitle = "Tu asistente ya está atendiendo conversaciones"
-        execMessage = "Aún no se han captado leads. Revisa si el asistente está solicitando nombre, correo o teléfono cuando corresponde."
-        execNextStep = { title: "Ver conversaciones en curso", description: "Monitorea cómo responde tu IA a los clientes.", cta: "Ver conversaciones", href: "/dashboard/conversations" }
+        execTitle = "Tu sistema ya está captando oportunidades"
+        execMessage = "Revisa nuevos leads, conversaciones recientes y el estado de tus asistentes desde este resumen."
+        execNextStep = { title: "Siguiente acción recomendada", description: "Revisa los leads capturados y da seguimiento a los contactos recientes.", cta: "Ver conversaciones", href: "/dashboard/conversations" }
       } else {
         execStatus = "active"
-        execTitle = "Tu automatización ya está generando oportunidades"
-        execMessage = "Tu asistente ya captó leads. Revisa los prospectos nuevos y dales seguimiento."
-        execNextStep = { title: "Revisa tus prospectos", description: "Contacta a los clientes que dejaron sus datos.", cta: "Ver leads", href: "/dashboard/leads" }
+        execTitle = "Tu sistema ya está captando oportunidades"
+        execMessage = "Revisa nuevos leads, conversaciones recientes y el estado de tus asistentes desde este resumen."
+        execNextStep = { title: "Siguiente acción recomendada", description: "Revisa los leads capturados y da seguimiento a los contactos recientes.", cta: "Ver leads", href: "/dashboard/leads" }
       }
     }
 
@@ -219,9 +227,14 @@ export async function GET() {
 
     const alerts: { type: string; message: string; action?: string; href?: string }[] = []
 
-    if (subscription?.status !== 'active') {
+    if (effectiveStatus === 'expired' || effectiveStatus === 'cancelled') {
+      alerts.push({ type: 'error', message: 'Tu suscripción ha finalizado. Renueva para recuperar funciones premium.', action: 'Renovar', href: '/dashboard/billing' })
+    } else if (effectiveStatus === 'past_due') {
+      alerts.push({ type: 'warning', message: 'Tu plan venció y se encuentra en periodo de gracia. Renueva para no perder acceso.', action: 'Renovar', href: '/dashboard/billing' })
+    } else if (subscription?.status !== 'active') {
       alerts.push({ type: 'error', message: 'Tu suscripción no está activa. El asistente no responderá.', action: 'Ver facturación', href: '/dashboard/billing' })
     }
+    
     if (webchatObj.status === 'blocked') {
       alerts.push({ type: 'error', message: 'Tu dominio de Web Chat se encuentra bloqueado por políticas de seguridad.', action: 'Soporte', href: '/contact' })
     }
@@ -288,8 +301,8 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      profile: { full_name: profileResult.data?.full_name || user.user_metadata?.full_name || null, email: user.email ?? null },
-      plan: { key: planKey, label: planConfig.label, status: subscription?.status ?? 'active', channels: planConfig.channels, description: planConfig.description },
+      profile: { full_name: profileData?.full_name || user.user_metadata?.full_name || null, email: user.email ?? null },
+      plan: { key: planKey, label: planConfig.label, status: effectiveStatus, channels: activePlanConfig.channels, description: planConfig.description },
       usage: { assistantsUsed, assistantsLimit, messagesUsed, messagesLimit, messagesPercentage, assistantsPercentage, assistantsLimitFormatted: formatLimit(assistantsLimit), messagesLimitFormatted: formatLimit(messagesLimit) },
       stats: { assistantCount: assistantsUsed, activeAssistantCount: activeAssistantsResult.count ?? 0, conversationCount: conversationsResult.count ?? 0, openConversationCount: openConversationsResult.count ?? 0, leadCount: leadsResult.count ?? 0, newLeadCount: newLeadsResult.count ?? 0 },
       recentAssistants: (recentAssistantsResult.data ?? []).map((a) => ({ id: a.id, assistant_name: a.assistant_name, business_name: a.business_name, channel: a.channel, status: a.status, created_at: a.created_at, tone: a.tone })),

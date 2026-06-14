@@ -17,6 +17,8 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [startingTrial, setStartingTrial] = useState(false)
+  const [showTrialModal, setShowTrialModal] = useState(false)
+  const [trialSuccess, setTrialSuccess] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('flow')
   const router = useRouter()
 
@@ -60,7 +62,11 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
     }
   }
 
-  const handleStartTrial = async () => {
+  const handleStartTrialClick = () => {
+    setShowTrialModal(true)
+  }
+
+  const executeTrialStart = async () => {
     setStartingTrial(true)
     setError(null)
     try {
@@ -68,7 +74,11 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Error al iniciar prueba')
       
-      router.refresh()
+      setShowTrialModal(false)
+      setTrialSuccess(true)
+      setTimeout(() => {
+        router.refresh()
+      }, 2500)
     } catch (err: any) {
       setError(err.message)
       setStartingTrial(false)
@@ -89,35 +99,78 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
         </div>
       )}
 
+      {/* MODAL TRIAL */}
+      {showTrialModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-card-bg border border-card-border p-6 md:p-8 rounded-3xl max-w-md w-full shadow-2xl relative">
+            <h3 className="text-2xl font-bold text-white mb-2">Activar prueba gratis</h3>
+            <p className="text-[#94A3B8] text-sm mb-6">
+              Tu prueba gratuita comenzará ahora. Tendrás 7 días para probar ConversaAI. Los días empezarán a contar desde este momento.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-end">
+              <button 
+                onClick={() => setShowTrialModal(false)}
+                disabled={startingTrial}
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all bg-white/5 border border-white/10 text-white hover:bg-white/10"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={executeTrialStart}
+                disabled={startingTrial}
+                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all bg-brand-cyan/20 border border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/30"
+              >
+                {startingTrial ? 'Activando...' : 'Activar prueba'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* TRIAL BLOCK */}
       {!hasPaidPlan && (
         <div className="relative rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden backdrop-blur-2xl bg-white/[0.03] border border-brand-cyan/20 shadow-[0_0_40px_rgba(6,182,212,0.06)]">
           <div className="absolute inset-0 bg-gradient-to-br from-[#06B6D4]/5 to-transparent opacity-60 pointer-events-none" />
           <div className="relative z-10 flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-2xl font-bold text-white">Prueba Gratis</h3>
-              <span className="bg-brand-cyan/20 text-brand-cyan text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-full">7 días</span>
+              <h3 className="text-2xl font-bold text-white">
+                {currentPlan === 'trial' ? 'Prueba activa' : trialUsed ? 'Prueba finalizada' : 'Prueba ConversaAI cuando estés listo'}
+              </h3>
+              {currentPlan === 'trial' && (
+                <span className="bg-brand-cyan/20 text-brand-cyan text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-full">7 días</span>
+              )}
             </div>
-            <p className="text-[#94A3B8] text-sm max-w-lg">
-              Crea tu primer asistente y prueba el poder de ConversaAI sin ingresar tarjeta de crédito.
+            <p className="text-[#94A3B8] text-sm max-w-lg mb-2">
+              {currentPlan === 'trial' 
+                ? 'Disfruta de ConversaAI y no olvides elegir un plan antes de que termine.' 
+                : trialUsed 
+                  ? 'Tu prueba ha finalizado. Elige un plan pagado para continuar usando ConversaAI.' 
+                  : 'Activa tu prueba gratuita solo cuando quieras comenzar a probar asistentes, Web Chat y captura de leads. No empezaremos a contar los días hasta que la actives.'}
+            </p>
+            <p className="text-xs text-brand-cyan/80 font-medium">
+              La prueba gratuita dura 7 días exactos y solo puede activarse una vez.
             </p>
           </div>
           <div className="relative z-10 shrink-0 w-full md:w-auto">
-            {currentPlan === 'trial' ? (
+            {trialSuccess ? (
+              <span className="inline-block px-8 py-3 rounded-xl text-sm font-semibold bg-brand-success/20 border border-brand-success/30 text-brand-success">
+                Prueba activada correctamente
+              </span>
+            ) : currentPlan === 'trial' ? (
               <button disabled className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold bg-white/5 border border-white/10 text-white/50 cursor-not-allowed">
                 Plan activo
               </button>
             ) : trialUsed ? (
               <button disabled className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold bg-white/5 border border-white/10 text-white/50 cursor-not-allowed">
-                Prueba ya utilizada
+                Elegir plan
               </button>
             ) : (
               <button 
-                onClick={handleStartTrial}
+                onClick={handleStartTrialClick}
                 disabled={startingTrial}
                 className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-center bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/20 hover:scale-[1.02]"
               >
-                {startingTrial ? 'Activando...' : 'Comenzar prueba'}
+                {startingTrial ? 'Activando...' : 'Activar prueba gratis'}
               </button>
             )}
           </div>
@@ -171,8 +224,12 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
                   </p>
                 )}
                 
-                <p className="text-sm font-semibold text-brand-cyan mb-4">
+                <p className="text-sm font-semibold text-brand-cyan mb-2">
                   {plan.aiSubtitle}
+                </p>
+                
+                <p className="text-xs text-[#94A3B8] mb-4 min-h-[48px]">
+                  {plan.description}
                 </p>
                 
                 <ul className="space-y-3 flex-1 mb-6">
@@ -187,8 +244,8 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
                 {plan.futureFeatures && plan.futureFeatures.length > 0 && (
                   <div className="mb-6 pt-4 border-t border-white/5 flex flex-wrap gap-2">
                     {plan.futureFeatures.map((feature, fIndex) => (
-                      <span key={fIndex} className="bg-white/5 border border-white/10 text-white/60 text-[10px] uppercase font-bold tracking-wider py-1 px-2 rounded-md">
-                        {feature} ⏱
+                      <span key={fIndex} className="bg-white/5 border border-white/10 text-brand-violet/80 text-[10px] uppercase font-bold tracking-wider py-1 px-2 rounded-md">
+                        {feature} <span className="opacity-60 ml-1">(Próximamente)</span>
                       </span>
                     ))}
                   </div>
@@ -248,9 +305,15 @@ export function PlanComparison({ plans, currentPlan, trialUsed }: PlanComparison
         <p className="text-slate-400 text-lg">
           Los planes superiores no solo aumentan límites: agregan más control, más asistentes, más dominios y herramientas para convertir conversaciones en clientes.
         </p>
-        <p className="text-sm text-brand-cyan mt-4 font-medium">
-          Growth es ideal si quieres escalar atención sin complicarte. Business está pensado para operaciones con más volumen, áreas o sucursales.
-        </p>
+        
+        <div className="mt-6 bg-white/[0.03] border border-white/10 rounded-xl p-4 inline-block text-left max-w-2xl">
+          <p className="text-sm text-brand-cyan/90 font-medium mb-2">
+            Los planes pagados tienen una vigencia de 30 días. Después del vencimiento, cuentas con 2 días de gracia para renovar antes de perder acceso a funciones premium.
+          </p>
+          <p className="text-sm text-slate-400">
+            Planes mensuales. Puedes cancelar cuando quieras. La cancelación no genera devolución del periodo ya pagado y el acceso se mantiene hasta el final del ciclo vigente.
+          </p>
+        </div>
       </div>
 
       {/* DETAILED COMPARISON TABLE */}

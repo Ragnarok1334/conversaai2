@@ -9,6 +9,7 @@ interface Props {
     status: string
     channels: { [key: string]: boolean }
     description: string
+    statusMessage?: string
   }
   usage: {
     assistantsUsed: number
@@ -66,9 +67,15 @@ export function PlanUsageCard({ plan, usage }: Props) {
         </div>
 
         {/* Description */}
-        <p className="text-sm text-text-soft mb-3">
+        <p className="text-sm text-text-soft mb-1">
           {plan.description}
         </p>
+        
+        {plan.statusMessage && (
+          <p className="text-xs text-brand-cyan/80 mb-3 font-medium">
+            {plan.statusMessage}
+          </p>
+        )}
 
         {/* Channels */}
         <div className="flex flex-wrap gap-2 mb-6">

@@ -4,7 +4,9 @@ import { redirect } from 'next/navigation'
 import { PlanUsageCard } from '@/components/dashboard/PlanUsageCard'
 import { PlanComparison } from '@/components/dashboard/PlanComparison'
 import { PaymentHistory } from '@/components/dashboard/PaymentHistory'
+import { SubscriptionManager } from '@/components/dashboard/SubscriptionManager'
 import { PLAN_CONFIGS, normalizePlan, getPlanConfig, getPlanLimits } from '@/lib/plans'
+import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { Check, Lock, Sparkles, Receipt, CreditCard, Shield, Clock, Zap } from 'lucide-react'
 import Link from 'next/link'
 
@@ -23,7 +25,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('trial_used')
+    .select('trial_used, trial_ends_at')
     .eq('id', user.id)
     .single()
 
@@ -52,12 +54,35 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
   const messagesPercentage = messagesLimit ? Math.round((messagesUsed / messagesLimit) * 100) : 0
   const assistantsPercentage = assistantsLimit ? Math.round((assistantsUsed / assistantsLimit) * 100) : 0
 
+  const effectiveStatus = getEffectiveSubscriptionStatus(subscription, profile)
+  
+  let statusMessage = ''
+  
+  if (effectiveStatus === 'free') {
+    statusMessage = profile?.trial_used 
+      ? "Tu prueba gratuita terminó. Elige un plan para continuar usando funciones premium."
+      : "Tu prueba gratis está disponible. Actívala cuando estés listo."
+  } else if (effectiveStatus === 'trialing') {
+    const d = new Date(profile?.trial_ends_at || '')
+    statusMessage = `Tu prueba gratuita termina el ${d.toLocaleDateString('es-CL')}.`
+  } else if (effectiveStatus === 'active' && planKey !== 'trial') {
+    const d = new Date(subscription?.current_period_end || '')
+    statusMessage = `Tu plan está activo hasta el ${d.toLocaleDateString('es-CL')}.`
+  } else if (effectiveStatus === 'past_due') {
+    const end = new Date(subscription?.current_period_end || '')
+    const grace = new Date(subscription?.grace_ends_at || '')
+    statusMessage = `Tu plan venció el ${end.toLocaleDateString('es-CL')}. Tienes hasta el ${grace.toLocaleDateString('es-CL')} para renovar antes de perder acceso premium.`
+  } else if (effectiveStatus === 'expired' || effectiveStatus === 'cancelled') {
+    statusMessage = "Tu plan finalizó. Renueva para recuperar funciones premium."
+  }
+
   const planProp = {
     key: planKey,
     label: planConfig.label,
-    status: subscription?.status ?? 'active',
+    status: effectiveStatus,
     channels: planConfig.channels,
     description: planConfig.description,
+    statusMessage
   }
 
   const usageProp = {
@@ -154,6 +179,14 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
 
         <PaymentHistory />
       </section>
+
+      {/* Cancel Subscription */}
+      <SubscriptionManager 
+        planKey={planKey}
+        effectiveStatus={effectiveStatus}
+        cancelAtPeriodEnd={subscription?.cancel_at_period_end ?? false}
+        currentPeriodEnd={subscription?.current_period_end ?? null}
+      />
 
       {/* Plan Comparison */}
       <PlanComparison plans={plans} currentPlan={currentPlan} trialUsed={trialUsed} />

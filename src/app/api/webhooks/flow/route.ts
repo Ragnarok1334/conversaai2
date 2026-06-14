@@ -82,6 +82,9 @@ export async function POST(req: Request) {
             assistants_limit: planConfig.limits.assistants,
             messages_limit: planConfig.limits.messagesPerMonth,
             current_messages_used: 0,
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            grace_ends_at: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000).toISOString()
           })
           .eq('user_id', payment.user_id);
       } else {
@@ -93,7 +96,10 @@ export async function POST(req: Request) {
             status: 'active',
             assistants_limit: planConfig.limits.assistants,
             messages_limit: planConfig.limits.messagesPerMonth,
-            current_messages_used: 0
+            current_messages_used: 0,
+            current_period_start: new Date().toISOString(),
+            current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+            grace_ends_at: new Date(Date.now() + 32 * 24 * 60 * 60 * 1000).toISOString()
           });
       }
 

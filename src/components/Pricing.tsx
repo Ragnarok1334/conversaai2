@@ -47,24 +47,12 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
 
   const hasPaidPlan = currentPlanId && !['trial', 'free'].includes(currentPlanId)
   
-  const handleStartTrial = async () => {
+  const handleStartTrial = () => {
     if (!isLoggedIn) {
       window.location.href = '/register'
       return
     }
-    
-    setStartingTrial(true)
-    setTrialError(null)
-    try {
-      const res = await fetch('/api/billing/trial/start', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al iniciar prueba')
-      
-      window.location.href = '/dashboard'
-    } catch (err: any) {
-      setTrialError(err.message || 'No se pudo iniciar la prueba. Intenta nuevamente.')
-      setStartingTrial(false)
-    }
+    window.location.href = '/dashboard/billing'
   }
 
   return (
@@ -80,11 +68,15 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
             </div>
 
             <h2 className="text-4xl md:text-5xl font-bold text-white mb-6 tracking-[-0.03em]">
-              Elige tu plan ideal
+              Planes diseñados para crecer con tu negocio
             </h2>
 
-            <p className="text-[#94A3B8] text-lg mb-8">
-              No pagas solo por mensajes. Pagas por automatizar áreas completas de tu negocio: ventas, soporte, reservas, sucursales y seguimiento de leads.
+            <p className="text-[#94A3B8] text-lg mb-4">
+              Empieza con atención básica y escala hasta una operación comercial completa con más asistentes, dominios, leads, IA y control.
+            </p>
+
+            <p className="text-sm text-brand-cyan/80 mb-8 max-w-2xl mx-auto bg-brand-cyan/5 py-3 px-5 rounded-xl border border-brand-cyan/10">
+              Planes mensuales. Puedes cancelar cuando quieras. La cancelación no genera devolución del periodo ya pagado y el acceso se mantiene hasta el final del ciclo vigente.
             </p>
             
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-[#CBD5E1]">
@@ -131,16 +123,10 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
                   <>
                     <button 
                       onClick={handleStartTrial}
-                      disabled={startingTrial}
                       className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-center bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/20 hover:scale-[1.02]"
                     >
-                      {startingTrial ? 'Iniciando...' : 'Comenzar prueba de 7 días'}
+                      Comenzar prueba de 7 días
                     </button>
-                    {trialError && (
-                      <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-2">
-                        <p className="text-xs text-red-400 text-left leading-relaxed">{trialError}</p>
-                      </div>
-                    )}
                   </>
                 )}
               </div>
@@ -201,8 +187,8 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
                       {plan.futureFeatures && plan.futureFeatures.length > 0 && (
                         <div className="pt-4 border-t border-white/5 flex flex-wrap gap-2">
                           {plan.futureFeatures.map((feature, fIndex) => (
-                            <span key={fIndex} className="bg-white/5 border border-white/10 text-white/60 text-[10px] uppercase font-bold tracking-wider py-1 px-2 rounded-md">
-                              {feature} ⏱
+                            <span key={fIndex} className="bg-white/5 border border-white/10 text-brand-violet/80 text-[10px] uppercase font-bold tracking-wider py-1 px-2 rounded-md">
+                              {feature} <span className="opacity-60 ml-1">(Próximamente)</span>
                             </span>
                           ))}
                         </div>

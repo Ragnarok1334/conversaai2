@@ -49,8 +49,7 @@ export async function GET(request: Request) {
           user_id: user.id,
           plan: 'free',
           status: 'active',
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(new Date().setFullYear(new Date().getFullYear() + 10)).toISOString()
+          current_messages_used: 0
         })
       }
 
