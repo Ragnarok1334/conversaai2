@@ -108,7 +108,7 @@ export default async function AssistantDetailPage({
       salesLevel: assistant.behavior?.salesLevel || 'soft',
       rules: {
         askName: assistant.behavior?.rules?.askName ?? true,
-        askContact: assistant.behavior?.rules?.askContact ?? true,
+        askContact: assistant.behavior?.rules?.askContact ?? false,
         offerPricesWhenAsked: assistant.behavior?.rules?.offerPricesWhenAsked ?? true,
         suggestAppointment: assistant.behavior?.rules?.suggestAppointment ?? false,
         escalateIfUnknown: assistant.behavior?.rules?.escalateIfUnknown ?? true,
@@ -394,33 +394,7 @@ export default async function AssistantDetailPage({
       {/* TAB CONTENT: INSTALL */}
       {tab === 'install' && (
         <div className="space-y-6">
-          <div className="flex items-center gap-2">
-            <Link
-              href={`/dashboard/assistants/${id}?tab=install&channel=webchat`}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                channel === 'webchat' ? 'bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20' : 'bg-white/5 text-slate-400 border border-transparent hover:bg-white/10'
-              }`}
-            >
-              Web Chat
-            </Link>
-            <Link
-              href={`/dashboard/assistants/${id}?tab=install&channel=telegram`}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                channel === 'telegram' ? 'bg-[#0088cc]/10 text-[#0088cc] border border-[#0088cc]/20' : 'bg-white/5 text-slate-400 border border-transparent hover:bg-white/10'
-              }`}
-            >
-              Telegram
-            </Link>
-            <Link
-              href={`/dashboard/assistants/${id}?tab=install&channel=whatsapp`}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                channel === 'whatsapp' ? 'bg-brand-success/10 text-brand-success border border-brand-success/20' : 'bg-white/5 text-slate-400 border border-transparent hover:bg-white/10'
-              }`}
-            >
-              WhatsApp
-            </Link>
-          </div>
-          <AssistantInstallation assistantId={assistant.id} channel={channel} planLimits={planLimits} />
+          <AssistantInstallation assistantId={assistant.id} planLimits={planLimits} effectivePlanStatus={effStatus} />
         </div>
       )}
 

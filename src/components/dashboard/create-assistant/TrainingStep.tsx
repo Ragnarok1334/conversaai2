@@ -21,15 +21,15 @@ const CATEGORIES = [
     title: 'Esenciales',
     blocks: [
       { type: 'general', title: 'Información general', icon: Store, desc: 'Describe qué es tu negocio, años de experiencia y misión corta.', placeholder: 'Ej: Somos FashionStore, tienda online de ropa fundada en 2020...' },
-      { type: 'services', title: 'Servicios y productos', icon: Briefcase, desc: 'Escribe qué vendes, qué servicios ofreces y qué debe saber el asistente para explicarlos.', placeholder: 'Ej: Vendemos cursos de inglés básico, intermedio y avanzado. También ofrecemos clases particulares online.' },
-      { type: 'pricing', title: 'Precios', icon: Tag, desc: 'Agrega precios, rangos, promociones o explica si el precio depende del caso.', placeholder: 'Ej: Curso mensual desde $60. Clase particular desde $15 por hora. (Si depende del caso, indica qué datos pedir para cotizar).' },
+      { type: 'services', title: 'Servicios y productos', icon: Briefcase, desc: 'Escribe qué vendes, qué servicios ofreces y qué debe saber el asistente para explicarlos.', placeholder: 'Ej: Ofrecemos instalación, mantenimiento y soporte técnico para...' },
+      { type: 'pricing', title: 'Precios', icon: Tag, desc: 'Agrega precios, rangos, promociones o explica si el precio depende del caso.', placeholder: 'Ej: Los precios dependen del servicio y se confirman después de revisar...' },
       { type: 'hours', title: 'Horarios', icon: Clock, desc: 'Indica horarios de atención, disponibilidad o tiempos de respuesta.', placeholder: 'Ej: Lunes a Viernes de 9:00 a 18:00. Soporte online 24/7.' },
       { type: 'location', title: 'Ubicación', icon: MapPin, desc: 'Agrega dirección física, si atiendes online, zonas de cobertura o delivery.', placeholder: 'Ej: 100% online. Envíos a todo el país a través de Starken.' },
     ]
   },
   {
     id: 'attention',
-    title: 'Atención y conversión',
+    title: 'Atención y ventas',
     blocks: [
       { type: 'faq', title: 'Preguntas frecuentes', icon: HelpCircle, desc: 'Añade respuestas a las dudas más comunes de tus clientes.', placeholder: 'Ej: ¿Cuánto tarda el envío? 3-5 días hábiles. ¿Cuáles son los medios de pago? Tarjeta de crédito, débito o transferencia.' },
       { type: 'lead_capture', title: 'Datos a solicitar', icon: Search, desc: 'Define qué datos debe pedir el asistente para convertir conversaciones en leads o cotizar.', placeholder: 'Ej: Para cotizar, pedir: Nombre, correo, tipo de servicio y fecha.' },
@@ -388,19 +388,14 @@ export function TrainingStep({ form, setForm, errors = {} }: Props) {
   if (!hasLocation) missingEssentials.push('Ubicación o modalidad online')
 
   let qualityLevel = 'Básico'
-  let qualityColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20'
+  let qualityColor = 'text-amber-500 border-amber-500/20'
   
   if (completedCount >= 6 && missingEssentials.length === 0) {
     qualityLevel = 'Completo'
-    qualityColor = 'text-brand-success bg-brand-success/10 border-brand-success/20'
+    qualityColor = 'text-brand-success border-brand-success/20'
   } else if (completedCount >= 3) {
-    if (completedCount >= 6) {
-       qualityLevel = 'Bueno'
-       qualityColor = 'text-brand-cyan bg-brand-cyan/10 border-brand-cyan/20'
-    } else {
-       qualityLevel = 'Bueno'
-       qualityColor = 'text-brand-cyan bg-brand-cyan/10 border-brand-cyan/20'
-    }
+    qualityLevel = 'Bueno'
+    qualityColor = 'text-brand-cyan border-brand-cyan/20'
   }
 
   const activeCategoryBlock = CATEGORIES.flatMap(c => c.blocks).find(b => b.type === activeTab)
@@ -644,7 +639,7 @@ export function TrainingStep({ form, setForm, errors = {} }: Props) {
           <h3 className="font-semibold text-lg text-white mb-1">3. Revisa la calidad del entrenamiento</h3>
           
           <div className="flex flex-col sm:flex-row gap-6 mt-4">
-            <div className={`flex flex-col items-center justify-center p-6 rounded-2xl border min-w-[200px] ${qualityColor}`}>
+            <div className={`flex flex-col items-center justify-center p-6 rounded-2xl border bg-white/5 min-w-[200px] ${qualityColor}`}>
               <span className="text-xs font-semibold uppercase tracking-wider mb-1 opacity-80">Calidad general</span>
               <span className="text-3xl font-black uppercase">{qualityLevel}</span>
               <span className="text-xs mt-2 opacity-80">{completedCount} bloques completos</span>

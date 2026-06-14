@@ -82,7 +82,56 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Dominio inválido' }, { status: 400 })
     }
 
+    // --- Verificación de límites y suscripción ---
     const admin = createSupabaseAdmin()
+    
+    const [subRes, profileRes] = await Promise.all([
+      admin
+        .from('subscriptions')
+        .select('plan, assistants_limit, status, current_period_end, grace_ends_at, cancel_at_period_end')
+        .eq('user_id', user.id)
+        .single(),
+      admin
+        .from('profiles')
+        .select('trial_used, trial_ends_at')
+        .eq('id', user.id)
+        .single()
+    ])
+
+    const sub = subRes.data
+    const profile = profileRes.data
+
+    const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
+    const { normalizePlan, getPlanLimits } = await import('@/lib/plans')
+    
+    const effectiveStatus = getEffectiveSubscriptionStatus(sub, profile)
+    
+    if (['free', 'expired', 'cancelled'].includes(effectiveStatus)) {
+      return NextResponse.json(
+        { error: 'No tienes un plan activo. Renueva tu plan o activa tu prueba gratis para autorizar dominios.' },
+        { status: 403 }
+      )
+    }
+
+    const rawPlan = sub ? sub.plan : 'free'
+    const planKey = normalizePlan(rawPlan)
+    const planLimits = getPlanLimits(planKey)
+
+    // Contar dominios actuales
+    const { count, error: countError } = await admin
+      .from('assistant_domains')
+      .select('*', { count: 'exact', head: true })
+      .eq('assistant_id', assistantId)
+
+    if (countError) throw countError
+
+    const currentDomainCount = count || 0
+    if (planLimits.domains !== null && currentDomainCount >= planLimits.domains) {
+      return NextResponse.json(
+        { error: `Has alcanzado el límite de dominios para tu plan actual (${planLimits.domains}).` },
+        { status: 403 }
+      )
+    }
 
     // Verificar duplicado (usando admin para evitar restricciones RLS)
     const { data: existing } = await admin

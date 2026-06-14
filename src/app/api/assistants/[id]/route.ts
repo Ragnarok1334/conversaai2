@@ -168,6 +168,26 @@ export async function PATCH(
       return NextResponse.json({ error: 'No hay campos válidos para actualizar.' }, { status: 400 })
     }
 
+    // Validate final combined state of knowledge
+    const { data: currentAssistant, error: fetchErr } = await supabase
+      .from('assistants')
+      .select('instructions, knowledge_blocks')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single();
+      
+    if (!fetchErr && currentAssistant) {
+      const finalInstructions = updates.instructions !== undefined ? updates.instructions : (currentAssistant.instructions || '');
+      const finalBlocks = updates.knowledge_blocks !== undefined ? updates.knowledge_blocks : (currentAssistant.knowledge_blocks || []);
+      const instLen = (finalInstructions || '').trim().length;
+      const hasValidBlock = (finalBlocks || []).some((b: any) => b.is_active && (b.content || '').trim().length >= 80);
+      
+      // Si updates.knowledge_blocks es explícitamente vacío y la base de datos tenía, respetamos la decisión del usuario solo si es válido
+      if (instLen < 80 && !hasValidBlock) {
+         return NextResponse.json({ error: 'Agrega información mínima del negocio para entrenar el asistente.' }, { status: 400 })
+      }
+    }
+
     const { data, error } = await supabase
       .from('assistants')
       .update(updates)

@@ -29,8 +29,8 @@ export function ChannelsStep({ form, setForm, currentPlan }: Props) {
     >
       <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 lg:p-8 space-y-6 shadow-xl">
         <div className="border-b border-white/[0.06] pb-4">
-          <h2 className="font-semibold text-xl mb-1 text-white">Conecta tus canales</h2>
-          <p className="text-sm text-slate-400">Publica tu asistente donde tus clientes ya te escriben.</p>
+          <h2 className="font-semibold text-xl mb-1 text-white">Canales e instalación</h2>
+          <p className="text-sm text-slate-400">Elige dónde funcionará tu asistente. Podrás instalar el Web Chat después de crear el asistente.</p>
         </div>
 
         <div className="space-y-4">
@@ -48,18 +48,16 @@ export function ChannelsStep({ form, setForm, currentPlan }: Props) {
               </div>
               <label className="flex items-center gap-2 cursor-pointer">
                 <span className="text-xs font-medium text-slate-400 mr-2">Disponible</span>
-                <input type="checkbox" className="hidden" checked={form.channels.webchat.enabled} onChange={(e) => updateChannel('webchat', 'enabled', e.target.checked)} />
-                <div className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 ${form.channels.webchat.enabled ? 'bg-brand-cyan' : 'bg-slate-700'}`}>
-                  <div className={`w-4 h-4 rounded-full bg-white transition-transform ${form.channels.webchat.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                <input type="checkbox" className="hidden" checked={form.channels.webchat.enabled} readOnly disabled />
+                <div className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 opacity-50 cursor-not-allowed bg-brand-cyan`}>
+                  <div className={`w-4 h-4 rounded-full bg-white transition-transform translate-x-5`} />
                 </div>
               </label>
             </div>
-            {!form.channels.webchat.enabled && (
-               <div className="mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs flex gap-2">
-                 <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                 Web Chat es el único canal disponible actualmente. Si lo desactivas, tu asistente no tendrá un canal funcional.
-               </div>
-            )}
+            <div className="mt-3 p-3 rounded-xl bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-xs flex gap-2">
+              <Code2 className="w-4 h-4 flex-shrink-0" />
+              Instala el asistente en tu sitio web con un script ligero. Ideal para atender visitantes y capturar leads. (Canal base obligatorio).
+            </div>
           </div>
 
           {/* Telegram */}
@@ -71,7 +69,7 @@ export function ChannelsStep({ form, setForm, currentPlan }: Props) {
                 </div>
                 <div>
                   <h3 className="font-semibold text-white">Telegram</h3>
-                  <p className="text-xs text-slate-400">Telegram estará disponible próximamente para planes compatibles.</p>
+                  <p className="text-xs text-slate-400">Canal planeado para conectar asistentes con bots de Telegram.</p>
                 </div>
               </div>
               <span className="px-3 py-1 bg-brand-violet/10 border border-brand-violet/20 rounded-full text-xs font-bold text-brand-violet">
@@ -89,7 +87,7 @@ export function ChannelsStep({ form, setForm, currentPlan }: Props) {
                 </div>
                 <div>
                   <h3 className="font-semibold text-white">WhatsApp</h3>
-                  <p className="text-xs text-slate-400">Integración con WhatsApp API.</p>
+                  <p className="text-xs text-slate-400">Canal planeado para atención por WhatsApp cuando la integración esté disponible.</p>
                 </div>
               </div>
               <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-bold text-emerald-500">

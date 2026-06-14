@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { CheckCircle2, Lock, Loader2, AlertCircle } from 'lucide-react'
 import { BuilderFormData } from './types'
 import { useRouter } from 'next/navigation'
+import { calculateIndicators } from './BehaviorStep'
 
 interface Props {
   form: BuilderFormData
@@ -76,6 +77,8 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
   const activeRules = rulesMap.filter(r => form.behavior.rules[r.key as keyof typeof form.behavior.rules])
   const inactiveRules = rulesMap.filter(r => !form.behavior.rules[r.key as keyof typeof form.behavior.rules])
 
+  const inds = calculateIndicators(form.behavior)
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -98,11 +101,16 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
               <li><span className="text-slate-500">Objetivo:</span> <span className="capitalize">{form.behavior.goal}</span></li>
               <li><span className="text-slate-500">Nivel comercial:</span> <span className="capitalize">{form.behavior.salesLevel}</span></li>
               <li>
-                <span className="text-slate-500">Canales:</span>{' '}
-                {[
-                  form.channels.webchat.enabled && 'Web Chat',
-                  form.channels.telegram.enabled && 'Telegram'
-                ].filter(Boolean).join(', ') || '-'}
+                <span className="text-slate-500">Canal disponible:</span>{' '}
+                Web Chat
+              </li>
+              <li>
+                <span className="text-slate-500">Telegram:</span>{' '}
+                <span className="text-brand-violet text-[10px] uppercase font-bold border border-brand-violet/30 px-1.5 py-0.5 rounded ml-1">Próximamente</span>
+              </li>
+              <li>
+                <span className="text-slate-500">WhatsApp:</span>{' '}
+                <span className="text-emerald-500 text-[10px] uppercase font-bold border border-emerald-500/30 px-1.5 py-0.5 rounded ml-1">Próximamente</span>
               </li>
             </ul>
 
@@ -140,9 +148,38 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
                   </li>
                 )}
               </ul>
+              {missingEssentials.length > 0 && (
+                <div className="mt-3 p-3 bg-brand-violet/10 border border-brand-violet/20 rounded-xl">
+                  <h5 className="text-[11px] font-semibold text-brand-violet mb-1">Recomendación profesional:</h5>
+                  <p className="text-[10px] text-brand-violet/80 mb-2 leading-snug">
+                    Tu asistente funcionará, pero para dar mejores respuestas te sugerimos completar:
+                  </p>
+                  <ul className="grid grid-cols-2 gap-1 text-[10px] text-brand-violet/70">
+                    {missingEssentials.map(m => (
+                      <li key={m} className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-brand-violet" /> {m}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="mt-4">
+              <h4 className="text-xs font-semibold text-white mb-2">Impacto del comportamiento:</h4>
+              <ul className="space-y-1.5 text-xs text-slate-300 mb-4 bg-white/5 p-3 rounded-xl border border-white/10">
+                <li className="flex items-center justify-between">
+                  <span className="text-slate-400">Captación de leads:</span> 
+                  <span className={`font-semibold ${inds.leadsIndicator === 'Alta' ? 'text-brand-success' : inds.leadsIndicator === 'Media' ? 'text-amber-400' : 'text-slate-400'}`}>{inds.leadsIndicator}</span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span className="text-slate-400">Control de respuesta:</span> 
+                  <span className={`font-semibold ${inds.controlIndicator === 'Estricto' ? 'text-brand-violet' : inds.controlIndicator === 'Controlado' ? 'text-brand-cyan' : 'text-slate-400'}`}>{inds.controlIndicator}</span>
+                </li>
+                <li className="flex items-center justify-between">
+                  <span className="text-slate-400">Fricción para visitante:</span> 
+                  <span className={`font-semibold ${inds.frictionIndicator === 'Alta' ? 'text-brand-pink' : inds.frictionIndicator === 'Media' ? 'text-amber-400' : 'text-slate-400'}`}>{inds.frictionIndicator}</span>
+                </li>
+              </ul>
+
               <h4 className="text-xs font-semibold text-white mb-2">Reglas activas:</h4>
               <ul className="space-y-1 text-xs text-slate-300">
                 {activeRules.map(r => (
@@ -150,16 +187,10 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
                 ))}
               </ul>
             </div>
-            {inactiveRules.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-xs font-semibold text-slate-400 mb-2">Reglas desactivadas:</h4>
-                <ul className="space-y-1 text-xs text-slate-500">
-                  {inactiveRules.map(r => (
-                    <li key={r.key} className="flex items-center gap-1.5"><div className="w-3 h-3 rounded-full border border-slate-600" /> {r.label}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            
+            <p className="mt-4 text-[11px] text-slate-400 leading-snug bg-brand-cyan/5 border border-brand-cyan/20 p-3 rounded-lg">
+              Estas reglas modifican cómo responderá tu asistente, pero <strong className="text-slate-300 font-medium">no consumen mensajes por sí mismas</strong>. Cada respuesta real del asistente consume 1 mensaje del plan.
+            </p>
           </div>
           
           <div className="space-y-4">
@@ -172,7 +203,7 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
                 </li>
               ))}
             </ul>
-            <p className="text-xs text-slate-400">Después de guardar, podrás instalar el Web Chat, probar respuestas y revisar conversaciones desde el panel.</p>
+            <p className="text-xs text-slate-400">Después de crear, te llevaremos a la sección de instalación para copiar el script del Web Chat y autorizar tu dominio.</p>
           </div>
         </div>
 

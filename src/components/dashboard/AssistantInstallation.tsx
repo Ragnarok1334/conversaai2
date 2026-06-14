@@ -7,12 +7,12 @@ import { AssistantDomainsPanel } from './AssistantDomainsPanel'
 
 export function AssistantInstallation({
   assistantId,
-  channel,
-  planLimits
+  planLimits,
+  effectivePlanStatus
 }: {
   assistantId: string
-  channel: string
   planLimits: any
+  effectivePlanStatus: string
 }) {
   const [copied, setCopied] = useState(false)
 
@@ -32,55 +32,27 @@ export function AssistantInstallation({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (channel === 'telegram') {
-    return (
-      <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-8">
-        <div className="w-16 h-16 bg-[#0088cc]/10 border border-[#0088cc]/20 rounded-2xl flex items-center justify-center mb-6">
-          <Send className="w-8 h-8 text-[#0088cc]" />
-        </div>
-        <h2 className="text-2xl font-bold mb-2">Instalar en Telegram</h2>
-        <p className="text-text-soft mb-6">Conecta tu asistente a un bot de Telegram.</p>
-        
-        {!planLimits?.channels?.telegram ? (
-          <div className="p-4 bg-brand-pink/10 border border-brand-pink/20 rounded-xl text-brand-pink font-medium">
-            Tu plan actual no incluye la integración con Telegram. Mejora tu plan para desbloquear este canal.
-          </div>
-        ) : (
-          <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl text-text-soft">
-            (Aquí va la configuración del token de Telegram)
-          </div>
-        )}
-      </div>
-    )
-  }
 
-  if (channel === 'whatsapp') {
-    return (
-      <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl p-8">
-        <div className="w-16 h-16 bg-brand-success/10 border border-brand-success/20 rounded-2xl flex items-center justify-center mb-6 grayscale">
-          <MessageCircle className="w-8 h-8 text-brand-success" />
-        </div>
-        <h2 className="text-2xl font-bold mb-2 text-text-soft">WhatsApp (Próximamente)</h2>
-        <p className="text-text-soft mb-6">La integración directa con WhatsApp estará disponible muy pronto.</p>
-      </div>
-    )
-  }
 
   return (
     <>
-    <AssistantDomainsPanel assistantId={assistantId} />
-    <div className="grid lg:grid-cols-2 gap-8">
+    <AssistantDomainsPanel assistantId={assistantId} planLimits={planLimits} effectivePlanStatus={effectivePlanStatus} />
+    <div className="grid lg:grid-cols-2 gap-8 mb-8">
       {/* Instructions Side */}
       <div className="space-y-6">
-        <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8">
-          <div className="w-16 h-16 bg-brand-cyan/10 border border-brand-cyan/20 rounded-2xl flex items-center justify-center mb-6">
-            <Globe className="w-8 h-8 text-brand-cyan" />
+        <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 h-full flex flex-col">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-16 h-16 bg-brand-cyan/10 border border-brand-cyan/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+              <Globe className="w-8 h-8 text-brand-cyan" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">Instalar Web Chat</h2>
+              <p className="text-text-soft text-sm">Copia este script y pégalo justo antes de la etiqueta <code>&lt;/body&gt;</code> de tu web.</p>
+            </div>
           </div>
-          <h2 className="text-2xl font-bold mb-2 text-white">Instalar Web Chat</h2>
-          <p className="text-text-soft mb-6">Copia este script y pégalo justo antes de la etiqueta <code>&lt;/body&gt;</code> del HTML de tu sitio web.</p>
           
-          <div className="relative group mb-6">
-            <pre className="bg-[#050816] border border-white/10 p-5 rounded-2xl text-sm text-text-soft overflow-x-auto whitespace-pre-wrap font-mono">
+          <div className="relative group mb-6 flex-1">
+            <pre className="bg-[#050816] border border-white/10 p-5 rounded-2xl text-sm text-text-soft overflow-x-auto whitespace-pre-wrap font-mono h-full">
               {snippet}
             </pre>
             <button
@@ -92,22 +64,22 @@ export function AssistantInstallation({
             </button>
           </div>
 
-          <div className="p-4 rounded-xl bg-brand-violet/10 border border-brand-violet/20 text-brand-violet text-sm">
-            <strong>Importante:</strong> Los mensajes enviados desde el widget cuentan dentro del límite mensual de tu plan.
-          </div>
-
-          <div className="mt-8 space-y-4">
-            <h3 className="font-semibold text-white">Pasos de instalación</h3>
-            <ol className="space-y-3 text-sm text-text-soft list-decimal list-inside marker:text-brand-cyan">
-              <li>Copia el script de arriba.</li>
-              <li>Entra al editor o código fuente de tu sitio web.</li>
-              <li>Pega el script justo antes del cierre de <code>&lt;/body&gt;</code>.</li>
-              <li>Publica los cambios en tu sitio.</li>
-              <li>Abre tu página web y verás el botón flotante del chat.</li>
-            </ol>
-            <p className="text-xs text-text-secondary mt-4 p-3 bg-white/[0.02] rounded-lg">
-              Si usas <strong>WordPress</strong>, puedes pegarlo fácilmente usando un plugin de scripts (Header and Footer Scripts) o directamente en el archivo <code>footer.php</code> de tu tema activo.
-            </p>
+          <div className="mt-4 space-y-4">
+            <h3 className="font-semibold text-white">Instrucciones rápidas</h3>
+            <div className="grid gap-3">
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                <span className="text-brand-cyan text-xs font-bold uppercase tracking-wider block mb-1">HTML</span>
+                <p className="text-sm text-slate-300">Pega el script justo antes de la etiqueta <code>&lt;/body&gt;</code>.</p>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                <span className="text-brand-violet text-xs font-bold uppercase tracking-wider block mb-1">WordPress</span>
+                <p className="text-sm text-slate-300">Agrega el script en un plugin de headers/footers o en el tema, antes de <code>&lt;/body&gt;</code>.</p>
+              </div>
+              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                <span className="text-emerald-500 text-xs font-bold uppercase tracking-wider block mb-1">Shopify</span>
+                <p className="text-sm text-slate-300">Agrega el script en <code>theme.liquid</code> justo antes de <code>&lt;/body&gt;</code>.</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -161,6 +133,40 @@ export function AssistantInstallation({
             </div>
           </div>
         </div>
+      </div>
+    </div>
+    
+    <div className="grid md:grid-cols-2 gap-6">
+      {/* Telegram Upcoming */}
+      <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 opacity-60 pointer-events-none flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-brand-violet/10 flex items-center justify-center">
+            <Send className="w-6 h-6 text-brand-violet" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-white text-lg">Telegram</h3>
+            <p className="text-sm text-slate-400">Canal planeado para conectar con bots.</p>
+          </div>
+        </div>
+        <span className="px-3 py-1 bg-brand-violet/10 border border-brand-violet/20 rounded-full text-xs font-bold text-brand-violet shrink-0">
+          PRÓXIMAMENTE
+        </span>
+      </div>
+
+      {/* WhatsApp Upcoming */}
+      <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 opacity-60 pointer-events-none flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <MessageCircle className="w-6 h-6 text-emerald-500" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-white text-lg">WhatsApp</h3>
+            <p className="text-sm text-slate-400">Canal planeado para atención móvil.</p>
+          </div>
+        </div>
+        <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-bold text-emerald-500 shrink-0">
+          PRÓXIMAMENTE
+        </span>
       </div>
     </div>
     </>

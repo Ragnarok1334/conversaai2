@@ -127,9 +127,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-    if (!businessInfo.trim() && !businessName.trim()) {
+    const instructionsLength = businessInfo.trim().length;
+    const hasValidBlock = knowledgeBlocks?.some((b: any) => b.is_active && b.content?.trim().length >= 80);
+    if (instructionsLength < 80 && !hasValidBlock) {
       return NextResponse.json(
-        { error: 'Agrega información de tu negocio para crear el asistente.' },
+        { error: 'Agrega información mínima del negocio para entrenar el asistente.' },
         { status: 400 }
       )
     }

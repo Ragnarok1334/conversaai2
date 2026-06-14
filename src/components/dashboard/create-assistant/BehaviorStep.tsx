@@ -6,9 +6,77 @@ import {
   Users, HelpCircle, ShoppingBag, Calendar, HeadphonesIcon,
   Gauge, ChevronDown, ChevronUp, Info,
   UserCheck, Phone, Clock, GitMerge,
-  DollarSign, Ban, Globe, CheckCircle2
+  DollarSign, Ban, Globe, CheckCircle2, Activity
 } from 'lucide-react'
 import { BuilderFormData } from './types'
+import { useState } from 'react'
+
+export function calculateIndicators(behavior: BuilderFormData['behavior']) {
+  const { goal, rules, salesLevel, tone } = behavior
+
+  // Captura de leads
+  let leadsScore = 0
+  if (goal === 'captar leads') leadsScore += 2
+  if (rules.askName) leadsScore += 1
+  if (rules.askContact) leadsScore += 2
+  if (rules.suggestAppointment) leadsScore += 1
+  if (salesLevel === 'Alto') leadsScore += 1
+
+  let leadsIndicator = 'Baja'
+  if (leadsScore >= 4) leadsIndicator = 'Alta'
+  else if (leadsScore >= 2) leadsIndicator = 'Media'
+
+  // Control de respuesta
+  let controlScore = 0
+  if (rules.doNotInvent) controlScore += 2
+  if (rules.escalateIfUnknown) controlScore += 1
+  if (rules.alwaysSpanish) controlScore += 1
+  if (!rules.offerPricesWhenAsked) controlScore += 1
+
+  let controlIndicator = 'Flexible'
+  if (controlScore >= 4) controlIndicator = 'Estricto'
+  else if (controlScore >= 2) controlIndicator = 'Controlado'
+
+  // Fricción
+  let frictionScore = 0
+  if (rules.askName) frictionScore += 1
+  if (rules.askContact) frictionScore += 2
+  if (rules.suggestAppointment) frictionScore += 1
+  if (salesLevel === 'Alto') frictionScore += 1
+
+  let frictionIndicator = 'Baja'
+  if (frictionScore >= 4) frictionIndicator = 'Alta'
+  else if (frictionScore >= 2) frictionIndicator = 'Media'
+
+  // Estilo Comercial
+  let styleScore = 0
+  if (salesLevel === 'Alto') styleScore += 2
+  else if (salesLevel === 'Medio') styleScore += 1
+  if (tone === 'vendedor') styleScore += 1
+  if (goal === 'vender productos' || goal === 'captar leads') styleScore += 1
+
+  let styleIndicator = 'Informativo'
+  if (styleScore >= 3) styleIndicator = 'Proactivo'
+  else if (styleScore >= 1) styleIndicator = 'Equilibrado'
+
+  return { leadsIndicator, controlIndicator, frictionIndicator, styleIndicator }
+}
+
+export function getRecommendation(inds: ReturnType<typeof calculateIndicators>) {
+  if (inds.leadsIndicator === 'Alta' && inds.frictionIndicator === 'Alta') {
+    return 'Esta configuración es agresiva para captar leads. Úsala si tu prioridad es conseguir datos de contacto rápidamente.'
+  }
+  if (inds.controlIndicator === 'Estricto') {
+    return 'Configuración segura: el asistente evitará inventar información y derivará cuando no tenga contexto.'
+  }
+  if (inds.frictionIndicator === 'Baja') {
+    return 'Configuración suave: ideal para atención informativa, pero puede capturar menos datos.'
+  }
+  if (inds.styleIndicator === 'Proactivo') {
+    return 'El asistente guiará al visitante hacia la siguiente acción con más frecuencia.'
+  }
+  return 'Configuración equilibrada, adecuada para la mayoría de los casos de uso.'
+}
 
 interface Props {
   form: BuilderFormData
@@ -31,6 +99,7 @@ interface RuleToggleProps {
   onChange: (v: boolean) => void
   label: string
   description: string
+  impact: string
   icon: React.ReactNode
 }
 
@@ -69,7 +138,7 @@ function OptionCard({ selected, onClick, icon, title, description, color }: Opti
 
 // ─── Rule Toggle ─────────────────────────────────────────────────────────────
 
-function RuleToggle({ checked, onChange, label, description, icon }: RuleToggleProps) {
+function RuleToggle({ checked, onChange, label, description, impact, icon }: RuleToggleProps) {
   const isChecked = Boolean(checked)
   return (
     <div
@@ -88,6 +157,7 @@ function RuleToggle({ checked, onChange, label, description, icon }: RuleToggleP
           {label}
         </p>
         <p className="text-[11px] text-slate-500 leading-snug">{description}</p>
+        <p className="text-[10px] text-slate-400 font-medium leading-snug mt-1.5">{impact}</p>
       </div>
       <div
         className={`mt-0.5 shrink-0 w-9 h-5 rounded-full border transition-all relative ${
@@ -126,6 +196,29 @@ const SALES_OPTIONS = [
   { value: 'Alto', title: 'Alto', description: 'Busca captar datos y cerrar la siguiente acción.', icon: <Gauge className="w-4 h-4" />, color: 'text-green-400' },
 ]
 
+const PRESETS = [
+  {
+    id: 'segura',
+    title: 'Atención segura',
+    behavior: { tone: 'profesional', goal: 'responder faq', salesLevel: 'Bajo', rules: { askName: false, askContact: false, suggestAppointment: false, escalateIfUnknown: true, doNotInvent: true, alwaysSpanish: true, offerPricesWhenAsked: true } }
+  },
+  {
+    id: 'equilibrada',
+    title: 'Captación equilibrada',
+    behavior: { tone: 'cercano', goal: 'captar leads', salesLevel: 'Medio', rules: { askName: true, askContact: true, suggestAppointment: false, escalateIfUnknown: true, doNotInvent: true, alwaysSpanish: true, offerPricesWhenAsked: true } }
+  },
+  {
+    id: 'proactiva',
+    title: 'Ventas proactivas',
+    behavior: { tone: 'vendedor', goal: 'vender productos', salesLevel: 'Alto', rules: { askName: true, askContact: true, suggestAppointment: true, escalateIfUnknown: true, doNotInvent: true, alwaysSpanish: true, offerPricesWhenAsked: true } }
+  },
+  {
+    id: 'conservador',
+    title: 'Soporte conservador',
+    behavior: { tone: 'profesional', goal: 'dar soporte', salesLevel: 'Bajo', rules: { askName: false, askContact: false, suggestAppointment: false, escalateIfUnknown: true, doNotInvent: true, alwaysSpanish: true, offerPricesWhenAsked: false } }
+  }
+]
+
 // ─── Behavior Summary ─────────────────────────────────────────────────────────
 
 function buildBehaviorSummary(form: BuilderFormData): string {
@@ -162,11 +255,15 @@ function buildBehaviorSummary(form: BuilderFormData): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function BehaviorStep({ form, setForm }: Props) {
+  const [appliedPreset, setAppliedPreset] = useState<string | null>(null)
+
   const updateBehavior = (key: keyof BuilderFormData['behavior'], val: string) => {
+    setAppliedPreset(null)
     setForm({ ...form, behavior: { ...form.behavior, [key]: val } })
   }
 
   const updateRule = (ruleKey: keyof BuilderFormData['behavior']['rules'], val: boolean) => {
+    setAppliedPreset(null)
     setForm({
       ...form,
       behavior: {
@@ -176,8 +273,41 @@ export function BehaviorStep({ form, setForm }: Props) {
     })
   }
 
+  const applyPreset = (preset: typeof PRESETS[0]) => {
+    setAppliedPreset(preset.id)
+    setForm({
+      ...form,
+      behavior: {
+        ...form.behavior,
+        ...preset.behavior
+      }
+    })
+  }
+
   const rules = form.behavior?.rules ?? {}
   const summary = buildBehaviorSummary(form)
+  const inds = calculateIndicators(form.behavior)
+  const recommendation = getRecommendation(inds)
+
+  const previewText = () => {
+    let text = 'Hola, puedo ayudarte con lo que necesites.'
+    if (rules.askName && rules.askContact) {
+      text += ' Para orientarte mejor y darte seguimiento, ¿me compartes tu nombre y contacto?'
+    } else if (rules.askName) {
+      text += ' Para orientarte mejor, ¿me compartes tu nombre?'
+    } else if (rules.askContact) {
+      text += ' También puedo tomar tu teléfono o correo para que el equipo te dé seguimiento.'
+    }
+    
+    if (rules.suggestAppointment) {
+      text += ' Si prefieres, podemos agendar una cita.'
+    }
+
+    if (rules.doNotInvent && rules.escalateIfUnknown) {
+      text += ' Si no tengo esa información, te lo diré y te ofreceré contacto con un asesor humano.'
+    }
+    return text
+  }
 
   return (
     <motion.div
@@ -193,6 +323,34 @@ export function BehaviorStep({ form, setForm }: Props) {
         </div>
 
         <div className="space-y-8">
+          {/* ── Configuraciones Rápidas (Presets) ────────────────────── */}
+          <section>
+            <div className="mb-3">
+              <label className="text-sm font-semibold text-slate-200 block mb-0.5">Configuraciones rápidas</label>
+              <p className="text-xs text-slate-500">Elige un perfil recomendado o ajusta las reglas manualmente abajo.</p>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {PRESETS.map(preset => (
+                <button
+                  key={preset.id}
+                  onClick={() => applyPreset(preset)}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    appliedPreset === preset.id 
+                      ? 'bg-brand-violet/10 border-brand-violet/50 shadow-[0_0_15px_rgba(139,92,246,0.15)]' 
+                      : 'bg-white/[0.02] border-white/[0.08] hover:bg-white/[0.05] hover:border-white/20'
+                  }`}
+                >
+                  <p className={`text-sm font-semibold mb-1 ${appliedPreset === preset.id ? 'text-brand-purple' : 'text-slate-300'}`}>{preset.title}</p>
+                  {appliedPreset === preset.id && (
+                    <span className="text-[9px] uppercase tracking-wider font-bold bg-brand-violet text-white px-1.5 py-0.5 rounded flex items-center gap-1 w-max">
+                      <CheckCircle2 className="w-3 h-3" /> Preset aplicado
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* ── Tono ─────────────────────────────────────────────────────── */}
           <section>
             <div className="flex items-center gap-2 mb-3">
@@ -272,28 +430,32 @@ export function BehaviorStep({ form, setForm }: Props) {
                     checked={Boolean(rules.askName)}
                     onChange={(v) => updateRule('askName', v)}
                     label="Pedir nombre del cliente"
-                    description="Personaliza el trato y facilita el seguimiento."
+                    description="Personaliza la conversación y ayuda a identificar al visitante."
+                    impact="Impacto: Mejora seguimiento · Aumenta fricción"
                     icon={<UserCheck className="w-4 h-4" />}
                   />
                   <RuleToggle
                     checked={Boolean(rules.askContact)}
                     onChange={(v) => updateRule('askContact', v)}
                     label="Pedir teléfono o correo"
-                    description="Útil para convertir conversaciones en leads."
+                    description="Convierte conversaciones en leads para seguimiento comercial."
+                    impact="Impacto: Más leads · Mayor fricción"
                     icon={<Phone className="w-4 h-4" />}
                   />
                   <RuleToggle
                     checked={Boolean(rules.suggestAppointment)}
                     onChange={(v) => updateRule('suggestAppointment', v)}
                     label="Sugerir agendar una cita"
-                    description="Propone el siguiente paso cuando detecta interés."
+                    description="Propone una siguiente acción cuando detecta interés."
+                    impact="Impacto: Más conversión · Mayor fricción"
                     icon={<Clock className="w-4 h-4" />}
                   />
                   <RuleToggle
                     checked={Boolean(rules.escalateIfUnknown)}
                     onChange={(v) => updateRule('escalateIfUnknown', v)}
                     label="Derivar a humano si no sabe"
-                    description="Evita respuestas vacías derivando al equipo."
+                    description="Evita respuestas vacías y ofrece contacto humano cuando falte información."
+                    impact="Impacto: Más control · Mejor soporte"
                     icon={<GitMerge className="w-4 h-4" />}
                   />
                 </div>
@@ -307,21 +469,24 @@ export function BehaviorStep({ form, setForm }: Props) {
                     checked={Boolean(rules.offerPricesWhenAsked)}
                     onChange={(v) => updateRule('offerPricesWhenAsked', v)}
                     label="Ofrecer precios cuando pregunten"
-                    description="Responde con precios si están en el entrenamiento."
+                    description="Responde con precios solo si existen en el entrenamiento."
+                    impact="Impacto: Mejor respuesta comercial"
                     icon={<DollarSign className="w-4 h-4" />}
                   />
                   <RuleToggle
                     checked={Boolean(rules.doNotInvent)}
                     onChange={(v) => updateRule('doNotInvent', v)}
                     label="No inventar información"
-                    description="Si no encuentra datos, lo reconoce y pide más contexto."
+                    description="Evita respuestas falsas cuando no hay datos suficientes."
+                    impact="Impacto: Más seguridad · Menos riesgo"
                     icon={<Ban className="w-4 h-4" />}
                   />
                   <RuleToggle
                     checked={Boolean(rules.alwaysSpanish)}
                     onChange={(v) => updateRule('alwaysSpanish', v)}
                     label="Responder siempre en español"
-                    description="Mantiene todas las respuestas en español."
+                    description="Mantiene el idioma de atención consistente."
+                    impact="Impacto: Control de idioma"
                     icon={<Globe className="w-4 h-4" />}
                   />
                 </div>
@@ -329,15 +494,61 @@ export function BehaviorStep({ form, setForm }: Props) {
             </div>
           </section>
 
-          {/* ── Resumen del Comportamiento ───────────────────────────────── */}
-          <section className="bg-gradient-to-br from-brand-violet/5 to-brand-cyan/5 border border-brand-violet/20 rounded-2xl p-4">
-            <div className="flex items-start gap-2.5">
-              <Info className="w-4 h-4 text-brand-violet mt-0.5 shrink-0" />
-              <div>
-                <p className="text-xs font-semibold text-slate-300 mb-1">Resumen del comportamiento</p>
-                <p className="text-sm text-slate-300 leading-relaxed">{summary}</p>
+          {/* ── Vista Previa Dinámica ─────────────────────────────────────── */}
+          <section className="bg-black/30 border border-white/5 rounded-2xl p-5">
+            <h3 className="text-sm font-semibold text-white flex items-center justify-between mb-3">
+              Así cambiará la respuesta
+              <span className="text-[10px] font-medium text-amber-500/80 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                Simulación local · No consume mensajes
+              </span>
+            </h3>
+            <div className="bg-brand-violet/10 border border-brand-violet/20 rounded-2xl px-4 py-3 rounded-tl-sm self-start max-w-[85%] text-sm text-slate-300 relative">
+              <span className="text-[10px] absolute -top-4 text-slate-500 font-bold tracking-wider">EJEMPLO</span>
+              {previewText()}
+            </div>
+          </section>
+
+          {/* ── Panel de Impacto del Comportamiento ───────────────────────── */}
+          <section className="bg-card-bg/80 backdrop-blur-md border border-white/10 rounded-2xl p-5">
+            <div className="mb-4">
+              <h3 className="text-base font-semibold text-white mb-1 flex items-center gap-2"><Activity className="w-4 h-4 text-brand-cyan" /> Impacto del comportamiento</h3>
+              <p className="text-xs text-slate-400">Estos indicadores cambian según el tono, objetivo, nivel comercial y reglas activas.</p>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="p-3 bg-white/5 rounded-xl border border-white/[0.05]">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Captación de leads</p>
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm font-semibold ${inds.leadsIndicator === 'Alta' ? 'text-brand-success' : inds.leadsIndicator === 'Media' ? 'text-amber-400' : 'text-slate-400'}`}>{inds.leadsIndicator}</span>
+                </div>
+              </div>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/[0.05]">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Control de respuesta</p>
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm font-semibold ${inds.controlIndicator === 'Estricto' ? 'text-brand-violet' : inds.controlIndicator === 'Controlado' ? 'text-brand-cyan' : 'text-slate-400'}`}>{inds.controlIndicator}</span>
+                </div>
+              </div>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/[0.05]">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Fricción para visitante</p>
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm font-semibold ${inds.frictionIndicator === 'Alta' ? 'text-brand-pink' : inds.frictionIndicator === 'Media' ? 'text-amber-400' : 'text-slate-400'}`}>{inds.frictionIndicator}</span>
+                </div>
+              </div>
+              <div className="p-3 bg-white/5 rounded-xl border border-white/[0.05]">
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Estilo comercial</p>
+                <div className="flex items-center justify-between">
+                  <span className={`text-sm font-semibold ${inds.styleIndicator === 'Proactivo' ? 'text-brand-success' : inds.styleIndicator === 'Equilibrado' ? 'text-brand-cyan' : 'text-slate-400'}`}>{inds.styleIndicator}</span>
+                </div>
               </div>
             </div>
+
+            <div className="p-3 rounded-lg bg-brand-cyan/5 border border-brand-cyan/20">
+              <p className="text-xs text-brand-cyan font-medium flex items-center gap-2">
+                <Info className="w-4 h-4 shrink-0" />
+                {recommendation}
+              </p>
+            </div>
+            <p className="text-[10px] text-slate-500 text-center mt-3">Las reglas no consumen mensajes adicionales. Solo se debita 1 mensaje por cada respuesta real.</p>
           </section>
         </div>
       </div>

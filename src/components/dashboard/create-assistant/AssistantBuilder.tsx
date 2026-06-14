@@ -67,7 +67,7 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
       const hasLegacyContent = form.instructions.trim().length >= 80
       const hasBlockContent = form.knowledgeBlocks?.some(b => b.is_active && b.content.trim().length >= 80)
       if (!hasLegacyContent && !hasBlockContent) {
-        errors.knowledge = 'Debes agregar al menos un bloque con 80 caracteres de información o usar la IA para generarlo.'
+        errors.knowledge = 'Agrega al menos una sección de conocimiento con información real del negocio para que el asistente pueda responder correctamente.'
         isValid = false
       }
     }
@@ -106,13 +106,14 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
+      const data = await res.json()
       if (!res.ok) {
-        const data = await res.json()
         throw new Error(data.error || 'Error al guardar')
       }
       setStatus('success')
       clearDraft()
-      setTimeout(() => router.push(mode === 'edit' ? `/dashboard/assistants/${assistantId}` : '/dashboard/assistants'), 1200)
+      const newId = data.assistant?.id || assistantId
+      setTimeout(() => router.push(mode === 'edit' ? `/dashboard/assistants/${assistantId}` : `/dashboard/assistants/${newId}?tab=install`), 1200)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error al guardar el asistente')
       setStatus('error')
