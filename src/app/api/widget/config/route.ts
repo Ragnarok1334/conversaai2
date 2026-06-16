@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
       businessName: assistant.business_name || '',
       welcomeMessage: assistant.welcome_message || '',
       status: 'online',
+      widgetConfig: assistant.widget_config || {}
     }, { headers: corsHeaders })
 
   } catch (error) {

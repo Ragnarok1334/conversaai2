@@ -5,10 +5,11 @@ import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
 import { AssistantInstallation } from '@/components/dashboard/AssistantInstallation'
 import { getPlanLimits, normalizePlan } from '@/lib/plans'
 import { calculateAssistantHealth } from '@/lib/assistant/assistant-health'
-import { Bot, Globe, MessageCircle, Send, Calendar, CheckCircle2, XCircle, ArrowLeft, Pencil, Settings, Play, Info, Activity, Users, Plug, Target, ShieldAlert, Sparkles, Lock } from 'lucide-react'
+import { Bot, Globe, MessageCircle, Send, Calendar, CheckCircle2, XCircle, ArrowLeft, Pencil, Settings, Play, Info, Activity, Users, Plug, Target, ShieldAlert, Sparkles, Lock, Palette } from 'lucide-react'
 import Link from 'next/link'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { AssistantBuilder } from '@/components/dashboard/create-assistant/AssistantBuilder'
+import { AssistantCustomization } from '@/components/dashboard/AssistantCustomization'
 
 const channelLabel: Record<string, string> = { webchat: 'Web Chat', telegram: 'Telegram', whatsapp: 'WhatsApp' }
 const channelIcon: Record<string, React.ReactNode> = {
@@ -126,10 +127,11 @@ export default async function AssistantDetailPage({
   }
 
   const tabs = [
-    { id: 'overview', label: 'Resumen', icon: <Info className="w-4 h-4" /> },
-    { id: 'test', label: 'Prueba', icon: <Play className="w-4 h-4" /> },
-    { id: 'install', label: 'Instalación', icon: <Globe className="w-4 h-4" /> },
-    { id: 'settings', label: 'Configuración', icon: <Settings className="w-4 h-4" /> },
+    { id: 'overview', label: 'General', icon: <Info className="w-4 h-4" /> },
+    { id: 'edit', label: 'Configuración', icon: <Settings className="w-4 h-4" /> },
+    { id: 'appearance', label: 'Apariencia', icon: <Palette className="w-4 h-4" /> },
+    { id: 'install', label: 'Instalación', icon: <Plug className="w-4 h-4" /> },
+    { id: 'test', label: 'Playground', icon: <Play className="w-4 h-4" /> },
   ]
 
   const formatDate = (dateStr: string) => {
@@ -423,6 +425,30 @@ export default async function AssistantDetailPage({
             planLimit={planLimits.assistants}
             currentPlan={sub ? normalizePlan(sub.plan) : 'free'}
           />
+        )
+      )}
+
+      {/* TAB CONTENT: APPEARANCE */}
+      {tab === 'appearance' && (
+        !canEdit ? (
+          <div className="max-w-3xl bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 text-center mx-auto">
+            <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <Lock className="w-8 h-8 text-amber-500" />
+            </div>
+            <h2 className="text-xl font-bold mb-2">Edición bloqueada</h2>
+            <p className="text-slate-400 mb-6">Tu plan actual no te permite modificar la apariencia. Mejora tu plan para continuar.</p>
+            <Link href="/dashboard/billing" className="gradient-btn px-6 py-3 rounded-xl font-semibold text-white inline-block">
+              Ver planes
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <AssistantCustomization 
+              assistantId={assistant.id}
+              initialConfig={assistant.widget_config || {}}
+              currentPlan={sub ? normalizePlan(sub.plan) : 'free'}
+            />
+          </div>
         )
       )}
 

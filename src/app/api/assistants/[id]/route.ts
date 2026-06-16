@@ -87,6 +87,19 @@ export async function PATCH(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
+    // Get user's plan for feature limits
+    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
+    const supabaseAdmin = createSupabaseAdmin()
+    const { data: sub } = await supabaseAdmin.from('subscriptions').select('plan').eq('user_id', user.id).single()
+    const { normalizePlan } = await import('@/lib/plans')
+    const currentPlan = sub ? normalizePlan(sub.plan) : 'free'
+    
+    const isPro = currentPlan === 'pro'
+    const isGrowthOrAbove = currentPlan === 'growth' || currentPlan === 'business' || currentPlan === 'enterprise'
+    const canUseQuickQuestions = isPro || isGrowthOrAbove
+    const canUseThemeAndSecondary = isGrowthOrAbove
+    const canUseSubtitle = isPro || isGrowthOrAbove
+
     const body = await request.json()
 
     // Whitelist allowed fields
@@ -94,7 +107,8 @@ export async function PATCH(
       'assistant_name', 'name', 'business_name', 'business_type',
       'instructions', 'behavior', 'channel', 'tone',
       'objective', 'main_goal', 'fallback_message', 'welcome_message',
-      'status', 'knowledge_blocks', 'faqs', 'services', 'schedule', 'language'
+      'status', 'knowledge_blocks', 'faqs', 'services', 'schedule', 'language',
+      'widget_config'
     ]
 
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
@@ -147,6 +161,46 @@ export async function PATCH(
               if (block.content.length > 5000) return NextResponse.json({ error: 'Contenido de bloque excede 5000 caracteres.' }, { status: 400 })
             }
           }
+        }
+
+        // Validation for widget_config
+        if (key === 'widget_config') {
+          if (typeof val !== 'object' || Array.isArray(val) || val === null) {
+            return NextResponse.json({ error: 'Formato inválido en widget_config.' }, { status: 400 })
+          }
+          
+          const cleanConfig: Record<string, any> = {}
+          const sanitizeText = (txt: any) => typeof txt === 'string' ? txt.replace(/[<>]/g, '').trim() : ''
+          const isValidHex = (hex: any) => typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(hex)
+
+          if (val.displayName) cleanConfig.displayName = sanitizeText(val.displayName).slice(0, 60)
+          if (val.welcomeMessage) cleanConfig.welcomeMessage = sanitizeText(val.welcomeMessage).slice(0, 240)
+          
+          if (canUseSubtitle && val.subtitle) cleanConfig.subtitle = sanitizeText(val.subtitle).slice(0, 90)
+          if (canUseSubtitle && val.launcherText) cleanConfig.launcherText = sanitizeText(val.launcherText).slice(0, 40)
+          
+          if (isValidHex(val.primaryColor)) cleanConfig.primaryColor = val.primaryColor
+          if (canUseThemeAndSecondary && isValidHex(val.secondaryColor)) cleanConfig.secondaryColor = val.secondaryColor
+          
+          if (canUseThemeAndSecondary && val.theme && ['modern', 'minimal', 'premium'].includes(val.theme)) {
+            cleanConfig.theme = val.theme
+          } else {
+            cleanConfig.theme = 'modern'
+          }
+
+          if (val.position && ['bottom-right', 'bottom-left'].includes(val.position)) {
+            cleanConfig.position = val.position
+          }
+
+          if (canUseQuickQuestions && Array.isArray(val.quickQuestions)) {
+            cleanConfig.quickQuestions = val.quickQuestions
+              .map(sanitizeText)
+              .filter((q: string) => q.length > 0)
+              .slice(0, 4)
+              .map((q: string) => q.slice(0, 80))
+          }
+
+          val = cleanConfig
         }
 
         updates[key] = val
