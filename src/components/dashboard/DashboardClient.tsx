@@ -119,17 +119,27 @@ export function DashboardClient({ initialData, userId }: Props) {
       const res = await fetch('/api/dashboard', { cache: 'no-store' })
       const contentType = res.headers.get("content-type") || ""
 
+      if (!res.ok) {
+        if (!contentType.includes("application/json")) {
+          const text = await res.text()
+          if (process.env.NODE_ENV === 'development') {
+            console.error("[dashboard] Expected JSON, received HTML:", text.slice(0, 300))
+          }
+          throw new Error("No pudimos actualizar el dashboard en este momento.")
+        }
+        const json = await res.json()
+        throw new Error(json?.error || "Error cargando datos")
+      }
+
       if (!contentType.includes("application/json")) {
         const text = await res.text()
-        console.error("[dashboard] Expected JSON, received:", text.slice(0, 300))
-        throw new Error("No se pudo actualizar el dashboard. Formato incorrecto.")
+        if (process.env.NODE_ENV === 'development') {
+          console.error("[dashboard] Expected JSON, received HTML on success:", text.slice(0, 300))
+        }
+        throw new Error("No pudimos actualizar el dashboard en este momento.")
       }
 
       const json = await res.json()
-
-      if (!res.ok) {
-        throw new Error(json?.error || "Error cargando datos")
-      }
 
       if (isMounted.current) {
         setData(json)

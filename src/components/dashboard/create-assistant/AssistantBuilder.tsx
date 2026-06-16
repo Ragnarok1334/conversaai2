@@ -34,6 +34,7 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
   const [isTestingReal, setIsTestingReal] = useState(false)
   const [showClearModal, setShowClearModal] = useState(false)
   const [showMobilePreview, setShowMobilePreview] = useState(false)
+  const [optimisticUsage, setOptimisticUsage] = useState(currentUsage)
   
   // Validation State
   const [stepErrors, setStepErrors] = useState<Record<string, string>>({})
@@ -90,30 +91,60 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
     setErrorMsg('')
     
     const payload = {
-      ...form,
-      channel: form.behavior.initialChannel,
-      tone: form.behavior.tone,
-      main_goal: form.behavior.goal,
+      assistant_name: form.assistant_name,
+      business_name: form.business_name,
+      business_type: form.business_type,
+      language: form.language,
+      instructions: form.instructions,
+      faqs: form.faqs,
+      services: form.services,
+      schedule: form.schedule,
+      fallback_message: form.fallback_message,
+      behavior: {
+        initialChannel: form.behavior.initialChannel,
+        tone: form.behavior.tone,
+        goal: form.behavior.goal,
+        salesLevel: form.behavior.salesLevel,
+        responseStyle: form.behavior.responseStyle,
+        rules: form.behavior.rules,
+      },
       knowledge_blocks: form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim()) || null
     }
 
-    try {
-      const url = mode === 'edit' ? `/api/assistants/${assistantId}` : '/api/assistants'
-      const method = mode === 'edit' ? 'PATCH' : 'POST'
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[create assistant] payload keys', Object.keys(payload))
+    }
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al guardar')
+    try {
+      if (mode === 'edit') {
+        if (!assistantId) {
+          throw new Error('No se encontró el asistente para editar.')
+        }
+        const res = await fetch(`/api/assistants/${assistantId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(data?.details || data?.error || 'Error al guardar')
+        
+        setStatus('success')
+        clearDraft()
+        setTimeout(() => router.push(`/dashboard/assistants/${assistantId}`), 1200)
+      } else {
+        const res = await fetch('/api/assistants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        })
+        const data = await res.json().catch(() => null)
+        if (!res.ok) throw new Error(data?.details || data?.error || 'Error al crear')
+        
+        setStatus('success')
+        setOptimisticUsage(prev => prev + 1)
+        clearDraft()
+        setTimeout(() => router.push(`/dashboard/assistants/${data?.assistant?.id}?tab=install`), 1200)
       }
-      setStatus('success')
-      clearDraft()
-      const newId = data.assistant?.id || assistantId
-      setTimeout(() => router.push(mode === 'edit' ? `/dashboard/assistants/${assistantId}` : `/dashboard/assistants/${newId}?tab=install`), 1200)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error al guardar el asistente')
       setStatus('error')
@@ -172,7 +203,7 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
               Plan <span className="capitalize text-brand-cyan">{currentPlan}</span>
             </span>
             <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-slate-300">
-              {currentUsage} / {planLimit === null ? 'Ilimitado' : planLimit} asistentes
+              {optimisticUsage} / {planLimit === null ? 'Ilimitado' : planLimit} asistentes
             </span>
             {savedAt && (
               <span className="px-3 py-1 rounded-full bg-brand-violet/10 border border-brand-violet/20 text-xs font-medium text-brand-violet flex items-center gap-1.5">
@@ -210,7 +241,7 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
               form={form} 
               mode={mode}
               hasReachedLimit={mode === 'create' ? hasReachedLimit : false}
-              currentUsage={currentUsage}
+              currentUsage={optimisticUsage}
               planLimit={planLimit}
               currentPlan={currentPlan}
               status={status}

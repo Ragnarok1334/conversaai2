@@ -116,22 +116,45 @@ export async function POST(request: NextRequest) {
 
     // Knowledge blocks
     const rawBlocks = body.knowledge_blocks || body.knowledgeBlocks
-    const knowledgeBlocks = Array.isArray(rawBlocks) ? rawBlocks : null
+    let finalKnowledgeBlocks = null
+    if (rawBlocks && Array.isArray(rawBlocks)) {
+      const validBlocks = rawBlocks
+        .filter((b: any) => b && typeof b === 'object' && b.is_active !== false && b.enabled !== false && typeof b.content === 'string' && b.content.trim().length > 0)
+        .map((b: any) => ({
+          id: b.id || crypto.randomUUID(),
+          type: b.type || 'general',
+          title: b.title || 'Información',
+          content: b.content,
+          is_active: true,
+          sort_order: b.sort_order || 0
+        }))
+      if (validBlocks.length > 0) {
+        finalKnowledgeBlocks = validBlocks
+      }
+    }
 
     // Canales del nuevo objeto channels
     const channels = body.channels ?? {}
 
+    const validTones = ['amigable', 'profesional', 'vendedor', 'cercano', 'directo']
+    if (!validTones.includes(tone)) {
+      return NextResponse.json(
+        { success: false, error: 'El tono seleccionado no es válido.' },
+        { status: 400 }
+      )
+    }
+
     if (!name.trim()) {
       return NextResponse.json(
-        { error: 'El nombre del asistente es obligatorio.' },
+        { success: false, error: 'El nombre del asistente es obligatorio.' },
         { status: 400 }
       )
     }
     const instructionsLength = businessInfo.trim().length;
-    const hasValidBlock = knowledgeBlocks?.some((b: any) => b.is_active && b.content?.trim().length >= 80);
+    const hasValidBlock = finalKnowledgeBlocks !== null;
     if (instructionsLength < 80 && !hasValidBlock) {
       return NextResponse.json(
-        { error: 'Agrega información mínima del negocio para entrenar el asistente.' },
+        { success: false, error: 'Agrega información mínima del negocio para entrenar el asistente.' },
         { status: 400 }
       )
     }
@@ -160,6 +183,7 @@ export async function POST(request: NextRequest) {
     if (effectiveStatus === 'free' || effectiveStatus === 'expired' || effectiveStatus === 'cancelled') {
       return NextResponse.json(
         { 
+          success: false,
           error: 'No tienes un plan activo. Renueva tu plan o activa tu prueba gratis para crear asistentes.',
           code: 'PLAN_NOT_ACTIVE'
         },
@@ -176,6 +200,7 @@ export async function POST(request: NextRequest) {
     if (!canUseChannel(planKey, channel)) {
       return NextResponse.json(
         {
+          success: false,
           error: `Tu plan actual (${planKey}) no permite el canal: ${channel}. Actualiza tu plan para desbloquearlo.`,
           code: 'CHANNEL_NOT_ALLOWED',
           plan: planKey,
@@ -201,6 +226,7 @@ export async function POST(request: NextRequest) {
     if (assistantsLimit !== null && (count || 0) >= assistantsLimit) {
       return NextResponse.json(
         {
+          success: false,
           error: 'Alcanzaste el límite de asistentes de tu plan actual.',
           code: 'ASSISTANT_LIMIT_REACHED',
           limit: assistantsLimit,
@@ -230,7 +256,7 @@ export async function POST(request: NextRequest) {
       assistant_name: name,
       business_name: businessName || name,
       business_type: body.business_type || body.businessType || null,
-      channel,
+      channel: 'webchat',
       tone,
       main_goal: mainGoal,
       instructions: businessInfo || null,
@@ -244,7 +270,7 @@ export async function POST(request: NextRequest) {
       ...(welcomeMessage ? { welcome_message: welcomeMessage } : {}),
       ...(businessInfo ? { business_info: businessInfo } : {}),
       ...(schedule ? { business_hours: schedule } : {}),
-      ...(knowledgeBlocks ? { knowledge_blocks: knowledgeBlocks } : {}),
+      ...(finalKnowledgeBlocks ? { knowledge_blocks: finalKnowledgeBlocks } : {}),
     }
 
     // Payload mínimo solo con columnas base (fallback si las extendidas no existen)
@@ -252,18 +278,12 @@ export async function POST(request: NextRequest) {
       user_id: user.id,
       assistant_name: name,
       business_name: businessName || name,
-      business_type: body.business_type || body.businessType || null,
-      channel,
+      channel: 'webchat',
       tone,
       main_goal: mainGoal,
       instructions: businessInfo || null,
-      faqs,
-      services,
-      schedule,
-      fallback_message: fallbackMessage,
       language,
-      status: 'active',
-      ...(knowledgeBlocks ? { knowledge_blocks: knowledgeBlocks } : {}),
+      status: 'active'
     }
 
     if (process.env.NODE_ENV === 'development') {
@@ -305,14 +325,29 @@ export async function POST(request: NextRequest) {
     }
 
     if (assistantError || !assistant) {
-      console.error('[POST /api/assistants] assistantError final:', assistantError)
+      console.error('[api/assistants][POST] Supabase insert error:', {
+        message: assistantError?.message,
+        details: assistantError?.details,
+        hint: assistantError?.hint,
+        code: assistantError?.code
+      })
+
+      if (assistantError?.code === '23514' && assistantError?.message?.includes('assistants_tone_check')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'El tono seleccionado no está permitido por la base de datos. Actualiza la configuración de tonos.',
+            details: process.env.NODE_ENV === 'development' ? assistantError?.message : undefined,
+          },
+          { status: 500 } // Or 400 if user wants, but user didn't specify code for this one, actually "devolver error claro"
+        )
+      }
+
       return NextResponse.json(
         {
+          success: false,
           error: 'No se pudo crear el asistente.',
-          details:
-            process.env.NODE_ENV === 'development'
-              ? assistantError?.message ?? 'Error desconocido'
-              : undefined,
+          details: process.env.NODE_ENV === 'development' ? assistantError?.message : undefined,
         },
         { status: 500 }
       )
@@ -322,35 +357,23 @@ export async function POST(request: NextRequest) {
     // Si la tabla no existe todavía, el error se captura de forma segura
     // y no impide que el asistente se cree exitosamente.
     try {
-      const telegramToken =
-        channels?.telegram?.token ||
-        channels?.telegram?.telegram_token ||
-        body.telegramToken ||
-        ''
-
-      // Reglas de habilitación por canal:
-      // - webchat: true por defecto si el usuario lo activó en el formulario
-      // - telegram: true SOLO si hay token válido (no vacío)
-      // - whatsapp: siempre false hasta implementación real
-      const telegramTokenTrimmed = telegramToken.trim()
+      const telegramToken = ''
+      const telegramTokenTrimmed = ''
 
       const channelsPayload = [
         {
           assistant_id: assistant.id,
           user_id: user.id,
           channel: 'webchat',
-          is_enabled: channels?.webchat?.enabled ?? true,
+          is_enabled: true,
           config: { status: 'active' },
         },
         {
           assistant_id: assistant.id,
           user_id: user.id,
           channel: 'telegram',
-          // is_enabled true SOLO si hay token — el toggle del formulario no es suficiente
-          is_enabled: Boolean(telegramTokenTrimmed),
-          config: telegramTokenTrimmed
-            ? { telegram_token: telegramTokenTrimmed, status: 'pending_connection' }
-            : { status: 'not_configured' },
+          is_enabled: false,
+          config: { status: 'coming_soon' },
         },
         {
           assistant_id: assistant.id,
@@ -403,15 +426,13 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
-    const err = error as Error
-    console.error('[POST /api/assistants] error completo:', err)
+    const err = error as any
+    console.error('[api/assistants][POST] Error creating assistant:', err)
     return NextResponse.json(
       {
+        success: false,
         error: 'Error al crear asistente',
-        details:
-          process.env.NODE_ENV === 'development'
-            ? err?.message ?? String(err)
-            : undefined,
+        details: process.env.NODE_ENV === 'development' ? String(err?.message || err) : undefined,
       },
       { status: 500 }
     )

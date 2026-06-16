@@ -228,9 +228,9 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
         {/* Actions */}
         <div className="mt-auto space-y-2">
           {health.baseState === 'Falta instalación' ? (
-            <button onClick={() => setShowInstall(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-violet/10 border border-brand-violet/20 text-brand-violet text-sm font-semibold hover:bg-brand-violet/20 transition-all">
+            <Link href={`/dashboard/assistants/${assistant.id}?tab=install`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-violet/10 border border-brand-violet/20 text-brand-violet text-sm font-semibold hover:bg-brand-violet/20 transition-all">
               <Plug className="w-4 h-4" /> Instalar Web Chat
-            </button>
+            </Link>
           ) : health.baseState === 'Necesita entrenamiento' ? (
             <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm font-semibold hover:bg-amber-500/20 transition-all">
               <Pencil className="w-4 h-4" /> Mejorar entrenamiento
@@ -256,9 +256,9 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
             <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-xs font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
               <Users className="w-3.5 h-3.5" /> Leads
             </Link>
-            <button onClick={() => setShowInstall(true)} className="px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-cyan hover:bg-brand-cyan/10 hover:border-brand-cyan/20 transition-colors" title="Canales">
+            <Link href={`/dashboard/assistants/${assistant.id}?tab=install`} className="px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-cyan hover:bg-brand-cyan/10 hover:border-brand-cyan/20 transition-colors" title="Instalar Web Chat">
               <Globe className="w-3.5 h-3.5" />
-            </button>
+            </Link>
             <button onClick={() => setShowDelete(true)} className="px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-pink hover:bg-brand-pink/10 hover:border-brand-pink/20 transition-colors" title="Eliminar">
               <Trash2 className="w-3.5 h-3.5" />
             </button>

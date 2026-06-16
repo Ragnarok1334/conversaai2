@@ -46,8 +46,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { data: verify } = await supabase.from('leads').select('id').eq('id', id).single()
     if (!verify) return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 })
 
-    // Update using admin because frontend cannot UPDATE directly based on our new max security RLS
     const supabaseAdmin = createSupabaseAdmin()
+
+    // Validate plan access
+    const [subRes, profileRes] = await Promise.all([
+      supabaseAdmin.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
+      supabaseAdmin.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
+    ])
+    const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
+    const effectiveStatus = getEffectiveSubscriptionStatus(subRes.data, profileRes.data)
+    
+    if (['free', 'expired', 'cancelled'].includes(effectiveStatus)) {
+      return NextResponse.json({ error: 'Plan inválido para editar leads' }, { status: 403 })
+    }
+
+    // Update using admin because frontend cannot UPDATE directly based on our new max security RLS
     const updates: Record<string, any> = {}
     
     if (status !== undefined) updates.status = status

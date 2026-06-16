@@ -62,6 +62,11 @@ export async function GET() {
       supabase.from('audit_logs').select('id, action, details, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
     ])
 
+    // Log errors from queries explicitly to avoid silent failures
+    if (assistantDomainsResult.error) console.error('[GET /api/dashboard] assistantDomains error:', assistantDomainsResult.error)
+    if (recentAssistantsResult.error) console.error('[GET /api/dashboard] recentAssistants error:', recentAssistantsResult.error)
+    if (assistantsResult.error) console.error('[GET /api/dashboard] assistants error:', assistantsResult.error)
+
     const subscription = subscriptionResult.data || {
       id: 'fallback',
       user_id: user.id,

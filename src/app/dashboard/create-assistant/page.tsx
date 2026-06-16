@@ -6,6 +6,7 @@ import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-statu
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
 
+// Force cache invalidation
 export default async function CreateAssistantPage() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -92,6 +93,7 @@ export default async function CreateAssistantPage() {
   return (
     <div className="w-full h-full p-4 lg:p-8">
       <AssistantBuilder 
+        mode="create"
         userId={user.id}
         hasReachedLimit={hasReachedLimit} 
         currentUsage={currentUsage} 

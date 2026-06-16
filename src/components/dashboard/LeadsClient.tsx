@@ -18,7 +18,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   discarded: { label: 'Descartado', color: 'text-brand-pink bg-brand-pink/10 border-brand-pink/20' },
 }
 
-export default function LeadsClient({ user, assistants, currentPlan }: { user: any, assistants: any[], currentPlan: string }) {
+export default function LeadsClient({ user, assistants, currentPlan, effectiveStatus }: { user: any, assistants: any[], currentPlan: string, effectiveStatus: string }) {
   const supabase = createClient()
   
   const [leads, setLeads] = useState<any[]>([])
@@ -32,6 +32,9 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
   const [statusFilter, setStatusFilter] = useState('all')
   const [dateFilter, setDateFilter] = useState('all')
   const [assistantFilter, setAssistantFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(true)
+  const limit = 25
 
   const [notesEditing, setNotesEditing] = useState(false)
   const [notesValue, setNotesValue] = useState('')
@@ -42,13 +45,29 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
     setTimeout(() => setToastMsg(''), 3000)
   }
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (pageNum = 1, append = false) => {
     try {
-      setLoading(true)
-      const res = await fetch(`/api/leads?limit=200`, { cache: 'no-store' })
+      const query = new URLSearchParams({
+        limit: limit.toString(),
+        page: pageNum.toString()
+      })
+      if (statusFilter !== 'all') query.append('status', statusFilter)
+      if (assistantFilter !== 'all') query.append('assistantId', assistantFilter)
+      if (dateFilter !== 'all') query.append('dateFilter', dateFilter)
+      if (search) query.append('search', search)
+
+      const res = await fetch(`/api/leads?${query.toString()}`, { cache: 'no-store' })
       const data = await res.json()
       if (data.leads) {
-        setLeads(data.leads)
+        if (append) {
+          setLeads(prev => {
+            const newLeads = data.leads.filter((l: any) => !prev.some(p => p.id === l.id))
+            return [...prev, ...newLeads]
+          })
+        } else {
+          setLeads(data.leads)
+        }
+        setHasMore(data.leads.length === limit)
         setStats(data.stats || {})
       }
     } catch (error) {
@@ -58,8 +77,23 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
     }
   }
 
+  const loadMore = () => {
+    const nextPage = page + 1
+    setPage(nextPage)
+    fetchLeads(nextPage, true)
+  }
+
   useEffect(() => {
-    fetchLeads()
+    if (!['free', 'expired', 'cancelled'].includes(effectiveStatus)) {
+      setPage(1)
+      fetchLeads(1, false)
+    } else {
+      setLoading(false)
+    }
+  }, [search, statusFilter, dateFilter, assistantFilter, effectiveStatus])
+
+  useEffect(() => {
+    if (['free', 'expired', 'cancelled'].includes(effectiveStatus)) return
 
     const channel = supabase.channel(`realtime-leads-${user.id}`)
 
@@ -153,9 +187,9 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
     }
   }
 
-  // Filtrado
+  // Filtrado local básico para inmediatez, paginación es por servidor
   const filteredLeads = leads.filter(l => {
-    const matchesSearch = (l.name?.toLowerCase().includes(search.toLowerCase()) || 
+    const matchesSearch = (!search || l.name?.toLowerCase().includes(search.toLowerCase()) || 
                            l.email?.toLowerCase().includes(search.toLowerCase()) ||
                            l.phone?.toLowerCase().includes(search.toLowerCase()))
     const matchesStatus = statusFilter === 'all' || l.status === statusFilter
@@ -174,7 +208,7 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
       }
     }
 
-    return (!search || matchesSearch) && matchesStatus && matchesAssistant && matchesDate
+    return matchesSearch && matchesStatus && matchesAssistant && matchesDate
   })
 
   // Auto-selección
@@ -251,14 +285,45 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
         )}
       </div>
 
-      {leads.length === 0 && !search ? (
+      {effectiveStatus === 'free' ? (
+        <div className="flex-1 bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 lg:p-12 shadow-[0_0_50px_rgba(6,182,212,0.05)] flex items-center justify-center flex-col overflow-y-auto custom-scrollbar">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-cyan/20 to-brand-blue/20 border border-brand-cyan/30 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(6,182,212,0.2)] shrink-0">
+            <Users className="w-10 h-10 text-brand-cyan" />
+          </div>
+          <h2 className="text-2xl font-bold mb-3">Activa tu prueba para organizar tus leads</h2>
+          <p className="text-text-secondary mb-6 max-w-md text-center">
+            Cuando actives tu prueba o elijas un plan, podrás recibir mensajes desde el Web Chat, ver conversaciones y organizar leads como un mini CRM.
+          </p>
+          <div className="flex gap-4">
+            <Link href="/dashboard/billing" className="px-6 py-2.5 rounded-xl bg-brand-cyan hover:bg-brand-cyan/90 text-white font-medium transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)]">
+              Activar prueba gratis
+            </Link>
+            <Link href="/precios" className="px-6 py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] text-white border border-white/[0.05] font-medium transition-colors">
+              Ver planes
+            </Link>
+          </div>
+        </div>
+      ) : effectiveStatus === 'expired' || effectiveStatus === 'cancelled' ? (
+        <div className="flex-1 bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 lg:p-12 shadow-[0_0_50px_rgba(236,72,153,0.05)] flex items-center justify-center flex-col overflow-y-auto custom-scrollbar">
+          <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-pink/20 to-brand-pink/10 border border-brand-pink/30 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(236,72,153,0.2)] shrink-0">
+            <Users className="w-10 h-10 text-brand-pink" />
+          </div>
+          <h2 className="text-2xl font-bold mb-3">Tu acceso a leads está pausado</h2>
+          <p className="text-text-secondary mb-6 max-w-md text-center">
+            Reactiva tu plan para seguir recibiendo y gestionando leads de forma profesional.
+          </p>
+          <Link href="/precios" className="px-6 py-2.5 rounded-xl bg-brand-pink hover:bg-brand-pink/90 text-white font-medium transition-all shadow-[0_0_20px_rgba(236,72,153,0.3)] hover:shadow-[0_0_30px_rgba(236,72,153,0.5)]">
+            Ver planes
+          </Link>
+        </div>
+      ) : leads.length === 0 && !search ? (
         <div className="flex-1 bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 lg:p-12 shadow-[0_0_50px_rgba(6,182,212,0.05)] flex items-center justify-center flex-col overflow-y-auto custom-scrollbar">
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-cyan/20 to-brand-blue/20 border border-brand-cyan/30 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(6,182,212,0.2)] shrink-0">
             <Users className="w-10 h-10 text-brand-cyan" />
           </div>
           <h2 className="text-2xl font-bold mb-3">Aún no tienes leads captados</h2>
           <p className="text-text-secondary mb-2 max-w-md text-center">
-            Los leads aparecerán cuando tus asistentes detecten nombre, correo, teléfono o intención de compra durante una conversación.
+            Los leads aparecerán cuando tus asistentes detecten nombre, correo o teléfono durante una conversación.
           </p>
           <div className="mt-6">
             <ChannelConnectActions assistants={assistants} currentPlan={currentPlan} />
@@ -346,7 +411,7 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
                           <div className="min-w-0">
                             <p className="font-semibold text-sm truncate text-white">{lead.name || 'Sin nombre'}</p>
                             <p className="text-xs text-text-soft truncate mt-0.5 flex items-center gap-1.5">
-                              {lead.email ? <><Mail className="w-3 h-3"/> {lead.email}</> : lead.phone ? <><Phone className="w-3 h-3"/> {lead.phone}</> : 'Sin datos de contacto'}
+                              {lead.email ? <><Mail className="w-3 h-3"/> {lead.email}</> : lead.phone ? <><Phone className="w-3 h-3"/> {lead.phone}</> : 'Sin contacto'}
                             </p>
                           </div>
                         </div>
@@ -375,6 +440,16 @@ export default function LeadsClient({ user, assistants, currentPlan }: { user: a
                 <div className="py-12 text-center flex flex-col items-center justify-center">
                   <Search className="w-8 h-8 text-white/10 mb-3" />
                   <p className="text-sm text-text-soft">No se encontraron leads con estos filtros.</p>
+                </div>
+              )}
+              {hasMore && filteredLeads.length > 0 && (
+                <div className="pt-2 pb-4 flex justify-center">
+                  <button 
+                    onClick={loadMore}
+                    className="px-4 py-2 text-xs font-medium text-text-soft hover:text-white bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] rounded-xl transition-colors"
+                  >
+                    Cargar más
+                  </button>
                 </div>
               )}
             </div>

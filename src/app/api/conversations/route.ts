@@ -13,7 +13,9 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '50', 10)
+    const limit = parseInt(searchParams.get('limit') || '25', 10)
+    const page = parseInt(searchParams.get('page') || '1', 10)
+    const offset = (page - 1) * limit
     
     // Filtros opcionales
     const status = searchParams.get('status')
@@ -21,12 +23,27 @@ export async function GET(request: Request) {
     const assistantId = searchParams.get('assistantId')
     const search = searchParams.get('search')
 
+    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
+    const supabaseAdmin = createSupabaseAdmin()
+
+    // Validate plan access
+    const [subRes, profileRes] = await Promise.all([
+      supabaseAdmin.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
+      supabaseAdmin.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
+    ])
+    const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
+    const effectiveStatus = getEffectiveSubscriptionStatus(subRes.data, profileRes.data)
+    
+    if (['free', 'expired', 'cancelled'].includes(effectiveStatus)) {
+      return NextResponse.json({ error: 'Plan inválido para ver conversaciones' }, { status: 403 })
+    }
+
     let query = supabase
       .from('conversations')
       .select('*, assistant:assistants(assistant_name, business_name), lead:leads(id)', { count: 'exact' })
       .eq('user_id', user.id)
       .order('last_message_at', { ascending: false })
-      .limit(limit)
+      .range(offset, offset + limit - 1)
 
     if (status && status !== 'all') query = query.eq('status', status)
     if (channel && channel !== 'all') query = query.eq('channel', channel)

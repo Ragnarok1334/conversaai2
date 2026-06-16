@@ -1,9 +1,28 @@
 'use client'
 
-import { useState } from 'react'
-import { Copy, CheckCircle2, Globe, Send, MessageCircle } from 'lucide-react'
-
+import { useState, useEffect } from 'react'
+import {
+  Copy, CheckCircle2, Globe, Send, MessageCircle, Clock,
+  ChevronRight, AlertCircle, Info, Plug, ArrowRight
+} from 'lucide-react'
 import { AssistantDomainsPanel } from './AssistantDomainsPanel'
+
+interface Domain {
+  id: string
+  domain: string
+  is_verified: boolean
+  verification_status: string
+  last_seen_at: string | null
+}
+
+type Platform = 'html' | 'wordpress' | 'shopify' | 'builder'
+
+const PLATFORMS: { id: Platform; label: string; color: string }[] = [
+  { id: 'html',      label: 'HTML / CSS',   color: 'text-brand-cyan' },
+  { id: 'wordpress', label: 'WordPress',    color: 'text-brand-violet' },
+  { id: 'shopify',   label: 'Shopify',      color: 'text-emerald-400' },
+  { id: 'builder',   label: 'Constructor',  color: 'text-amber-400' },
+]
 
 export function AssistantInstallation({
   assistantId,
@@ -15,160 +34,339 @@ export function AssistantInstallation({
   effectivePlanStatus: string
 }) {
   const [copied, setCopied] = useState(false)
+  const [toastMsg, setToastMsg] = useState('')
+  const [platform, setPlatform] = useState<Platform>('html')
+  const [domains, setDomains] = useState<Domain[]>([])
+  const [loadingDomains, setLoadingDomains] = useState(true)
 
-  // Determine BASE URL
-  // If we are in the browser, window.location.origin works
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+  useEffect(() => {
+    fetch(`/api/assistants/${assistantId}/domains`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then((data: Domain[]) => { setDomains(data || []); setLoadingDomains(false) })
+      .catch(() => setLoadingDomains(false))
+  }, [assistantId])
 
-  const snippet = `<script
-  src="${origin}/widget.js"
-  data-assistant-id="${assistantId}"
-  async
-></script>`
+  const hasDomain = domains.length > 0
+  const hasDetected = domains.some(d => d.last_seen_at !== null && d.is_verified)
+
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.conversaai.com'
+  const snippet = `<script\n  src="${origin}/widget.js"\n  data-assistant-id="${assistantId}"\n  async\n></script>`
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg)
+    setTimeout(() => setToastMsg(''), 3000)
+  }
 
   const handleCopy = () => {
     navigator.clipboard.writeText(snippet)
     setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    showToast('Script copiado correctamente.')
+    setTimeout(() => setCopied(false), 2500)
   }
 
+  type StepStatus = 'done' | 'pending' | 'recommended'
 
+  const steps: { num: number; title: string; desc: string; status: StepStatus }[] = [
+    {
+      num: 1,
+      title: 'Autoriza tu dominio',
+      desc: 'Agrega el dominio donde estará instalado el asistente.',
+      status: hasDomain ? 'done' : 'pending',
+    },
+    {
+      num: 2,
+      title: 'Copia el script',
+      desc: 'Usa el script único de este asistente.',
+      status: 'done',
+    },
+    {
+      num: 3,
+      title: 'Pégalo antes de </body>',
+      desc: 'Agrega el código antes de cerrar la etiqueta body de tu sitio.',
+      status: hasDomain ? 'recommended' : 'pending',
+    },
+    {
+      num: 4,
+      title: 'Verifica la instalación',
+      desc: 'Cuando tu página cargue el Web Chat, ConversaAI lo detectará.',
+      status: hasDetected ? 'done' : hasDomain ? 'recommended' : 'pending',
+    },
+  ]
+
+  const stepColors: Record<StepStatus, { ring: string; bg: string; text: string; badge: string; badgeText: string }> = {
+    done:        { ring: 'border-brand-success/40', bg: 'bg-brand-success/10', text: 'text-brand-success', badge: 'bg-brand-success/20 text-brand-success border-brand-success/30', badgeText: 'Listo' },
+    recommended: { ring: 'border-brand-cyan/30',   bg: 'bg-brand-cyan/10',    text: 'text-brand-cyan',    badge: 'bg-brand-cyan/20 text-brand-cyan border-brand-cyan/30',         badgeText: 'Siguiente' },
+    pending:     { ring: 'border-white/10',         bg: 'bg-white/[0.03]',     text: 'text-slate-400',     badge: 'bg-white/10 text-slate-400 border-white/20',                    badgeText: 'Pendiente' },
+  }
+
+  const platformGuide: Record<Platform, { steps: string[]; note?: string }> = {
+    html: {
+      steps: [
+        'Abre el archivo HTML principal de tu sitio (index.html o similar).',
+        'Busca la etiqueta de cierre </body> al final del archivo.',
+        'Pega el script justo antes de esa etiqueta.',
+        'Guarda y sube el archivo a tu servidor.',
+      ],
+    },
+    wordpress: {
+      steps: [
+        'Instala un plugin como "Insert Headers and Footers" o "WPCode".',
+        'En el plugin, busca la sección "Footer scripts" o "Antes de </body>".',
+        'Pega el script y guarda los cambios.',
+        'Alternativamente, edita el archivo footer.php de tu tema activo antes de </body>.',
+      ],
+      note: 'Si usas un constructor visual (Elementor, Divi, etc.), busca una opción llamada "Custom Code", "Header/Footer Scripts" o "Código personalizado".',
+    },
+    shopify: {
+      steps: [
+        'En tu panel de Shopify, ve a Tienda en línea → Temas.',
+        'Haz clic en "Editar código" del tema activo.',
+        'En el panel izquierdo, abre el archivo theme.liquid.',
+        'Busca la etiqueta </body> y pega el script justo antes.',
+        'Guarda los cambios con el botón "Guardar".',
+      ],
+    },
+    builder: {
+      steps: [
+        'Abre la configuración de tu constructor (Wix, Webflow, Hostinger, Framer, etc.).',
+        'Busca una opción llamada "Código personalizado", "Scripts" o "Integrations".',
+        'Selecciona que el código se inyecte en el "Footer" o "antes de </body>".',
+        'Pega el script y publica los cambios.',
+      ],
+      note: 'Cada constructor tiene su forma de agregar scripts. Si no encuentras la opción, busca en la documentación: "custom code footer".',
+    },
+  }
+
+  const guide = platformGuide[platform]
 
   return (
-    <>
-    <AssistantDomainsPanel assistantId={assistantId} planLimits={planLimits} effectivePlanStatus={effectivePlanStatus} />
-    <div className="grid lg:grid-cols-2 gap-8 mb-8">
-      {/* Instructions Side */}
-      <div className="space-y-6">
-        <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 h-full flex flex-col">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 bg-brand-cyan/10 border border-brand-cyan/20 rounded-2xl flex items-center justify-center flex-shrink-0">
-              <Globe className="w-8 h-8 text-brand-cyan" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">Instalar Web Chat</h2>
-              <p className="text-text-soft text-sm">Copia este script y pégalo justo antes de la etiqueta <code>&lt;/body&gt;</code> de tu web.</p>
-            </div>
+    <div className="space-y-8">
+
+      {toastMsg && (
+        <div className="fixed top-24 right-8 bg-brand-success/20 border border-brand-success text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center gap-2 animate-in fade-in slide-in-from-top-5">
+          <CheckCircle2 className="w-4 h-4 text-brand-success shrink-0" />
+          <span className="text-sm font-medium">{toastMsg}</span>
+        </div>
+      )}
+
+      <div>
+        <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+          <Plug className="w-6 h-6 text-brand-cyan" />
+          Instala tu asistente en tu sitio web
+        </h2>
+        <p className="text-slate-400 mt-2 max-w-2xl">
+          Copia el script, autoriza tu dominio y agrega el Web Chat a tu página para empezar a recibir conversaciones.
+        </p>
+        <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
+          <Info className="w-3.5 h-3.5 shrink-0" />
+          El Web Chat es el único canal disponible actualmente. Telegram y WhatsApp estarán disponibles próximamente.
+        </p>
+      </div>
+
+      <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-6 md:p-8">
+        <h3 className="text-base font-semibold text-white mb-5 flex items-center gap-2">
+          <ChevronRight className="w-4 h-4 text-brand-cyan" />
+          Pasos para instalar el Web Chat
+        </h3>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {steps.map(step => {
+            const c = stepColors[step.status]
+            return (
+              <div
+                key={step.num}
+                className={`relative p-4 rounded-2xl border ${c.ring} ${c.bg} flex flex-col gap-3 transition-all`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className={`w-7 h-7 rounded-full border ${c.ring} flex items-center justify-center text-xs font-bold ${c.text}`}>
+                    {step.status === 'done' ? <CheckCircle2 className="w-4 h-4" /> : step.num}
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-semibold ${c.badge}`}>
+                    {c.badgeText}
+                  </span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white leading-snug">{step.title}</p>
+                  <p className="text-xs text-slate-400 mt-1 leading-relaxed">{step.desc}</p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+
+        <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-6 md:p-8 flex flex-col gap-5">
+          <div>
+            <h3 className="text-base font-semibold text-white mb-1">Script de instalación</h3>
+            <p className="text-sm text-slate-400">
+              Copia este código y pégalo en tu sitio web antes de la etiqueta{' '}
+              <code className="text-brand-cyan bg-brand-cyan/10 px-1 py-0.5 rounded text-xs">&lt;/body&gt;</code>.
+            </p>
           </div>
-          
-          <div className="relative group mb-6 flex-1">
-            <pre className="bg-[#050816] border border-white/10 p-5 rounded-2xl text-sm text-text-soft overflow-x-auto whitespace-pre-wrap font-mono h-full">
-              {snippet}
+
+          <div className="relative">
+            <pre className="bg-[#050816] border border-white/10 rounded-2xl p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed whitespace-pre-wrap">
+{snippet}
             </pre>
             <button
               onClick={handleCopy}
-              className="absolute top-4 right-4 p-2 rounded-xl bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.1] transition-all text-white flex items-center gap-2 text-xs font-semibold"
+              className="absolute top-3 right-3 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/[0.07] hover:bg-white/[0.12] border border-white/[0.1] transition-all text-xs font-semibold text-white"
             >
-              {copied ? <CheckCircle2 className="w-4 h-4 text-brand-success" /> : <Copy className="w-4 h-4" />}
-              {copied ? 'Copiado' : 'Copiar script'}
+              {copied ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-brand-success" />
+                  Copiado
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copiar script
+                </>
+              )}
             </button>
           </div>
 
-          <div className="mt-4 space-y-4">
-            <h3 className="font-semibold text-white">Instrucciones rápidas</h3>
-            <div className="grid gap-3">
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <span className="text-brand-cyan text-xs font-bold uppercase tracking-wider block mb-1">HTML</span>
-                <p className="text-sm text-slate-300">Pega el script justo antes de la etiqueta <code>&lt;/body&gt;</code>.</p>
-              </div>
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <span className="text-brand-violet text-xs font-bold uppercase tracking-wider block mb-1">WordPress</span>
-                <p className="text-sm text-slate-300">Agrega el script en un plugin de headers/footers o en el tema, antes de <code>&lt;/body&gt;</code>.</p>
-              </div>
-              <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
-                <span className="text-emerald-500 text-xs font-bold uppercase tracking-wider block mb-1">Shopify</span>
-                <p className="text-sm text-slate-300">Agrega el script en <code>theme.liquid</code> justo antes de <code>&lt;/body&gt;</code>.</p>
-              </div>
-            </div>
+          <div className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-xl">
+            <p className="text-xs text-slate-400 flex items-start gap-2">
+              <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-slate-500" />
+              Ver conversaciones anteriores no consume mensajes. Cada respuesta real del asistente consume 1 mensaje del plan.
+            </p>
           </div>
+        </div>
+
+        <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-6 md:p-8 flex flex-col gap-5">
+          <div>
+            <h3 className="text-base font-semibold text-white mb-1">¿Dónde pego el script?</h3>
+            <p className="text-sm text-slate-400">Elige tu plataforma y sigue las instrucciones básicas.</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {PLATFORMS.map(p => (
+              <button
+                key={p.id}
+                onClick={() => setPlatform(p.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                  platform === p.id
+                    ? `${p.color} bg-white/[0.07] border-white/20`
+                    : 'text-slate-400 bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.05] hover:text-white'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex-1 space-y-3">
+            {guide.steps.map((s, i) => (
+              <div key={i} className="flex gap-3 items-start">
+                <div className="w-5 h-5 rounded-full bg-white/[0.07] border border-white/[0.1] flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-[10px] font-bold text-slate-400">{i + 1}</span>
+                </div>
+                <p className="text-sm text-slate-300 leading-relaxed">{s}</p>
+              </div>
+            ))}
+          </div>
+
+          {guide.note && (
+            <div className="p-3 bg-amber-400/5 border border-amber-400/20 rounded-xl">
+              <p className="text-xs text-amber-300 leading-relaxed flex items-start gap-2">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                {guide.note}
+              </p>
+            </div>
+          )}
+
+          {platform === 'html' && (
+            <div>
+              <p className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Ejemplo visual:</p>
+              <pre className="bg-[#050816] border border-white/[0.07] rounded-xl p-4 text-xs font-mono text-slate-400 overflow-x-auto whitespace-pre">{`<body>\n  <!-- Tu contenido -->\n\n  <!-- Script ConversaAI -->\n  <script\n    src="${origin}/widget.js"\n    data-assistant-id="${assistantId}"\n    async\n  ></script>\n</body>`}</pre>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Preview Side */}
+      <AssistantDomainsPanel
+        assistantId={assistantId}
+        planLimits={planLimits}
+        effectivePlanStatus={effectivePlanStatus}
+      />
+
+      {hasDomain && !hasDetected && (
+        <div className="bg-amber-400/5 border border-amber-400/20 rounded-2xl p-5 flex items-start gap-4">
+          <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-amber-300 mb-1">Esperando detección del Web Chat</p>
+            <p className="text-xs text-amber-200/70 leading-relaxed">
+              Todavía no detectamos el Web Chat en tu sitio. Revisa que el script esté pegado antes de{' '}
+              <code className="bg-amber-400/10 px-1 rounded">&lt;/body&gt;</code>, que el dominio autorizado sea correcto y que tu sitio esté publicado y accesible.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {hasDetected && (
+        <div className="bg-brand-success/5 border border-brand-success/20 rounded-2xl p-5 flex items-start gap-4">
+          <CheckCircle2 className="w-5 h-5 text-brand-success shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-brand-success mb-1">¡Web Chat detectado correctamente!</p>
+            <p className="text-xs text-brand-success/70 leading-relaxed">
+              ConversaAI ya detectó el script en tu sitio. Tu asistente está listo para recibir conversaciones.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!hasDomain && !loadingDomains && (
+        <div className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-5 flex items-start gap-4">
+          <AlertCircle className="w-5 h-5 text-slate-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-slate-300 mb-1">Agrega un dominio para comenzar</p>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Sin un dominio autorizado, el Web Chat no se activará aunque tengas el script instalado. Agrega tu dominio en el panel de arriba.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div>
-        <div className="bg-[#050816] border border-card-border rounded-3xl h-[600px] flex items-end justify-end p-8 relative overflow-hidden shadow-inner">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 pointer-events-none" />
-          <div className="absolute top-6 left-6 text-white/20 font-bold text-2xl">
-            Vista previa de tu web
-          </div>
-
-          <div className="relative z-10 flex flex-col items-end gap-4 w-[360px] animate-in slide-in-from-bottom-8 duration-700">
-            {/* Fake Widget Panel */}
-            <div className="w-full bg-[#050816] border border-white/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
-              <div className="bg-gradient-to-r from-brand-violet/10 to-brand-cyan/10 border-b border-white/5 p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-violet to-brand-cyan flex items-center justify-center font-bold text-white shadow-lg">
-                  A
-                </div>
-                <div>
-                  <h4 className="text-white font-bold text-sm">Tu Asistente</h4>
-                  <p className="text-brand-success text-[10px] flex items-center gap-1 font-medium mt-0.5">
-                    <span className="w-1.5 h-1.5 bg-brand-success rounded-full" /> En línea
-                  </p>
-                </div>
+        <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+          <ArrowRight className="w-4 h-4" />
+          Próximos canales
+        </h3>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-5 opacity-60 pointer-events-none flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-[#0088cc]/10 flex items-center justify-center">
+                <Send className="w-5 h-5 text-[#0088cc]" />
               </div>
-              <div className="p-4 bg-[#050816] h-64 flex flex-col justify-end gap-3">
-                <div className="bg-white/5 border border-white/5 text-white/90 p-3 rounded-2xl rounded-bl-sm text-sm self-start max-w-[85%]">
-                  Hola, ¿cómo puedo ayudarte hoy?
-                </div>
-                <div className="bg-gradient-to-br from-brand-violet to-brand-cyan text-white p-3 rounded-2xl rounded-br-sm text-sm self-end max-w-[85%]">
-                  Quisiera más información sobre los servicios.
-                </div>
-                <div className="bg-white/5 border border-white/5 text-white/90 p-3 rounded-2xl rounded-bl-sm text-sm self-start max-w-[85%] flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-pulse" />
-                  <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-pulse delay-75" />
-                  <div className="w-1.5 h-1.5 bg-white/40 rounded-full animate-pulse delay-150" />
-                </div>
-              </div>
-              <div className="p-4 border-t border-white/5 bg-[#080f28]">
-                <div className="bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white/30 flex justify-between items-center">
-                  Escribe un mensaje...
-                  <Send className="w-4 h-4 text-brand-cyan" />
-                </div>
+              <div>
+                <h4 className="font-semibold text-white text-sm">Telegram</h4>
+                <p className="text-xs text-slate-400 mt-0.5">Conecta un bot de Telegram con tu asistente.</p>
               </div>
             </div>
+            <span className="px-2.5 py-1 bg-[#0088cc]/10 border border-[#0088cc]/20 rounded-full text-[10px] font-bold text-[#0088cc] shrink-0">
+              PRÓXIMAMENTE
+            </span>
+          </div>
 
-            {/* Fake Widget Button */}
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-brand-violet to-brand-cyan shadow-lg shadow-brand-violet/20 flex items-center justify-center cursor-pointer hover:scale-105 transition-transform">
-              <MessageCircle className="w-7 h-7 text-white" />
+          <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-5 opacity-60 pointer-events-none flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-white text-sm">WhatsApp</h4>
+                <p className="text-xs text-slate-400 mt-0.5">Atención directa desde WhatsApp Business.</p>
+              </div>
             </div>
+            <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-[10px] font-bold text-emerald-500 shrink-0">
+              PRÓXIMAMENTE
+            </span>
           </div>
         </div>
-      </div>
-    </div>
-    
-    <div className="grid md:grid-cols-2 gap-6">
-      {/* Telegram Upcoming */}
-      <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 opacity-60 pointer-events-none flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-brand-violet/10 flex items-center justify-center">
-            <Send className="w-6 h-6 text-brand-violet" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-white text-lg">Telegram</h3>
-            <p className="text-sm text-slate-400">Canal planeado para conectar con bots.</p>
-          </div>
-        </div>
-        <span className="px-3 py-1 bg-brand-violet/10 border border-brand-violet/20 rounded-full text-xs font-bold text-brand-violet shrink-0">
-          PRÓXIMAMENTE
-        </span>
       </div>
 
-      {/* WhatsApp Upcoming */}
-      <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-6 opacity-60 pointer-events-none flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-            <MessageCircle className="w-6 h-6 text-emerald-500" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-white text-lg">WhatsApp</h3>
-            <p className="text-sm text-slate-400">Canal planeado para atención móvil.</p>
-          </div>
-        </div>
-        <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-bold text-emerald-500 shrink-0">
-          PRÓXIMAMENTE
-        </span>
-      </div>
     </div>
-    </>
   )
 }

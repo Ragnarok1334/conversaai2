@@ -138,6 +138,10 @@ export function ConvertLeadModal({ isOpen, onClose, conversation, onSuccess }: C
                   />
                 </div>
 
+                {(!formData.name && !formData.email && !formData.phone) && (
+                  <p className="text-xs text-brand-pink mt-2">Faltan datos de contacto para crear un lead útil.</p>
+                )}
+
                 <div className="pt-4 flex justify-end gap-3 border-t border-white/[0.05]">
                   <button
                     type="button"

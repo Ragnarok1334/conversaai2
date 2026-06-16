@@ -108,6 +108,12 @@ export async function PATCH(
           if (key === 'channel' && (val === 'telegram' || val === 'whatsapp')) {
              return NextResponse.json({ error: `El canal ${val} no está disponible en este momento.` }, { status: 400 })
           }
+          if (key === 'tone') {
+             const validTones = ['amigable', 'profesional', 'vendedor', 'cercano', 'directo']
+             if (!validTones.includes(val)) {
+                return NextResponse.json({ error: 'El tono seleccionado no es válido.' }, { status: 400 })
+             }
+          }
           if (['assistant_name', 'name', 'business_name', 'channel', 'tone', 'objective'].includes(key) && val.length > 100) {
             return NextResponse.json({ error: `El campo ${key} excede la longitud máxima permitida (100).` }, { status: 400 })
           }
@@ -197,6 +203,16 @@ export async function PATCH(
       .single()
 
     if (error || !data) {
+      if (error?.code === '23514' && error?.message?.includes('assistants_tone_check')) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'El tono seleccionado no está permitido por la base de datos. Actualiza la configuración de tonos.',
+            details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+          },
+          { status: 500 }
+        )
+      }
       await logSecurityEvent({ userId: user.id, eventType: 'assistant_update_forbidden', severity: 'warning', message: `No se pudo actualizar el asistente ${id}. ¿Permisos o inexistente?`, req: request })
       return NextResponse.json({ error: 'No se pudo actualizar' }, { status: 404 })
     }
