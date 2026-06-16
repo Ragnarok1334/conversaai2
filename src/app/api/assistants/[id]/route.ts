@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
+import { revalidatePath } from 'next/cache'
 
 // GET /api/assistants/[id]
 export async function GET(
@@ -219,6 +220,14 @@ export async function PATCH(
 
     await logAuditEvent({ userId: user.id, action: 'assistant_updated', entityType: 'assistant', entityId: id, description: 'Asistente actualizado', metadata: { updates: Object.keys(updates) }, req: request })
 
+    try {
+      revalidatePath('/dashboard')
+      revalidatePath('/dashboard/assistants')
+      revalidatePath(`/dashboard/assistants/${id}`)
+    } catch (e) {
+      console.error('[PATCH /api/assistants/[id]] Failed to revalidate paths:', e)
+    }
+
     return NextResponse.json({ assistant: data })
   } catch (error) {
     console.error('[PATCH /api/assistants/[id]]', error)
@@ -253,6 +262,13 @@ export async function DELETE(
     }
 
     await logAuditEvent({ userId: user.id, action: 'assistant_deleted', entityType: 'assistant', entityId: id, description: 'Asistente eliminado', req: _request })
+
+    try {
+      revalidatePath('/dashboard')
+      revalidatePath('/dashboard/assistants')
+    } catch (e) {
+      console.error('[DELETE /api/assistants/[id]] Failed to revalidate paths:', e)
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {

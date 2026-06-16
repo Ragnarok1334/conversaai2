@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { logAuditEvent } from '@/lib/audit'
+import { revalidatePath } from 'next/cache'
 
 export const dynamic = 'force-dynamic'
 
@@ -417,6 +418,13 @@ export async function POST(request: NextRequest) {
 
     // PASO 8: Respuesta de éxito
     await logAuditEvent({ userId: user.id, action: 'assistant_created', entityType: 'assistant', entityId: assistant.id, description: `Asistente creado: ${assistant.assistant_name}`, req: request })
+
+    try {
+      revalidatePath('/dashboard')
+      revalidatePath('/dashboard/assistants')
+    } catch (e) {
+      console.error('[POST /api/assistants] Failed to revalidate paths:', e)
+    }
 
     return NextResponse.json(
       {

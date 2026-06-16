@@ -330,9 +330,16 @@ export function DashboardClient({ initialData, userId }: Props) {
 
       {/* H. Asistentes Recientes */}
       <DashboardCard className="relative z-0">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-lg font-bold text-white">Asistentes recientes</h2>
-          <Link href="/dashboard/assistants" className="text-xs font-semibold text-brand-cyan hover:text-brand-cyan/80 flex items-center gap-1 transition-colors">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
+          <div>
+            <h2 className="text-lg font-bold text-white">Asistentes recientes</h2>
+            {data.recentAssistants.length > 0 && data.stats.assistantCount > data.recentAssistants.length && (
+              <p className="text-xs text-text-soft font-medium mt-1">
+                Mostrando los últimos {data.recentAssistants.length} de {data.stats.assistantCount} asistentes
+              </p>
+            )}
+          </div>
+          <Link href="/dashboard/assistants" className="text-xs font-semibold text-brand-cyan hover:text-brand-cyan/80 flex items-center gap-1 transition-colors self-start sm:self-center">
             Ver todos <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
