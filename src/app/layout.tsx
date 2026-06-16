@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Figtree } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { ConversaAISupportWidget } from "@/components/ConversaAISupportWidget"
 
 const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
 
@@ -45,7 +46,10 @@ export default function RootLayout({
       lang="es"
       className={cn("h-full", "antialiased", geistSans.variable, "font-sans", figtree.variable)}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <ConversaAISupportWidget />
+      </body>
     </html>
   );
 }
