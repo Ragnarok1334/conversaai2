@@ -58,9 +58,10 @@ export default async function AssistantDetailPage({
 
   if (!assistant) notFound()
 
-  const [{ count: convCount }, { count: leadsCount }] = await Promise.all([
+  const [{ count: convCount }, { count: leadsCount }, { count: assistantCount }] = await Promise.all([
     supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('assistant_id', id),
-    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assistant_id', id)
+    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assistant_id', id),
+    supabaseAdmin.from('assistants').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
   ])
 
   const conversationsCount = convCount || 0
@@ -418,7 +419,7 @@ export default async function AssistantDetailPage({
             initialData={initialData}
             userId={user.id}
             hasReachedLimit={false}
-            currentUsage={conversationsCount} // It doesn't use it for limit check in edit mode, so we just pass anything
+            currentUsage={assistantCount || 0}
             planLimit={planLimits.assistants}
             currentPlan={sub ? normalizePlan(sub.plan) : 'free'}
           />

@@ -209,9 +209,23 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
 
         {/* Límite del plan */}
         <div className="pt-6 border-t border-white/[0.06]">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-medium text-slate-300">Uso de tu plan (<span className="capitalize">{currentPlan}</span>)</span>
             <span className="text-sm text-slate-400">{currentUsage} / {planLimit === null ? 'Ilimitado' : planLimit} asistentes</span>
+          </div>
+          <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mb-4">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ease-out ${
+                planLimit === null 
+                  ? 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan' 
+                  : (currentUsage / planLimit) * 100 >= 90 
+                    ? 'bg-brand-pink' 
+                    : (currentUsage / planLimit) * 100 >= 80 
+                      ? 'bg-amber-400' 
+                      : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'
+              }`}
+              style={{ width: planLimit === null ? '100%' : `${Math.min((currentUsage / planLimit) * 100, 100)}%` }}
+            />
           </div>
 
           {hasReachedLimit ? (
