@@ -1,9 +1,15 @@
 (function() {
-  console.log("[ConversaAI Widget] loaded");
+  console.log("[ConversaAI Widget] loading...");
+
+  // Prevent duplicate initialization
+  if (document.getElementById('conversaai-widget-container')) {
+    console.warn('[ConversaAI Widget] Widget is already loaded on this page.');
+    return;
+  }
 
   const scriptTag = document.currentScript;
   if (!scriptTag) {
-    console.error('[ConversaAI Widget] error: Unable to find the current script tag (document.currentScript is null). If using React/Next.js, avoid standard injection and use raw HTML testing.');
+    console.error('[ConversaAI Widget] error: Unable to find the current script tag (document.currentScript is null).');
     return;
   }
 
@@ -13,9 +19,6 @@
     return;
   }
 
-  console.log("[ConversaAI Widget] assistantId:", assistantId);
-
-  // Determine the base URL from the script src
   const src = scriptTag.getAttribute('src');
   const url = new URL(src, window.location.href);
   const baseUrl = url.origin;
@@ -24,13 +27,19 @@
   let isOpen = false;
   let conversationId = localStorage.getItem(`conversaai_conversation_${assistantId}`) || null;
   let visitorId = localStorage.getItem('conversaai_visitor_id');
+  let isChatBlocked = false;
+  let quickQuestionsUsed = false;
   
   if (!visitorId) {
     visitorId = 'vis_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
     localStorage.setItem('conversaai_visitor_id', visitorId);
   }
 
-  // Wait for DOM to be ready
+  // Icons
+  const closeIconSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+  const chatIconSVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 1.821.487 3.53 1.338 5L2 22l5.001-1.339A9.954 9.954 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18c-1.482 0-2.883-.327-4.135-.911l-.296-.138-3.084.825.834-3.003-.153-.3A7.95 7.95 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>`;
+  const sendIconSVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`;
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initWidget);
   } else {
@@ -52,7 +61,6 @@
     const lastPing = sessionStorage.getItem(pingKey);
     const now = Date.now();
     
-    // Solo omitir el ping si fue exitoso en los últimos 5 minutos
     if (lastPing && (now - parseInt(lastPing)) < 300000) {
       return true;
     }
@@ -69,21 +77,17 @@
       });
 
       if (res.status === 403) {
-        // Bloquear carga y mostrar error
-        const messagesEl = document.getElementById('conversaai-messages');
-        if (messagesEl) {
-          messagesEl.innerHTML = `<div class="conversaai-widget-error">Este dominio no está autorizado para usar este asistente.</div>`;
-        }
+        blockChat("Este chat no está autorizado para este dominio.");
         return false;
       }
 
       if (res.ok) {
         sessionStorage.setItem(pingKey, now.toString());
       }
-      return true; // Permitir continuar incluso si hay otros errores de red
+      return true;
     } catch (error) {
       console.warn('[ConversaAI Widget] Ping falló, continuando...', error);
-      return true; // No bloquear si hay error de red
+      return true;
     }
   }
 
@@ -96,7 +100,7 @@
         position: fixed;
         bottom: 24px;
         right: 24px;
-        z-index: 2147483647; /* Maximum z-index */
+        z-index: 2147483647;
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         --cai-primary: #7c3aed;
         --cai-secondary: #06b6d4;
@@ -124,6 +128,30 @@
         box-shadow: 0 4px 12px rgba(0,0,0,0.1);
         display: none;
         white-space: nowrap;
+        position: relative;
+        animation: cai-fade-in 0.3s ease;
+      }
+      .conversaai-widget-container:not(.cai-pos-left) .conversaai-widget-launcher-text::after {
+        content: '';
+        position: absolute;
+        right: -6px;
+        top: 50%;
+        transform: translateY(-50%) rotate(45deg);
+        width: 12px;
+        height: 12px;
+        background: white;
+        border-radius: 2px;
+      }
+      .conversaai-widget-container.cai-pos-left .conversaai-widget-launcher-text::after {
+        content: '';
+        position: absolute;
+        left: -6px;
+        top: 50%;
+        transform: translateY(-50%) rotate(45deg);
+        width: 12px;
+        height: 12px;
+        background: white;
+        border-radius: 2px;
       }
       .conversaai-widget-launcher-text.cai-show {
         display: block;
@@ -139,18 +167,19 @@
         align-items: center;
         justify-content: center;
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-        border: none;
+        border: 2px solid transparent;
         outline: none;
         padding: 0;
       }
       .conversaai-widget-button:hover {
         transform: scale(1.05);
-        box-shadow: 0 6px 16px rgba(124, 58, 237, 0.5);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
       }
       .conversaai-widget-button svg {
         width: 28px;
         height: 28px;
         fill: white;
+        color: white;
         transition: transform 0.3s ease;
       }
       .conversaai-widget-panel {
@@ -188,6 +217,8 @@
           position: fixed;
           bottom: 0;
           right: 0;
+          left: 0;
+          top: 0;
           width: 100vw;
           height: 100vh;
           max-height: 100vh;
@@ -200,18 +231,18 @@
         }
       }
       .conversaai-widget-header {
-        background: linear-gradient(90deg, var(--cai-primary) 0%, var(--cai-secondary) 100%);
-        opacity: 0.95;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         padding: 16px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        background: var(--cai-primary);
+        border-bottom: 1px solid rgba(255,255,255,0.1);
       }
       .conversaai-widget-header-info {
         display: flex;
         align-items: center;
         gap: 12px;
+        overflow: hidden;
       }
       .conversaai-widget-avatar {
         width: 40px;
@@ -232,14 +263,20 @@
         font-weight: 600;
         margin: 0 0 2px 0;
         line-height: 1.2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .conversaai-widget-subtitle {
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(255, 255, 255, 0.8);
         font-size: 12px;
         margin: 0;
         display: flex;
         align-items: center;
         gap: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .conversaai-widget-status-dot {
         width: 6px;
@@ -247,27 +284,26 @@
         background-color: #10b981;
         border-radius: 50%;
         display: inline-block;
+        flex-shrink: 0;
       }
       .conversaai-widget-close {
         background: none;
         border: none;
-        color: rgba(255, 255, 255, 0.5);
+        color: white;
         cursor: pointer;
+        opacity: 0.7;
         padding: 4px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 6px;
-        transition: background-color 0.2s, color 0.2s;
+        transition: opacity 0.2s;
       }
       .conversaai-widget-close:hover {
-        background-color: rgba(255, 255, 255, 0.1);
-        color: white;
+        opacity: 1;
       }
       .conversaai-widget-close svg {
         width: 20px;
         height: 20px;
-        fill: currentColor;
       }
       .conversaai-widget-messages {
         flex: 1;
@@ -276,102 +312,133 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
-        background-color: #050816;
+        background-color: #0A0D1A;
+        scroll-behavior: smooth;
       }
-      .conversaai-widget-messages::-webkit-scrollbar {
-        width: 6px;
-      }
-      .conversaai-widget-messages::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .conversaai-widget-messages::-webkit-scrollbar-thumb {
-        background-color: rgba(255, 255, 255, 0.1);
-        border-radius: 10px;
-      }
-      .conversaai-widget-message {
+      .conversaai-message {
         max-width: 85%;
-        padding: 10px 14px;
+        padding: 12px 16px;
         border-radius: 16px;
         font-size: 14px;
-        line-height: 1.4;
+        line-height: 1.5;
         word-wrap: break-word;
+        animation: cai-fade-in 0.3s ease;
       }
-      .conversaai-widget-message.bot {
+      .conversaai-message.assistant {
         align-self: flex-start;
         background-color: rgba(255, 255, 255, 0.05);
-        color: rgba(255, 255, 255, 0.9);
-        border: 1px solid rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #f1f5f9;
         border-bottom-left-radius: 4px;
       }
-      .conversaai-widget-message.user {
+      .conversaai-message.user {
         align-self: flex-end;
-        background: linear-gradient(135deg, var(--cai-primary), var(--cai-secondary));
+        background-color: var(--cai-primary);
         color: white;
         border-bottom-right-radius: 4px;
       }
-      .conversaai-widget-input-area {
-        padding: 16px;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
-        background-color: #080f28;
-      }
-      .conversaai-widget-form {
+      .conversaai-widget-quick-questions {
         display: flex;
+        flex-direction: column;
         gap: 8px;
         align-items: flex-end;
+        margin-top: 4px;
+        animation: cai-fade-in 0.4s ease;
+      }
+      .conversaai-quick-question-btn {
+        background: rgba(0,0,0,0.4);
+        border: 1px solid rgba(255,255,255,0.2);
+        color: white;
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-align: right;
+        max-width: 90%;
+        backdrop-filter: blur(4px);
+      }
+      .conversaai-quick-question-btn:hover {
+        background: rgba(255,255,255,0.1);
+        border-color: var(--cai-primary);
+      }
+      .conversaai-quick-question-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .conversaai-widget-input-area {
+        padding: 12px;
+        background-color: #050816;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
       }
       .conversaai-widget-input-wrapper {
         flex: 1;
-        background-color: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 8px 12px;
         display: flex;
         align-items: center;
+        background-color: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 4px 4px 4px 12px;
         transition: border-color 0.2s;
       }
       .conversaai-widget-input-wrapper:focus-within {
-        border-color: rgba(124, 58, 237, 0.5);
+        border-color: var(--cai-primary);
       }
       .conversaai-widget-input {
-        width: 100%;
+        flex: 1;
         background: transparent;
         border: none;
         color: white;
         font-size: 14px;
-        font-family: inherit;
         outline: none;
-        resize: none;
-        max-height: 100px;
-        padding: 0;
-        margin: 0;
+        padding: 8px 0;
       }
       .conversaai-widget-input::placeholder {
-        color: rgba(255, 255, 255, 0.3);
+        color: rgba(255, 255, 255, 0.4);
+      }
+      .conversaai-widget-input:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
       }
       .conversaai-widget-send {
-        width: 40px;
-        height: 40px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, var(--cai-primary), var(--cai-secondary));
-        border: none;
+        background-color: var(--cai-primary);
         color: white;
+        border: none;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
-        flex-shrink: 0;
-        transition: opacity 0.2s;
+        margin-left: 8px;
+        transition: transform 0.2s, background-color 0.2s;
+      }
+      .conversaai-widget-send:hover {
+        transform: scale(1.05);
       }
       .conversaai-widget-send:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+        transform: none;
       }
       .conversaai-widget-send svg {
-        width: 18px;
-        height: 18px;
-        fill: currentColor;
+        width: 16px;
+        height: 16px;
       }
-      .conversaai-widget-loading {
+      .conversaai-widget-error-notice {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #fca5a5;
+        padding: 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        text-align: center;
+        margin: 10px;
+      }
+      .conversaai-typing {
         display: flex;
         gap: 4px;
         padding: 12px 16px;
@@ -381,48 +448,22 @@
         align-self: flex-start;
         width: fit-content;
       }
-      .conversaai-widget-dot {
+      .conversaai-dot {
         width: 6px;
         height: 6px;
-        background-color: rgba(255, 255, 255, 0.6);
+        background-color: rgba(255,255,255,0.6);
         border-radius: 50%;
-        animation: conversaai-bounce 1.4s infinite ease-in-out both;
+        animation: cai-bounce 1.4s infinite ease-in-out both;
       }
-      .conversaai-widget-dot:nth-child(1) { animation-delay: -0.32s; }
-      .conversaai-widget-dot:nth-child(2) { animation-delay: -0.16s; }
-      @keyframes conversaai-bounce {
+      .conversaai-dot:nth-child(1) { animation-delay: -0.32s; }
+      .conversaai-dot:nth-child(2) { animation-delay: -0.16s; }
+      @keyframes cai-bounce {
         0%, 80%, 100% { transform: scale(0); }
         40% { transform: scale(1); }
       }
-      .conversaai-widget-error {
-        text-align: center;
-        color: #ec4899;
-        font-size: 12px;
-        padding: 8px;
-      }
-      .conversaai-widget-quick-questions {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        align-items: flex-end;
-        margin-top: 8px;
-        width: 100%;
-      }
-      .conversaai-widget-quick-btn {
-        background: rgba(255,255,255,0.05);
-        border: 1px solid var(--cai-primary);
-        color: var(--cai-primary);
-        padding: 8px 12px;
-        border-radius: 12px;
-        font-size: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-align: right;
-        max-width: 90%;
-      }
-      .conversaai-widget-quick-btn:hover {
-        background: var(--cai-primary);
-        color: white;
+      @keyframes cai-fade-in {
+        from { opacity: 0; transform: translateY(5px); }
+        to { opacity: 1; transform: translateY(0); }
       }
     `;
 
@@ -434,305 +475,406 @@
 
   function buildUI() {
     const container = document.createElement('div');
-    container.className = 'conversaai-widget-container';
     container.id = 'conversaai-widget-container';
-    
-    // Toggle Button Wrapper
-    const btnWrapper = document.createElement('div');
-    btnWrapper.className = 'conversaai-widget-button-wrapper';
+    container.className = 'conversaai-widget-container';
 
-    // Launcher Text
-    const launcherText = document.createElement('div');
-    launcherText.className = 'conversaai-widget-launcher-text';
-    launcherText.id = 'conversaai-launcher-text';
-    
-    // Toggle Button
-    const button = document.createElement('button');
-    button.className = 'conversaai-widget-button';
-    button.setAttribute('aria-label', 'Abrir chat');
-    button.innerHTML = `
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/>
-      </svg>
-    `;
-    button.addEventListener('click', toggleChat);
-
-    btnWrapper.appendChild(launcherText);
-    btnWrapper.appendChild(button);
-
-    // Chat Panel
+    // Panel
     const panel = document.createElement('div');
     panel.className = 'conversaai-widget-panel';
     panel.id = 'conversaai-widget-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'Chat con asistente');
 
-    // Header
     const header = document.createElement('div');
     header.className = 'conversaai-widget-header';
-    header.innerHTML = `
-      <div class="conversaai-widget-header-info">
-        <div class="conversaai-widget-avatar" id="conversaai-avatar">AI</div>
-        <div>
-          <h3 class="conversaai-widget-title" id="conversaai-title">Asistente</h3>
-          <p class="conversaai-widget-subtitle">
-            <span class="conversaai-widget-status-dot"></span>
-            En línea
-          </p>
-        </div>
-      </div>
-      <button class="conversaai-widget-close" aria-label="Cerrar chat" id="conversaai-close-btn">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-        </svg>
-      </button>
-    `;
+    header.id = 'conversaai-widget-header';
 
-    // Messages Area
+    const headerInfo = document.createElement('div');
+    headerInfo.className = 'conversaai-widget-header-info';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'conversaai-widget-avatar';
+    avatar.id = 'conversaai-widget-avatar';
+    // Default avatar letter
+    avatar.textContent = 'A';
+
+    const titleBox = document.createElement('div');
+    const title = document.createElement('h3');
+    title.className = 'conversaai-widget-title';
+    title.id = 'conversaai-widget-title';
+    
+    const subtitleBox = document.createElement('div');
+    subtitleBox.className = 'conversaai-widget-subtitle';
+    const statusDot = document.createElement('span');
+    statusDot.className = 'conversaai-widget-status-dot';
+    const subtitleText = document.createElement('span');
+    subtitleText.id = 'conversaai-widget-subtitle';
+
+    subtitleBox.appendChild(statusDot);
+    subtitleBox.appendChild(subtitleText);
+
+    titleBox.appendChild(title);
+    titleBox.appendChild(subtitleBox);
+
+    headerInfo.appendChild(avatar);
+    headerInfo.appendChild(titleBox);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'conversaai-widget-close';
+    closeBtn.setAttribute('aria-label', 'Cerrar chat');
+    closeBtn.innerHTML = closeIconSVG; // Safe SVG
+    closeBtn.onclick = toggleWidget;
+
+    header.appendChild(headerInfo);
+    header.appendChild(closeBtn);
+
     const messages = document.createElement('div');
     messages.className = 'conversaai-widget-messages';
     messages.id = 'conversaai-messages';
+    messages.setAttribute('aria-live', 'polite');
 
-    // Input Area
     const inputArea = document.createElement('div');
     inputArea.className = 'conversaai-widget-input-area';
-    
-    const form = document.createElement('form');
-    form.className = 'conversaai-widget-form';
-    form.id = 'conversaai-form';
-    
-    form.innerHTML = `
-      <div class="conversaai-widget-input-wrapper">
-        <input type="text" class="conversaai-widget-input" id="conversaai-input" placeholder="Escribe tu mensaje..." autocomplete="off" disabled />
-      </div>
-      <button type="submit" class="conversaai-widget-send" id="conversaai-send-btn" disabled>
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-        </svg>
-      </button>
-    `;
 
-    inputArea.appendChild(form);
+    const inputWrapper = document.createElement('div');
+    inputWrapper.className = 'conversaai-widget-input-wrapper';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'conversaai-widget-input';
+    input.id = 'conversaai-input';
+    input.placeholder = 'Cargando...';
+    input.disabled = true;
+
+    const sendBtn = document.createElement('button');
+    sendBtn.className = 'conversaai-widget-send';
+    sendBtn.id = 'conversaai-send-btn';
+    sendBtn.setAttribute('aria-label', 'Enviar mensaje');
+    sendBtn.innerHTML = sendIconSVG; // Safe SVG
+    sendBtn.disabled = true;
+
+    inputWrapper.appendChild(input);
+    inputWrapper.appendChild(sendBtn);
+    inputArea.appendChild(inputWrapper);
 
     panel.appendChild(header);
     panel.appendChild(messages);
     panel.appendChild(inputArea);
 
+    // Launcher Wrapper
+    const buttonWrapper = document.createElement('div');
+    buttonWrapper.className = 'conversaai-widget-button-wrapper';
+
+    const launcherText = document.createElement('div');
+    launcherText.className = 'conversaai-widget-launcher-text';
+    launcherText.id = 'conversaai-launcher-text';
+
+    const launcherBtn = document.createElement('button');
+    launcherBtn.className = 'conversaai-widget-button';
+    launcherBtn.id = 'conversaai-launcher-btn';
+    launcherBtn.setAttribute('aria-label', 'Abrir chat');
+    launcherBtn.innerHTML = chatIconSVG; // Safe SVG
+
+    buttonWrapper.appendChild(launcherText);
+    buttonWrapper.appendChild(launcherBtn);
+
     container.appendChild(panel);
-    container.appendChild(btnWrapper);
+    container.appendChild(buttonWrapper);
 
     document.body.appendChild(container);
 
-    // Event Listeners
-    document.getElementById('conversaai-close-btn').addEventListener('click', toggleChat);
-    form.addEventListener('submit', handleSend);
+    // Events
+    launcherBtn.addEventListener('click', toggleWidget);
+    sendBtn.addEventListener('click', () => handleSend());
+    input.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleSend();
+    });
+    
+    // Close on escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isOpen) {
+        toggleWidget();
+      }
+    });
   }
 
-  function toggleChat() {
+  function toggleWidget() {
     isOpen = !isOpen;
     const panel = document.getElementById('conversaai-widget-panel');
+    const launcherBtn = document.getElementById('conversaai-launcher-btn');
+    const input = document.getElementById('conversaai-input');
+    
     if (isOpen) {
       panel.classList.add('conversaai-open');
-      document.getElementById('conversaai-input').focus();
+      launcherBtn.innerHTML = closeIconSVG;
+      if (!isChatBlocked) {
+        setTimeout(() => input.focus(), 100);
+      }
     } else {
       panel.classList.remove('conversaai-open');
+      launcherBtn.innerHTML = chatIconSVG;
     }
   }
 
   async function fetchConfig() {
     try {
-      const res = await fetch(`${baseUrl}/api/widget/config?assistantId=${assistantId}`);
-      if (!res.ok) {
-        throw new Error('Asistente no disponible o inactivo.');
+      const res = await fetch(`${baseUrl}/api/widget/config?id=${assistantId}`);
+      if (res.status === 403) {
+        blockChat("El chat no está disponible en este momento.");
+        return;
       }
-      config = await res.json();
-      const wc = config.widgetConfig || {};
+      if (!res.ok) throw new Error('Failed to fetch config');
       
-      // Update UI with config
-      const containerEl = document.getElementById('conversaai-widget-container');
-      const titleEl = document.getElementById('conversaai-title');
-      const avatarEl = document.getElementById('conversaai-avatar');
-      const subtitleEl = document.querySelector('.conversaai-widget-subtitle');
-      const launcherTextEl = document.getElementById('conversaai-launcher-text');
+      const data = await res.json();
       
-      const assistantName = wc.displayName || config.name || 'Asistente';
-      titleEl.textContent = assistantName;
-      avatarEl.textContent = assistantName.charAt(0).toUpperCase();
+      // Robust Defaults
+      const wConfig = data.widgetConfig || {};
+      config = {
+        displayName: wConfig.displayName || data.name || 'Asistente',
+        subtitle: wConfig.subtitle || 'En línea',
+        welcomeMessage: wConfig.welcomeMessage || data.welcomeMessage || 'Hola, ¿en qué puedo ayudarte?',
+        primaryColor: wConfig.primaryColor || '#7c3aed',
+        secondaryColor: wConfig.secondaryColor || '#06b6d4',
+        theme: wConfig.theme || 'modern',
+        position: wConfig.position || 'bottom-right',
+        launcherMode: wConfig.launcherMode || 'icon-text',
+        launcherText: wConfig.launcherText || '¿Necesitas ayuda?',
+        quickQuestions: wConfig.quickQuestions || []
+      };
 
-      if (wc.subtitle) {
-        subtitleEl.textContent = '';
-        const dot = document.createElement('span');
-        dot.className = 'conversaai-widget-status-dot';
-        subtitleEl.appendChild(dot);
-        subtitleEl.appendChild(document.createTextNode(' ' + wc.subtitle));
+      applyConfig();
+      
+      // Enable input if not blocked
+      if (!isChatBlocked) {
+        document.getElementById('conversaai-input').disabled = false;
+        document.getElementById('conversaai-input').placeholder = 'Escribe un mensaje...';
+        document.getElementById('conversaai-send-btn').disabled = false;
       }
-
-      if (wc.launcherText && wc.launcherMode !== 'icon') {
-        launcherTextEl.textContent = wc.launcherText;
-        launcherTextEl.classList.add('cai-show');
-      }
-
-      if (wc.position === 'bottom-left') {
-        containerEl.classList.add('cai-pos-left');
-      }
-
-      if (wc.primaryColor) {
-        containerEl.style.setProperty('--cai-primary', wc.primaryColor);
-      }
-      if (wc.secondaryColor && wc.theme === 'premium') {
-        containerEl.style.setProperty('--cai-secondary', wc.secondaryColor);
-      } else if (wc.primaryColor) {
-        containerEl.style.setProperty('--cai-secondary', wc.primaryColor);
-      }
-
-      // Theme specifics
-      const headerEl = document.querySelector('.conversaai-widget-header');
-      if (wc.theme === 'minimal') {
-        headerEl.style.background = '#050816';
-        headerEl.style.borderBottom = `1px solid ${wc.primaryColor || '#7c3aed'}40`;
-      } else if (wc.theme === 'premium') {
-        headerEl.style.background = `linear-gradient(90deg, var(--cai-primary) 0%, var(--cai-secondary) 100%)`;
-      } else {
-        headerEl.style.background = `linear-gradient(90deg, var(--cai-primary) 0%, var(--cai-primary) 100%)`;
-        headerEl.style.opacity = '0.1'; // handled in CSS mostly, but we can override if needed
-      }
-
-      // Enable input
-      document.getElementById('conversaai-input').disabled = false;
-      document.getElementById('conversaai-send-btn').disabled = false;
-
-      // Add welcome message
-      const welcomeMsg = wc.welcomeMessage || config.welcomeMessage || 'Hola, ¿en qué te puedo ayudar hoy?';
-      addMessage(welcomeMsg, 'bot');
-
-      // Quick Questions
-      if (wc.quickQuestions && Array.isArray(wc.quickQuestions) && wc.quickQuestions.length > 0) {
-        addQuickQuestions(wc.quickQuestions);
-      }
-
     } catch (error) {
-      console.error('[ConversaAI Widget] config error:', error);
-      const messagesEl = document.getElementById('conversaai-messages');
-      messagesEl.innerHTML = `<div class="conversaai-widget-error">El chat no está disponible en este momento.</div>`;
+      console.error('[ConversaAI Widget] Config fetch error:', error);
+      blockChat("No pudimos cargar el chat. Intenta más tarde.");
     }
   }
 
-  function addQuickQuestions(questions) {
-    const messagesEl = document.getElementById('conversaai-messages');
-    const qqContainer = document.createElement('div');
-    qqContainer.className = 'conversaai-widget-quick-questions';
-    qqContainer.id = 'conversaai-qq-container';
+  function applyConfig() {
+    if (!config) return;
 
-    questions.forEach(q => {
-      const btn = document.createElement('button');
-      btn.className = 'conversaai-widget-quick-btn';
-      btn.textContent = q;
-      btn.onclick = () => {
-        btn.disabled = true;
-        const input = document.getElementById('conversaai-input');
-        input.value = q;
-        document.getElementById('conversaai-form').dispatchEvent(new Event('submit'));
-        if (qqContainer.parentNode) {
-          qqContainer.remove(); // Remove questions once used
-        }
-      };
-      qqContainer.appendChild(btn);
-    });
+    const container = document.getElementById('conversaai-widget-container');
+    const header = document.getElementById('conversaai-widget-header');
+    const launcherBtn = document.getElementById('conversaai-launcher-btn');
+    const launcherTextEl = document.getElementById('conversaai-launcher-text');
+    const titleEl = document.getElementById('conversaai-widget-title');
+    const subtitleEl = document.getElementById('conversaai-widget-subtitle');
+    const avatarEl = document.getElementById('conversaai-widget-avatar');
 
-    messagesEl.appendChild(qqContainer);
-    scrollToBottom();
+    // CSS variables
+    container.style.setProperty('--cai-primary', config.primaryColor);
+    container.style.setProperty('--cai-secondary', config.secondaryColor);
+
+    // Position
+    if (config.position === 'bottom-left') {
+      container.classList.add('cai-pos-left');
+    }
+
+    // Theme logic
+    if (config.theme === 'minimal') {
+      header.style.background = '#111';
+      header.style.borderBottom = `2px solid ${config.primaryColor}`;
+    } else if (config.theme === 'premium') {
+      header.style.background = `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor})`;
+    } else {
+      // modern
+      header.style.background = config.primaryColor;
+    }
+
+    // Text content safely
+    titleEl.textContent = config.displayName;
+    subtitleEl.textContent = config.subtitle;
+    
+    // Avatar first letter
+    const firstLetter = config.displayName.trim().charAt(0).toUpperCase();
+    avatarEl.textContent = firstLetter || 'A';
+
+    // Launcher text safely
+    if (config.launcherMode === 'icon-text' && config.launcherText) {
+      launcherTextEl.textContent = config.launcherText;
+      launcherTextEl.classList.add('cai-show');
+    }
+
+    // Render Welcome Message
+    const messages = document.getElementById('conversaai-messages');
+    messages.innerHTML = ''; // safe clear
+    appendMessage(config.welcomeMessage, 'assistant');
+
+    // Quick questions safely
+    if (config.quickQuestions && config.quickQuestions.length > 0 && !quickQuestionsUsed) {
+      const qqContainer = document.createElement('div');
+      qqContainer.className = 'conversaai-widget-quick-questions';
+      qqContainer.id = 'conversaai-qq-container';
+      
+      config.quickQuestions.forEach(q => {
+        const btn = document.createElement('button');
+        btn.className = 'conversaai-quick-question-btn';
+        btn.textContent = q;
+        btn.onclick = () => handleQuickQuestion(q, btn);
+        qqContainer.appendChild(btn);
+      });
+      
+      messages.appendChild(qqContainer);
+    }
   }
 
-  async function handleSend(e) {
-    e.preventDefault();
-    const sendBtn = document.getElementById('conversaai-send-btn');
-    if (sendBtn.disabled) return; // Prevent double submit
-
+  function blockChat(reasonText) {
+    isChatBlocked = true;
     const input = document.getElementById('conversaai-input');
-    const message = input.value.trim();
-    
-    if (!message || !config) return;
+    const btn = document.getElementById('conversaai-send-btn');
+    if (input) {
+      input.disabled = true;
+      input.placeholder = 'Chat no disponible';
+    }
+    if (btn) btn.disabled = true;
 
-    // 1. Add user message to UI
-    addMessage(message, 'user');
+    const messages = document.getElementById('conversaai-messages');
+    if (messages) {
+      const errorEl = document.createElement('div');
+      errorEl.className = 'conversaai-widget-error-notice';
+      errorEl.textContent = reasonText;
+      messages.appendChild(errorEl);
+    }
+  }
+
+  function handleQuickQuestion(text, btnElement) {
+    if (isChatBlocked || quickQuestionsUsed) return;
+    quickQuestionsUsed = true;
+    
+    // Disable all QQ buttons to prevent double click
+    const qqContainer = document.getElementById('conversaai-qq-container');
+    if (qqContainer) {
+      const btns = qqContainer.querySelectorAll('button');
+      btns.forEach(b => b.disabled = true);
+    }
+    
+    document.getElementById('conversaai-input').value = text;
+    handleSend();
+    
+    // Remove QQ container after a short delay
+    setTimeout(() => {
+      if (qqContainer && qqContainer.parentNode) {
+        qqContainer.parentNode.removeChild(qqContainer);
+      }
+    }, 300);
+  }
+
+  async function handleSend() {
+    if (isChatBlocked) return;
+    
+    const input = document.getElementById('conversaai-input');
+    const sendBtn = document.getElementById('conversaai-send-btn');
+    const text = input.value.trim();
+    if (!text) return;
+
     input.value = '';
     input.disabled = true;
     sendBtn.disabled = true;
+    
+    // Hide launcher text when user interacts
+    const launcherTextEl = document.getElementById('conversaai-launcher-text');
+    if (launcherTextEl) launcherTextEl.classList.remove('cai-show');
 
-    // 2. Add loading indicator
-    const loadingId = addLoading();
+    appendMessage(text, 'user');
+    
+    // Hide QQs if user types manually before clicking one
+    const qqContainer = document.getElementById('conversaai-qq-container');
+    if (qqContainer && !quickQuestionsUsed) {
+      quickQuestionsUsed = true;
+      qqContainer.parentNode.removeChild(qqContainer);
+    }
+
+    const typingId = showTyping();
 
     try {
-      // 3. Send to API
       const res = await fetch(`${baseUrl}/api/widget/message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assistantId: assistantId,
-          message: message,
+          message: text,
           conversationId: conversationId,
+          pageUrl: window.location.href,
           visitorId: visitorId
         })
       });
 
-      removeMessage(loadingId);
+      removeTyping(typingId);
 
-      const data = await res.json();
-
-      if (!res.ok) {
-        addMessage(data.error || 'Ocurrió un error al enviar el mensaje.', 'bot');
+      if (res.status === 403) {
+        blockChat("Este chat ya no está disponible.");
         return;
       }
 
+      if (!res.ok) {
+        throw new Error('Error de red al enviar el mensaje.');
+      }
+
+      const data = await res.json();
       if (data.conversationId) {
         conversationId = data.conversationId;
         localStorage.setItem(`conversaai_conversation_${assistantId}`, conversationId);
       }
 
-      // 4. Add bot response
-      addMessage(data.reply, 'bot');
+      if (data.reply) {
+        appendMessage(data.reply, 'assistant');
+      } else {
+        appendMessage('Lo siento, no pude procesar tu mensaje.', 'assistant');
+      }
 
     } catch (error) {
-      removeMessage(loadingId);
-      addMessage('Ocurrió un error de conexión.', 'bot');
+      console.error('[ConversaAI Widget] Send error:', error);
+      removeTyping(typingId);
+      appendMessage('Ocurrió un error de conexión. Intenta de nuevo.', 'assistant');
     } finally {
-      input.disabled = false;
-      sendBtn.disabled = false;
-      input.focus();
+      if (!isChatBlocked) {
+        input.disabled = false;
+        sendBtn.disabled = false;
+        setTimeout(() => input.focus(), 100);
+      }
     }
   }
 
-  function addMessage(text, type) {
-    const messagesEl = document.getElementById('conversaai-messages');
+  function appendMessage(text, sender) {
+    const messages = document.getElementById('conversaai-messages');
     const msgDiv = document.createElement('div');
-    msgDiv.className = `conversaai-widget-message ${type}`;
+    msgDiv.className = `conversaai-message ${sender}`;
+    // Secure text injection
     msgDiv.textContent = text;
-    messagesEl.appendChild(msgDiv);
+    messages.appendChild(msgDiv);
     scrollToBottom();
   }
 
-  function addLoading() {
-    const messagesEl = document.getElementById('conversaai-messages');
-    const id = 'conversaai-loading-' + Date.now();
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'conversaai-widget-loading';
-    loadingDiv.id = id;
-    loadingDiv.innerHTML = `
-      <div class="conversaai-widget-dot"></div>
-      <div class="conversaai-widget-dot"></div>
-      <div class="conversaai-widget-dot"></div>
-    `;
-    messagesEl.appendChild(loadingDiv);
+  function showTyping() {
+    const messages = document.getElementById('conversaai-messages');
+    const typingId = 'typing-' + Date.now();
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'conversaai-typing';
+    typingDiv.id = typingId;
+    
+    typingDiv.appendChild(document.createElement('div')).className = 'conversaai-dot';
+    typingDiv.appendChild(document.createElement('div')).className = 'conversaai-dot';
+    typingDiv.appendChild(document.createElement('div')).className = 'conversaai-dot';
+    
+    messages.appendChild(typingDiv);
     scrollToBottom();
-    return id;
+    return typingId;
   }
 
-  function removeMessage(id) {
+  function removeTyping(id) {
     const el = document.getElementById(id);
-    if (el) el.remove();
+    if (el) el.parentNode.removeChild(el);
   }
 
   function scrollToBottom() {
-    const messagesEl = document.getElementById('conversaai-messages');
-    messagesEl.scrollTop = messagesEl.scrollHeight;
+    const messages = document.getElementById('conversaai-messages');
+    messages.scrollTop = messages.scrollHeight;
   }
 
 })();

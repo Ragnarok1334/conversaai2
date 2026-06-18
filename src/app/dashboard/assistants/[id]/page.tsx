@@ -56,6 +56,7 @@ export default async function AssistantDetailPage({
       assistant_domains(verification_status)
     `)
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (!assistant) notFound()
