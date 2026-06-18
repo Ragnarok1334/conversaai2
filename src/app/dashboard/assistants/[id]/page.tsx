@@ -26,7 +26,8 @@ export default async function AssistantDetailPage({
   searchParams: Promise<{ tab?: string; channel?: string }>
 }) {
   const { id } = await params
-  const { tab = 'overview', channel = 'webchat' } = await searchParams
+  const { tab: rawTab = 'overview', channel = 'webchat' } = await searchParams
+  const tab = rawTab === 'installation' ? 'install' : rawTab
 
   const supabase = await createClient()
 
@@ -43,7 +44,7 @@ export default async function AssistantDetailPage({
   const effStatus = sub && profile ? getEffectiveSubscriptionStatus(sub, profile) : 'free'
   const canEdit = effStatus === 'active' || effStatus === 'trialing' || effStatus === 'past_due'
 
-  const planLimits = sub && sub.status === 'active' 
+  const planLimits = sub && ['active', 'trialing', 'past_due'].includes(effStatus)
     ? getPlanLimits(normalizePlan(sub.plan)) 
     : getPlanLimits('free')
 

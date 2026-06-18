@@ -92,7 +92,6 @@
     if (document.getElementById(styleId)) return;
 
     const css = `
-    const css = `
       .conversaai-widget-container {
         position: fixed;
         bottom: 24px;
@@ -433,6 +432,7 @@
     document.head.appendChild(style);
   }
 
+  function buildUI() {
     const container = document.createElement('div');
     container.className = 'conversaai-widget-container';
     container.id = 'conversaai-widget-container';
@@ -558,10 +558,14 @@
       avatarEl.textContent = assistantName.charAt(0).toUpperCase();
 
       if (wc.subtitle) {
-        subtitleEl.innerHTML = `<span class="conversaai-widget-status-dot"></span> ${wc.subtitle.replace(/[<>]/g, '')}`;
+        subtitleEl.textContent = '';
+        const dot = document.createElement('span');
+        dot.className = 'conversaai-widget-status-dot';
+        subtitleEl.appendChild(dot);
+        subtitleEl.appendChild(document.createTextNode(' ' + wc.subtitle));
       }
 
-      if (wc.launcherText) {
+      if (wc.launcherText && wc.launcherMode !== 'icon') {
         launcherTextEl.textContent = wc.launcherText;
         launcherTextEl.classList.add('cai-show');
       }
@@ -622,10 +626,13 @@
       btn.className = 'conversaai-widget-quick-btn';
       btn.textContent = q;
       btn.onclick = () => {
+        btn.disabled = true;
         const input = document.getElementById('conversaai-input');
         input.value = q;
         document.getElementById('conversaai-form').dispatchEvent(new Event('submit'));
-        qqContainer.remove(); // Remove questions once used
+        if (qqContainer.parentNode) {
+          qqContainer.remove(); // Remove questions once used
+        }
       };
       qqContainer.appendChild(btn);
     });
@@ -636,8 +643,10 @@
 
   async function handleSend(e) {
     e.preventDefault();
-    const input = document.getElementById('conversaai-input');
     const sendBtn = document.getElementById('conversaai-send-btn');
+    if (sendBtn.disabled) return; // Prevent double submit
+
+    const input = document.getElementById('conversaai-input');
     const message = input.value.trim();
     
     if (!message || !config) return;

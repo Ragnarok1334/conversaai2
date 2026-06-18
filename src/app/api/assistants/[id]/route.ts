@@ -90,15 +90,14 @@ export async function PATCH(
     // Get user's plan for feature limits
     const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
     const supabaseAdmin = createSupabaseAdmin()
-    const { data: sub } = await supabaseAdmin.from('subscriptions').select('plan').eq('user_id', user.id).single()
+    const { data: sub } = await supabaseAdmin.from('subscriptions').select('*').eq('user_id', user.id).single()
+    const { data: profile } = await supabaseAdmin.from('profiles').select('trial_ends_at').eq('id', user.id).single()
+    
+    const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
+    const effectiveStatus = getEffectiveSubscriptionStatus(sub, profile)
+    
     const { normalizePlan } = await import('@/lib/plans')
     const currentPlan = sub ? normalizePlan(sub.plan) : 'free'
-    
-    const isPro = currentPlan === 'pro'
-    const isGrowthOrAbove = currentPlan === 'growth' || currentPlan === 'business' || currentPlan === 'enterprise'
-    const canUseQuickQuestions = isPro || isGrowthOrAbove
-    const canUseThemeAndSecondary = isGrowthOrAbove
-    const canUseSubtitle = isPro || isGrowthOrAbove
 
     const body = await request.json()
 
@@ -165,42 +164,12 @@ export async function PATCH(
 
         // Validation for widget_config
         if (key === 'widget_config') {
-          if (typeof val !== 'object' || Array.isArray(val) || val === null) {
-            return NextResponse.json({ error: 'Formato inválido en widget_config.' }, { status: 400 })
-          }
-          
-          const cleanConfig: Record<string, any> = {}
-          const sanitizeText = (txt: any) => typeof txt === 'string' ? txt.replace(/[<>]/g, '').trim() : ''
-          const isValidHex = (hex: any) => typeof hex === 'string' && /^#[0-9A-Fa-f]{6}$/i.test(hex)
-
-          if (val.displayName) cleanConfig.displayName = sanitizeText(val.displayName).slice(0, 60)
-          if (val.welcomeMessage) cleanConfig.welcomeMessage = sanitizeText(val.welcomeMessage).slice(0, 240)
-          
-          if (canUseSubtitle && val.subtitle) cleanConfig.subtitle = sanitizeText(val.subtitle).slice(0, 90)
-          if (canUseSubtitle && val.launcherText) cleanConfig.launcherText = sanitizeText(val.launcherText).slice(0, 40)
-          
-          if (isValidHex(val.primaryColor)) cleanConfig.primaryColor = val.primaryColor
-          if (canUseThemeAndSecondary && isValidHex(val.secondaryColor)) cleanConfig.secondaryColor = val.secondaryColor
-          
-          if (canUseThemeAndSecondary && val.theme && ['modern', 'minimal', 'premium'].includes(val.theme)) {
-            cleanConfig.theme = val.theme
-          } else {
-            cleanConfig.theme = 'modern'
+          if (['free', 'expired', 'cancelled'].includes(effectiveStatus)) {
+            return NextResponse.json({ error: 'Tu plan no permite modificar la apariencia del Web Chat.' }, { status: 403 })
           }
 
-          if (val.position && ['bottom-right', 'bottom-left'].includes(val.position)) {
-            cleanConfig.position = val.position
-          }
-
-          if (canUseQuickQuestions && Array.isArray(val.quickQuestions)) {
-            cleanConfig.quickQuestions = val.quickQuestions
-              .map(sanitizeText)
-              .filter((q: string) => q.length > 0)
-              .slice(0, 4)
-              .map((q: string) => q.slice(0, 80))
-          }
-
-          val = cleanConfig
+          const { sanitizeWidgetConfigForPlan } = await import('@/lib/widget-config')
+          val = sanitizeWidgetConfigForPlan(val, currentPlan)
         }
 
         updates[key] = val
@@ -229,23 +198,25 @@ export async function PATCH(
       return NextResponse.json({ error: 'No hay campos válidos para actualizar.' }, { status: 400 })
     }
 
-    // Validate final combined state of knowledge
-    const { data: currentAssistant, error: fetchErr } = await supabase
-      .from('assistants')
-      .select('instructions, knowledge_blocks')
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .single();
-      
-    if (!fetchErr && currentAssistant) {
-      const finalInstructions = updates.instructions !== undefined ? updates.instructions : (currentAssistant.instructions || '');
-      const finalBlocks = updates.knowledge_blocks !== undefined ? updates.knowledge_blocks : (currentAssistant.knowledge_blocks || []);
-      const instLen = (finalInstructions || '').trim().length;
-      const hasValidBlock = (finalBlocks || []).some((b: any) => b.is_active && (b.content || '').trim().length >= 80);
-      
-      // Si updates.knowledge_blocks es explícitamente vacío y la base de datos tenía, respetamos la decisión del usuario solo si es válido
-      if (instLen < 80 && !hasValidBlock) {
-         return NextResponse.json({ error: 'Agrega información mínima del negocio para entrenar el asistente.' }, { status: 400 })
+    // Validate final combined state of knowledge ONLY IF knowledge was updated
+    if (updates.instructions !== undefined || updates.knowledge_blocks !== undefined) {
+      const { data: currentAssistant, error: fetchErr } = await supabase
+        .from('assistants')
+        .select('instructions, knowledge_blocks')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+        
+      if (!fetchErr && currentAssistant) {
+        const finalInstructions = updates.instructions !== undefined ? updates.instructions : (currentAssistant.instructions || '');
+        const finalBlocks = updates.knowledge_blocks !== undefined ? updates.knowledge_blocks : (currentAssistant.knowledge_blocks || []);
+        const instLen = (finalInstructions || '').trim().length;
+        const hasValidBlock = (finalBlocks || []).some((b: any) => b.is_active && (b.content || '').trim().length >= 80);
+        
+        // Si updates.knowledge_blocks es explícitamente vacío y la base de datos tenía, respetamos la decisión del usuario solo si es válido
+        if (instLen < 80 && !hasValidBlock) {
+           return NextResponse.json({ error: 'Agrega información mínima del negocio para entrenar el asistente.' }, { status: 400 })
+        }
       }
     }
 
