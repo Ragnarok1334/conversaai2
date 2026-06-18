@@ -49,7 +49,7 @@ export function AssistantInstallation({
   const hasDomain = domains.length > 0
   const hasDetected = domains.some(d => d.last_seen_at !== null && d.is_verified)
 
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://app.conversaai.com'
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://conversaai.store')
   const snippet = `<script\n  src="${origin}/widget.js"\n  data-assistant-id="${assistantId}"\n  async\n></script>`
 
   const showToast = (msg: string) => {

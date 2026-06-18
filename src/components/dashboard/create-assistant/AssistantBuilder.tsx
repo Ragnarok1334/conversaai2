@@ -143,7 +143,7 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
         setStatus('success')
         setOptimisticUsage(prev => prev + 1)
         clearDraft()
-        setTimeout(() => router.push(`/dashboard/assistants/${data?.assistant?.id}?tab=install`), 1200)
+        setTimeout(() => router.push(`/dashboard/assistants/${data?.assistant?.id}?tab=webchat`), 1200)
       }
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error al guardar el asistente')

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Loader2, Save, Palette, Type, LayoutTemplate, MessageSquare, Plus, Trash2, ShieldAlert, CheckCircle2, Smartphone, Monitor, RotateCcw, X, Lock, Send, Info } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 export interface WidgetConfig {
   displayName?: string
@@ -55,6 +56,7 @@ const QQ_EXAMPLES = [
 const HEX_REGEX = /^#[0-9A-Fa-f]{6}$/i
 
 export function AssistantCustomization({ assistantId, initialConfig, currentPlan }: Props) {
+  const router = useRouter()
   const [config, setConfig] = useState<WidgetConfig>({ ...DEFAULT_CONFIG, ...initialConfig })
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
@@ -105,6 +107,7 @@ export function AssistantCustomization({ assistantId, initialConfig, currentPlan
       setToast('Personalización guardada correctamente.')
       setHasUnsavedChanges(false)
       setLastSaved(new Date())
+      router.refresh()
       setTimeout(() => { setStatus('idle'); setToast('') }, 3000)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error interno')

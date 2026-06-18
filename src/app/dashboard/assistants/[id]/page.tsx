@@ -2,21 +2,13 @@ import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
-import { AssistantInstallation } from '@/components/dashboard/AssistantInstallation'
 import { getPlanLimits, normalizePlan } from '@/lib/plans'
 import { calculateAssistantHealth } from '@/lib/assistant/assistant-health'
-import { Bot, Globe, MessageCircle, Send, Calendar, CheckCircle2, XCircle, ArrowLeft, Pencil, Settings, Play, Info, Activity, Users, Plug, Target, ShieldAlert, Sparkles, Lock, Palette } from 'lucide-react'
+import { Bot, MessageCircle, Send, Calendar, CheckCircle2, ArrowLeft, Pencil, Settings, Play, Info, Activity, Users, Plug, Target, Lock, Palette, Globe } from 'lucide-react'
 import Link from 'next/link'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { AssistantBuilder } from '@/components/dashboard/create-assistant/AssistantBuilder'
-import { AssistantCustomization } from '@/components/dashboard/AssistantCustomization'
-
-const channelLabel: Record<string, string> = { webchat: 'Web Chat', telegram: 'Telegram', whatsapp: 'WhatsApp' }
-const channelIcon: Record<string, React.ReactNode> = {
-  webchat: <Globe className="w-4 h-4" />,
-  telegram: <Send className="w-4 h-4" />,
-  whatsapp: <MessageCircle className="w-4 h-4" />,
-}
+import { AssistantWebChatTab } from '@/components/dashboard/AssistantWebChatTab'
 
 export default async function AssistantDetailPage({
   params,
@@ -26,8 +18,15 @@ export default async function AssistantDetailPage({
   searchParams: Promise<{ tab?: string; channel?: string }>
 }) {
   const { id } = await params
-  const { tab: rawTab = 'overview', channel = 'webchat' } = await searchParams
-  const tab = rawTab === 'installation' ? 'install' : rawTab
+  const { tab: rawTab = 'overview' } = await searchParams
+  
+  let tab = rawTab === 'installation' ? 'install' : rawTab
+  let initialFocus: 'appearance' | 'install' | null = null
+
+  if (tab === 'appearance' || tab === 'install') {
+    initialFocus = tab
+    tab = 'webchat'
+  }
 
   const supabase = await createClient()
 
@@ -53,7 +52,7 @@ export default async function AssistantDetailPage({
     .select(`
       *, 
       assistant_test_messages(id, user_message, assistant_reply, created_at),
-      assistant_domains(verification_status)
+      assistant_domains(id, domain, is_verified, verification_status, last_seen_at)
     `)
     .eq('id', id)
     .eq('user_id', user.id)
@@ -69,10 +68,11 @@ export default async function AssistantDetailPage({
 
   const conversationsCount = convCount || 0
   const leadsCountRes = leadsCount || 0
+  const domains = assistant.assistant_domains || []
 
   const health = calculateAssistantHealth(
     assistant,
-    assistant.assistant_domains || [],
+    domains,
     { conversations: conversationsCount, leads: leadsCountRes }
   )
 
@@ -129,11 +129,10 @@ export default async function AssistantDetailPage({
   }
 
   const tabs = [
-    { id: 'overview', label: 'General', icon: <Info className="w-4 h-4" /> },
-    { id: 'edit', label: 'Configuración', icon: <Settings className="w-4 h-4" /> },
-    { id: 'appearance', label: 'Apariencia', icon: <Palette className="w-4 h-4" /> },
-    { id: 'install', label: 'Instalación', icon: <Plug className="w-4 h-4" /> },
-    { id: 'test', label: 'Playground', icon: <Play className="w-4 h-4" /> },
+    { id: 'overview', label: 'Resumen', icon: <Info className="w-4 h-4" /> },
+    { id: 'edit', label: 'Entrenamiento', icon: <Settings className="w-4 h-4" /> },
+    { id: 'webchat', label: 'Web Chat', icon: <Palette className="w-4 h-4" /> },
+    { id: 'test', label: 'Prueba', icon: <Play className="w-4 h-4" /> },
   ]
 
   const formatDate = (dateStr: string) => {
@@ -162,6 +161,12 @@ export default async function AssistantDetailPage({
   }
 
   const blocksCount = assistant.knowledge_blocks ? assistant.knowledge_blocks.filter((b: any) => b.is_active && (b.content?.trim()?.length || 0) >= 80).length : 0
+
+  // Derive explicit publication state for the Overview map
+  const isCustomized = Boolean(assistant.widget_config && Object.keys(assistant.widget_config).length > 0)
+  const hasDomain = domains.length > 0
+  const isDetected = domains.some((d: any) => d.last_seen_at !== null)
+  const hasConversations = conversationsCount > 0
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -216,7 +221,7 @@ export default async function AssistantDetailPage({
           return (
             <Link
               key={t.id}
-              href={`/dashboard/assistants/${id}?tab=${t.id}${t.id === 'install' ? '&channel=webchat' : ''}`}
+              href={`/dashboard/assistants/${id}?tab=${t.id}`}
               className={`flex items-center gap-2 px-5 py-3 rounded-t-xl font-medium text-sm transition-colors border-b-2 ${
                 isActive
                   ? 'border-brand-violet text-white bg-brand-violet/5'
@@ -233,12 +238,113 @@ export default async function AssistantDetailPage({
       {/* TAB CONTENT: OVERVIEW */}
       {tab === 'overview' && (
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Columna Izquierda: Estado, Entrenamiento, Instalación */}
+          {/* Columna Izquierda: Estado de Publicación y General */}
           <div className="lg:col-span-1 space-y-6">
             
-            {/* A. ESTADO GENERAL */}
+            {/* ESTADO DE PUBLICACIÓN (NUEVO MAPA DEL CLIENTE) */}
             <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md">
-              <h2 className="font-semibold text-lg text-white mb-4 flex items-center gap-2"><Activity className="w-5 h-5 text-brand-violet" /> Estado General</h2>
+              <h2 className="font-semibold text-lg text-white mb-4 flex items-center gap-2">
+                <Target className="w-5 h-5 text-brand-cyan" /> Estado de publicación
+              </h2>
+              
+              <div className="space-y-4">
+                <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-brand-success/20 flex items-center justify-center">
+                      <CheckCircle2 className="w-4 h-4 text-brand-success" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Entrenamiento</p>
+                      <p className="text-xs text-slate-400">Asistente creado ({blocksCount} bloques)</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`flex justify-between items-center p-3 rounded-lg border ${
+                  isCustomized ? 'bg-white/5 border-white/5' : 'bg-brand-cyan/10 border-brand-cyan/30'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      isCustomized ? 'bg-brand-success/20' : 'bg-brand-cyan/20'
+                    }`}>
+                      {isCustomized ? <CheckCircle2 className="w-4 h-4 text-brand-success" /> : <Palette className="w-4 h-4 text-brand-cyan" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Apariencia</p>
+                      <p className={`text-xs ${isCustomized ? 'text-slate-400' : 'text-brand-cyan'}`}>
+                        {isCustomized ? 'Personalización lista' : 'Pendiente'}
+                      </p>
+                    </div>
+                  </div>
+                  {!isCustomized && (
+                    <Link href={`/dashboard/assistants/${id}?tab=webchat`} className="text-xs bg-brand-cyan/20 text-brand-cyan px-3 py-1.5 rounded-lg hover:bg-brand-cyan/30 transition-colors font-medium">Personalizar</Link>
+                  )}
+                </div>
+
+                <div className={`flex justify-between items-center p-3 rounded-lg border ${
+                  hasDomain ? 'bg-white/5 border-white/5' : (isCustomized ? 'bg-brand-cyan/10 border-brand-cyan/30' : 'bg-white/[0.02] border-transparent opacity-60')
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      hasDomain ? 'bg-brand-success/20' : 'bg-slate-800'
+                    }`}>
+                      {hasDomain ? <CheckCircle2 className="w-4 h-4 text-brand-success" /> : <Globe className="w-4 h-4 text-slate-400" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Dominio</p>
+                      <p className={`text-xs ${hasDomain ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {hasDomain ? 'Autorizado' : 'Sin dominio'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={`flex justify-between items-center p-3 rounded-lg border ${
+                  isDetected ? 'bg-white/5 border-white/5' : (hasDomain ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white/[0.02] border-transparent opacity-60')
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      isDetected ? 'bg-brand-success/20' : 'bg-slate-800'
+                    }`}>
+                      {isDetected ? <CheckCircle2 className="w-4 h-4 text-brand-success" /> : <Plug className="w-4 h-4 text-slate-400" />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-white">Instalación</p>
+                      <p className={`text-xs ${isDetected ? 'text-slate-400' : 'text-slate-500'}`}>
+                        {isDetected ? 'Script detectado' : 'Pendiente de código'}
+                      </p>
+                    </div>
+                  </div>
+                  {hasDomain && !isDetected && (
+                    <Link href={`/dashboard/assistants/${id}?tab=install`} className="text-xs text-amber-500 bg-amber-500/10 px-3 py-1.5 rounded-lg hover:bg-amber-500/20 font-medium transition-colors">Instalar</Link>
+                  )}
+                </div>
+
+                <div className="pt-4 mt-4 border-t border-white/10">
+                  {!isCustomized ? (
+                    <Link href={`/dashboard/assistants/${id}?tab=webchat`} className="w-full flex justify-center py-2.5 rounded-xl bg-brand-cyan text-slate-900 font-bold hover:bg-brand-cyan/90 transition-colors">
+                      Personalizar Web Chat
+                    </Link>
+                  ) : !hasDomain ? (
+                    <Link href={`/dashboard/assistants/${id}?tab=install`} className="w-full flex justify-center py-2.5 rounded-xl bg-brand-cyan text-slate-900 font-bold hover:bg-brand-cyan/90 transition-colors">
+                      Autorizar Dominio
+                    </Link>
+                  ) : !isDetected ? (
+                    <Link href={`/dashboard/assistants/${id}?tab=install`} className="w-full flex justify-center py-2.5 rounded-xl bg-amber-500 text-amber-950 font-bold hover:bg-amber-400 transition-colors">
+                      Ver código de instalación
+                    </Link>
+                  ) : (
+                    <Link href={`/dashboard/conversations?assistantId=${id}`} className="w-full flex justify-center py-2.5 rounded-xl bg-brand-violet text-white font-bold hover:bg-brand-violet/90 transition-colors">
+                      Ver conversaciones
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* ESTADO GENERAL DE SALUD */}
+            <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md">
+              <h2 className="font-semibold text-lg text-white mb-4 flex items-center gap-2"><Activity className="w-5 h-5 text-brand-violet" /> Análisis de rendimiento</h2>
               
               <div className="flex items-center justify-between bg-black/20 rounded-xl p-4 border border-white/[0.05] mb-4">
                 <div>
@@ -246,71 +352,18 @@ export default async function AssistantDetailPage({
                   <span className={`text-3xl font-black ${getScoreColor(health.scoreLevel)}`}>{health.score}</span><span className="text-slate-500 font-bold">/100</span>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Estado</p>
-                  <span className={`text-sm font-semibold px-2.5 py-1 rounded-lg border ${getBaseStateColor(health.baseState)}`}>{health.baseState}</span>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Calidad</p>
+                  <span className={`text-sm font-semibold px-2.5 py-1 rounded-lg border text-brand-cyan border-brand-cyan/20 bg-brand-cyan/10`}>{health.trainingQuality}</span>
                 </div>
               </div>
-
-              <div className="space-y-3">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-brand-violet/10 to-brand-cyan/5 border border-brand-violet/20 flex gap-2 items-start">
-                  <Target className="w-4 h-4 text-brand-cyan shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[10px] text-brand-cyan font-semibold uppercase tracking-wider mb-0.5">Siguiente paso recomendado</p>
-                    <p className="text-xs text-slate-300 leading-relaxed">{health.nextStep}</p>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400 flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5" /> Creado el {formatDate(assistant.created_at)}</p>
-              </div>
-            </div>
-
-            {/* B. ENTRENAMIENTO */}
-            <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md">
-              <h2 className="font-semibold text-lg text-white mb-4 flex items-center gap-2"><Sparkles className="w-5 h-5 text-brand-cyan" /> Entrenamiento</h2>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">Calidad base</span>
-                  <span className="text-sm font-semibold text-white">{health.trainingQuality}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">Bloques completos</span>
-                  <span className="text-sm font-semibold text-white">{blocksCount}</span>
-                </div>
-                
-                <Link href={`/dashboard/assistants/${id}?tab=edit`} className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-semibold text-white">
-                  <Pencil className="w-4 h-4" /> Editar conocimiento
-                </Link>
-              </div>
-            </div>
-
-            {/* C. INSTALACIÓN */}
-            <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md">
-              <h2 className="font-semibold text-lg text-white mb-4 flex items-center gap-2"><Plug className="w-5 h-5 text-brand-success" /> Instalación</h2>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">Web Chat</span>
-                  <span className="text-sm font-semibold text-white flex items-center gap-1">
-                    {health.badges.hasVerifiedDomain ? <CheckCircle2 className="w-4 h-4 text-brand-success" /> : <XCircle className="w-4 h-4 text-slate-500" />}
-                    {health.badges.hasVerifiedDomain ? 'Verificado' : 'Pendiente'}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-slate-400">Dominios autorizados</span>
-                  <span className="text-sm font-semibold text-white">{assistant.assistant_domains?.length || 0}</span>
-                </div>
-
-                <Link href={`/dashboard/assistants/${id}?tab=install`} className="w-full mt-2 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-semibold text-white">
-                  <Globe className="w-4 h-4" /> Ver instrucciones
-                </Link>
-              </div>
+              <p className="text-xs text-slate-400 flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5" /> Creado el {formatDate(assistant.created_at)}</p>
             </div>
           </div>
 
           {/* Columna Derecha: Actividad, Acciones rápidas y Playground histórico */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* D. ACTIVIDAD */}
+            {/* ACTIVIDAD */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md flex flex-col justify-center">
                 <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1.5"><MessageCircle className="w-4 h-4"/> Conversaciones</span>
@@ -324,7 +377,7 @@ export default async function AssistantDetailPage({
               </div>
             </div>
 
-            {/* E. ACCIONES RÁPIDAS */}
+            {/* ACCIONES RÁPIDAS */}
             <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md">
               <h2 className="font-semibold text-lg text-white mb-4">Acciones rápidas</h2>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -396,11 +449,19 @@ export default async function AssistantDetailPage({
         </div>
       )}
 
-      {/* TAB CONTENT: INSTALL */}
-      {tab === 'install' && (
-        <div className="space-y-6">
-          <AssistantInstallation assistantId={assistant.id} planLimits={planLimits} effectivePlanStatus={effStatus} />
-        </div>
+      {/* TAB CONTENT: WEB CHAT (HUB + CUSTOMIZATION + INSTALLATION) */}
+      {tab === 'webchat' && (
+        <AssistantWebChatTab
+          assistantId={assistant.id}
+          widgetConfig={assistant.widget_config}
+          domains={domains}
+          conversationsCount={conversationsCount}
+          leadsCount={leadsCountRes}
+          currentPlan={sub ? normalizePlan(sub.plan) : 'free'}
+          planLimits={planLimits}
+          effectivePlanStatus={effStatus}
+          initialFocus={initialFocus}
+        />
       )}
 
       {/* TAB CONTENT: SETTINGS (EDIT) */}
@@ -427,30 +488,6 @@ export default async function AssistantDetailPage({
             planLimit={planLimits.assistants}
             currentPlan={sub ? normalizePlan(sub.plan) : 'free'}
           />
-        )
-      )}
-
-      {/* TAB CONTENT: APPEARANCE */}
-      {tab === 'appearance' && (
-        !canEdit ? (
-          <div className="max-w-3xl bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 text-center mx-auto">
-            <div className="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <Lock className="w-8 h-8 text-amber-500" />
-            </div>
-            <h2 className="text-xl font-bold mb-2">Edición bloqueada</h2>
-            <p className="text-slate-400 mb-6">Tu plan actual no te permite modificar la apariencia. Mejora tu plan para continuar.</p>
-            <Link href="/dashboard/billing" className="gradient-btn px-6 py-3 rounded-xl font-semibold text-white inline-block">
-              Ver planes
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <AssistantCustomization 
-              assistantId={assistant.id}
-              initialConfig={assistant.widget_config || {}}
-              currentPlan={sub ? normalizePlan(sub.plan) : 'free'}
-            />
-          </div>
         )
       )}
 

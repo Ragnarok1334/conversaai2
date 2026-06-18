@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Globe, Plus, Trash2, CheckCircle2, Clock, Lock, RefreshCw, AlertCircle, ExternalLink } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 
 interface Domain {
@@ -72,6 +73,7 @@ export function AssistantDomainsPanel({
   planLimits?: any
   effectivePlanStatus?: string
 }) {
+  const router = useRouter()
   const [domains, setDomains] = useState<Domain[]>([])
   const [loading, setLoading] = useState(true)
   const [newDomain, setNewDomain] = useState('')
@@ -133,8 +135,9 @@ export function AssistantDomainsPanel({
         },
         (payload) => {
           console.log('[Realtime] assistant_domains cambio detectado:', payload.eventType)
-          // Al recibir cualquier cambio, hacer re-fetch fresco del servidor
+          // Al recibir cualquier cambio, hacer re-fetch fresco del servidor y refrescar la página
           fetchDomains()
+          router.refresh()
         }
       )
       .subscribe((status) => {
@@ -166,6 +169,7 @@ export function AssistantDomainsPanel({
       if (!res.ok) throw new Error(data.error || 'Error al agregar dominio')
       setNewDomain('')
       await fetchDomains()
+      router.refresh()
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -191,6 +195,7 @@ export function AssistantDomainsPanel({
 
       setDomains(prev => prev.filter(d => d.id !== id))
       setConfirmDeleteDomainId(null)
+      router.refresh()
     } catch (err: any) {
       setDeleteError(err.message || 'Error al eliminar dominio')
     } finally {

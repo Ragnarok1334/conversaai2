@@ -618,7 +618,7 @@
 
   async function fetchConfig() {
     try {
-      const res = await fetch(`${baseUrl}/api/widget/config?id=${assistantId}`);
+      const res = await fetch(`${baseUrl}/api/widget/config?assistantId=${assistantId}`);
       if (res.status === 403) {
         blockChat("El chat no está disponible en este momento.");
         return;

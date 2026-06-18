@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Globe, MessageCircle, Send, Pencil, Trash2, Calendar, Plug, Play, CheckCircle2, Lock, AlertCircle, Sparkles, Users, Activity, Target, ShieldAlert, AlertTriangle } from 'lucide-react'
+import { Globe, MessageCircle, Send, Pencil, Trash2, Calendar, Plug, Play, CheckCircle2, Lock, AlertCircle, Sparkles, Users, Activity, Target, ShieldAlert, AlertTriangle, Palette } from 'lucide-react'
 import Link from 'next/link'
 import { AssistantInstallModal } from './AssistantInstallModal'
 import { AssistantTestModal } from './AssistantTestModal'
@@ -11,16 +11,20 @@ import type { AssistantHealthData } from '@/lib/assistant/assistant-health'
 
 interface Assistant {
   id: string
-  assistant_name: string
-  business_name: string
-  channel: string
-  tone: string
+  name?: string
   status: string
   created_at: string
-  lastActivityAt?: string
+  purpose?: string
+  domains_count?: number
+  conversations_count?: number
+  widget_config?: any
+  health?: any
   conversationsCount?: number
   leadsCount?: number
-  health?: AssistantHealthData
+  lastActivityAt?: string
+  assistant_name?: string
+  business_name?: string
+  assistant_domains?: any[]
 }
 
 interface AssistantCardProps {
@@ -74,7 +78,7 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
     }
   }
 
-  const initial = assistant.assistant_name.charAt(0).toUpperCase()
+  const initial = (assistant.assistant_name || assistant.name || '?').charAt(0).toUpperCase()
   
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Desconocida'
@@ -140,8 +144,8 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
               {initial}
             </div>
             <div className="min-w-0">
-              <h3 className="font-bold text-white text-base leading-tight truncate">{assistant.assistant_name}</h3>
-              <p className="text-sm text-slate-400 truncate max-w-[150px]">{assistant.business_name || 'Sin negocio definido'}</p>
+            <h3 className="font-bold text-white text-base leading-tight truncate">{assistant.assistant_name || assistant.name}</h3>
+            <p className="text-sm text-slate-400 truncate max-w-[150px]">{assistant.business_name || assistant.purpose || 'Sin negocio definido'}</p>
             </div>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -227,39 +231,63 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
 
         {/* Actions */}
         <div className="mt-auto space-y-2">
-          {health.baseState === 'Falta instalación' ? (
-            <Link href={`/dashboard/assistants/${assistant.id}?tab=install`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-violet/10 border border-brand-violet/20 text-brand-violet text-sm font-semibold hover:bg-brand-violet/20 transition-all">
-              <Plug className="w-4 h-4" /> Instalar Web Chat
-            </Link>
-          ) : health.baseState === 'Necesita entrenamiento' ? (
-            <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm font-semibold hover:bg-amber-500/20 transition-all">
-              <Pencil className="w-4 h-4" /> Mejorar entrenamiento
-            </Link>
-          ) : health.baseState === 'En configuración' ? (
-            <button onClick={() => setShowTest(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-sm font-semibold hover:bg-brand-cyan/20 transition-all">
-              <Play className="w-4 h-4" /> Probar asistente
-            </button>
-          ) : health.baseState === 'Activo' ? (
-            <Link href={`/dashboard/conversations?assistantId=${assistant.id}`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan text-sm font-semibold hover:bg-brand-cyan/20 transition-all">
-              <MessageCircle className="w-4 h-4" /> Ver conversaciones
-            </Link>
-          ) : (
-            <button onClick={() => setShowTest(true)} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 text-white text-sm font-semibold hover:bg-white/10 transition-all">
-              <Play className="w-4 h-4" /> Probar asistente
-            </button>
-          )}
+          {(() => {
+            const hasTraining = health.score > 20 || health.baseState !== 'Necesita entrenamiento'
+            const isCustomized = Boolean(assistant.widget_config && Object.keys(assistant.widget_config).length > 0)
+            const domains = assistant.assistant_domains || []
+            const hasDomain = domains.length > 0
+            const isDetected = domains.some((d: any) => d.last_seen_at !== null)
+            const hasConversations = (assistant.conversationsCount || 0) > 0
+
+            if (!hasTraining) {
+              return (
+                <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm font-semibold hover:bg-amber-500/20 transition-all">
+                  <Pencil className="w-4 h-4" /> Completar entrenamiento
+                </Link>
+              )
+            }
+            if (!isCustomized) {
+              return (
+                <Link href={`/dashboard/assistants/${assistant.id}?tab=webchat`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-cyan border border-brand-cyan/20 text-slate-900 text-sm font-bold hover:bg-brand-cyan/90 transition-all">
+                  <Palette className="w-4 h-4" /> Personalizar Web Chat
+                </Link>
+              )
+            }
+            if (!hasDomain) {
+              return (
+                <Link href={`/dashboard/assistants/${assistant.id}?tab=install`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-cyan border border-brand-cyan/20 text-slate-900 text-sm font-bold hover:bg-brand-cyan/90 transition-all">
+                  <Globe className="w-4 h-4" /> Autorizar dominio
+                </Link>
+              )
+            }
+            if (!isDetected) {
+              return (
+                <Link href={`/dashboard/assistants/${assistant.id}?tab=install`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-sm font-semibold hover:bg-amber-500/20 transition-all">
+                  <Plug className="w-4 h-4" /> Instalar script
+                </Link>
+              )
+            }
+            return (
+              <Link href={`/dashboard/conversations?assistantId=${assistant.id}`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-violet/10 border border-brand-violet/30 text-brand-violet text-sm font-semibold hover:bg-brand-violet/20 transition-all">
+                <MessageCircle className="w-4 h-4" /> Ver conversaciones
+              </Link>
+            )
+          })()}
           
           <div className="flex gap-2 pt-1">
-            <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-xs font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
+            <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
               <Pencil className="w-3.5 h-3.5" /> Editar
             </Link>
-            <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-xs font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
+            <Link href={`/dashboard/assistants/${assistant.id}?tab=webchat`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors" title="Web Chat">
+              <Palette className="w-3.5 h-3.5" /> Web Chat
+            </Link>
+            <Link href={`/dashboard/assistants/${assistant.id}?tab=test`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors" title="Probar">
+              <Play className="w-3.5 h-3.5" /> Probar
+            </Link>
+            <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
               <Users className="w-3.5 h-3.5" /> Leads
             </Link>
-            <Link href={`/dashboard/assistants/${assistant.id}?tab=install`} className="px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-cyan hover:bg-brand-cyan/10 hover:border-brand-cyan/20 transition-colors" title="Instalar Web Chat">
-              <Globe className="w-3.5 h-3.5" />
-            </Link>
-            <button onClick={() => setShowDelete(true)} className="px-3.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-pink hover:bg-brand-pink/10 hover:border-brand-pink/20 transition-colors" title="Eliminar">
+            <button onClick={() => setShowDelete(true)} className="px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-pink hover:bg-brand-pink/10 hover:border-brand-pink/20 transition-colors" title="Eliminar">
               <Trash2 className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -267,7 +295,7 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
 
         {/* Footer info */}
         <div className="mt-4 pt-4 border-t border-white/[0.05] flex items-center justify-between text-[10px] text-slate-500 font-medium">
-          <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Últ. act: {formatDate(assistant.lastActivityAt)}</span>
+          <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Últ. act: {formatDate(assistant.lastActivityAt || assistant.created_at)}</span>
         </div>
       </motion.div>
     </>

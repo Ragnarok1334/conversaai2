@@ -16,7 +16,7 @@ export async function OPTIONS() {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
-    const assistantId = searchParams.get('assistantId')
+    const assistantId = searchParams.get('assistantId') || searchParams.get('id')
 
     if (!assistantId) {
       return NextResponse.json({ error: 'Missing assistantId' }, { status: 400, headers: corsHeaders })
