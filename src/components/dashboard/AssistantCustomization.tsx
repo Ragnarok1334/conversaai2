@@ -210,7 +210,7 @@ export function AssistantCustomization({ assistantId, initialConfig, currentPlan
               </span>
             )}
             <span className="text-slate-600 hidden sm:inline">&bull;</span>
-            <span className="text-slate-400 hidden sm:inline">Se aplica al Web Chat al guardar.</span>
+            <span className="text-slate-400 hidden sm:inline">Recarga tu sitio si el chat ya está abierto para ver los cambios.</span>
           </div>
         </div>
         

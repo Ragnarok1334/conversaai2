@@ -3,6 +3,10 @@ export function sanitizeWidgetConfigForPlan(widgetConfig: any, effectivePlan: st
     return {}
   }
 
+  if (process.env.NODE_ENV === 'development') {
+    console.log("[widget-config] sanitized keys input:", Object.keys(widgetConfig))
+  }
+
   const isPro = effectivePlan === 'pro'
   const isGrowthOrAbove = effectivePlan === 'growth' || effectivePlan === 'business' || effectivePlan === 'enterprise'
 
