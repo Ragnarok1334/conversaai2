@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { buildAssistantSystemPrompt, type Assistant } from './assistant/buildPrompt'
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini'
 
@@ -13,8 +14,6 @@ function getOpenAIClient(): OpenAI {
 
   return new OpenAI({ apiKey })
 }
-
-import { buildAssistantSystemPrompt, type Assistant } from './assistant/buildPrompt'
 
 export interface AssistantConfig extends Partial<Assistant> {
   // Legacy fields for backward compatibility during transition
@@ -32,8 +31,6 @@ export interface AssistantConfig extends Partial<Assistant> {
   language?: string
   knowledge_blocks?: any[] | null
 }
-
-// Se reemplazó buildSystemPrompt por buildAssistantSystemPrompt
 
 export async function generateAssistantReply(
   config: AssistantConfig,
@@ -61,7 +58,7 @@ export async function generateAssistantReply(
 
   const openai = getOpenAIClient()
   const response = await openai.responses.create({
-    model: model,
+    model,
     instructions: systemPrompt,
     input: userMessage,
   })
