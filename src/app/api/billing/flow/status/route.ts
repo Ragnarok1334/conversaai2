@@ -1,26 +1,29 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
 import { getPlanConfig, normalizePlan } from '@/lib/plans';
 
 export async function GET(req: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Debes iniciar sesión para verificar el pago.' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
 
-    if (!token) {
-      return NextResponse.json({ error: 'Token requerido.' }, { status: 400 });
+    if (!token || token.length > 512) {
+      return NextResponse.json({ error: 'Token inválido.' }, { status: 400 });
     }
 
     const supabaseAdmin = createSupabaseAdmin();
-
-    // 1. Verify token in Flow
-    const flowStatus = await getFlowPaymentStatus(token);
-
-    // 2. Fetch billing_payment record
     const { data: payment, error: paymentError } = await supabaseAdmin
       .from('billing_payments')
-      .select('*')
+      .select('id, user_id, flow_token, flow_order, plan, amount, currency, status, metadata')
       .eq('flow_token', token)
       .single();
 
@@ -28,39 +31,76 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
 
-    // Map Flow status to our DB status
+    if (payment.user_id !== user.id) {
+      return NextResponse.json({ error: 'No tienes acceso a este pago.' }, { status: 403 });
+    }
+
+    const flowStatus = await getFlowPaymentStatus(token);
+
+    if (
+      flowStatus.commerceOrder !== payment.flow_order ||
+      Number(flowStatus.amount) !== Number(payment.amount) ||
+      flowStatus.currency !== payment.currency
+    ) {
+      console.error('[Flow status] Payment mismatch', {
+        paymentId: payment.id,
+        expectedOrder: payment.flow_order,
+        receivedOrder: flowStatus.commerceOrder,
+        expectedAmount: payment.amount,
+        receivedAmount: flowStatus.amount,
+        expectedCurrency: payment.currency,
+        receivedCurrency: flowStatus.currency,
+      });
+      return NextResponse.json({ error: 'La información del pago no coincide.' }, { status: 409 });
+    }
+
     // 1: Pending, 2: Paid, 3: Rejected, 4: Cancelled
     let newStatus = 'pending';
     if (flowStatus.status === 2) newStatus = 'paid';
     else if (flowStatus.status === 3) newStatus = 'rejected';
     else if (flowStatus.status === 4) newStatus = 'cancelled';
 
-    // 3. Update billing_payments
-    const currentMetadata = payment.metadata || {}
-    let updatedMetadata = { ...currentMetadata }
-    if (payment.status === 'cancelled' && newStatus === 'paid') {
-      updatedMetadata.recoveredFromCancelled = true
-    }
+    const wasAlreadyPaid = payment.status === 'paid';
+    const currentMetadata = payment.metadata || {};
+    const updatedMetadata = {
+      ...currentMetadata,
+      ...(payment.status === 'cancelled' && newStatus === 'paid'
+        ? { recoveredFromCancelled: true }
+        : {}),
+    };
 
-    await supabaseAdmin
+    const { error: paymentUpdateError } = await supabaseAdmin
       .from('billing_payments')
       .update({
         status: newStatus,
         metadata: updatedMetadata,
-        raw_response: flowStatus
+        raw_response: flowStatus,
       })
       .eq('id', payment.id);
 
-    // 4. If paid, update subscription with correct limits from plans config
-    if (newStatus === 'paid') {
-      const planKey = normalizePlan(payment.plan)
-      const planConfig = getPlanConfig(planKey)
+    if (paymentUpdateError) {
+      console.error('[Flow status] Payment update error:', paymentUpdateError);
+      return NextResponse.json({ error: 'No se pudo actualizar el estado del pago.' }, { status: 500 });
+    }
 
-      const { data: subscription } = await supabaseAdmin
+    if (newStatus === 'paid' && !wasAlreadyPaid) {
+      const planKey = normalizePlan(payment.plan);
+      const planConfig = getPlanConfig(planKey);
+
+      if (planKey === 'free' || planKey === 'trial' || planKey === 'enterprise') {
+        return NextResponse.json({ error: 'El plan asociado al pago no es válido.' }, { status: 409 });
+      }
+
+      const { data: subscription, error: subscriptionError } = await supabaseAdmin
         .from('subscriptions')
-        .select('*')
+        .select('id')
         .eq('user_id', payment.user_id)
         .single();
+
+      if (subscriptionError && subscriptionError.code !== 'PGRST116') {
+        console.error('[Flow status] Subscription lookup error:', subscriptionError);
+        return NextResponse.json({ error: 'No se pudo actualizar la suscripción.' }, { status: 500 });
+      }
 
       const now = new Date();
       const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -76,23 +116,30 @@ export async function GET(req: Request) {
         grace_ends_at: graceEnd.toISOString(),
         cancel_at_period_end: false,
         cancelled_at: null,
-        cancellation_reason: null
+        cancellation_reason: null,
       };
 
+      let subscriptionWriteError = null;
       if (subscription) {
-        await supabaseAdmin
+        const { error } = await supabaseAdmin
           .from('subscriptions')
           .update(subscriptionData)
-          .eq('user_id', payment.user_id);
+          .eq('id', subscription.id);
+        subscriptionWriteError = error;
       } else {
-        // Create if missing
-        await supabaseAdmin
+        const { error } = await supabaseAdmin
           .from('subscriptions')
           .insert({
             user_id: payment.user_id,
             ...subscriptionData,
-            current_messages_used: 0
+            current_messages_used: 0,
           });
+        subscriptionWriteError = error;
+      }
+
+      if (subscriptionWriteError) {
+        console.error('[Flow status] Subscription update error:', subscriptionWriteError);
+        return NextResponse.json({ error: 'El pago fue confirmado, pero no se pudo actualizar la suscripción.' }, { status: 500 });
       }
     }
 
@@ -100,9 +147,8 @@ export async function GET(req: Request) {
       status: newStatus,
       plan: payment.plan,
       amount: payment.amount,
-      currency: payment.currency
+      currency: payment.currency,
     });
-
   } catch (error: unknown) {
     console.error('Flow Status Check Error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'No se pudo verificar el pago.' }, { status: 500 });
