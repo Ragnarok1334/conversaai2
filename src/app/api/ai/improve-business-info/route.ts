@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
-import { checkRateLimit, consumeMessageCredit } from '@/lib/security'
+import { checkRateLimit, consumeMessageCredit, refundMessageCredit } from '@/lib/security'
 import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { canUsePremiumFeatures } from '@/lib/billing/subscription-status'
 
 const getOpenAIClient = () => {
-  const apiKey = process.env.OPENAI_API_KEY
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
   if (!apiKey) {
     return null
   }
@@ -15,6 +15,9 @@ const getOpenAIClient = () => {
 }
 
 export async function POST(request: NextRequest) {
+  let creditConsumed = false
+  let userId: string | null = null
+
   try {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -23,8 +26,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Debes iniciar sesión para usar esta función.' }, { status: 401 })
     }
 
+    userId = user.id
+
     const body = await request.json()
-    const { text, blockType, blockTitle, assistantName, businessType, activeTemplate, existingKnowledgeBlocks, instructionsLegacy } = body
+    const {
+      text,
+      blockType,
+      blockTitle,
+      assistantName,
+      businessType,
+      activeTemplate,
+      existingKnowledgeBlocks,
+      instructionsLegacy,
+    } = body
 
     if (typeof text !== 'string' || text.length > 5000) {
       return NextResponse.json(
@@ -37,13 +51,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Falta blockType' }, { status: 400 })
     }
 
-    // Rate limit: 10 peticiones por minuto por usuario
-    const isRateLimited = !(await checkRateLimit(`improve-info-${user.id}`, 'improve-business-info', 10, 60))
-    if (isRateLimited) {
-      return NextResponse.json({ error: 'Demasiados intentos. Espera un minuto e intenta nuevamente.' }, { status: 429 })
+    const isCreating = text.trim().length === 0
+
+    if (
+      isCreating &&
+      !assistantName &&
+      !businessType &&
+      (!Array.isArray(existingKnowledgeBlocks) || existingKnowledgeBlocks.length === 0)
+    ) {
+      return NextResponse.json(
+        { error: 'Agrega al menos una idea del negocio para que la IA pueda ayudarte mejor.' },
+        { status: 400 }
+      )
     }
 
-    // Check plan and consume credit atomically
+    const openai = getOpenAIClient()
+    if (!openai) {
+      return NextResponse.json(
+        { error: 'La API key de IA no está configurada.' },
+        { status: 500 }
+      )
+    }
+
+    // Rate limit: 10 peticiones por minuto por usuario.
+    const isRateLimited = !(await checkRateLimit(`improve-info-${user.id}`, 'improve-business-info', 10, 60))
+    if (isRateLimited) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Espera un minuto e intenta nuevamente.' },
+        { status: 429 }
+      )
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('trial_ends_at')
@@ -60,27 +98,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Suscripción inactiva o vencida.' }, { status: 403 })
     }
 
-    const planConfig = getPlanConfig(normalizePlan(sub.plan))
+    const plan = normalizePlan(sub.plan)
+    const planConfig = getPlanConfig(plan)
     const limit = planConfig.limits.messagesPerMonth
 
+    // Consume the credit only after all validation has passed and immediately before AI usage.
     const consumed = await consumeMessageCredit(user.id, limit)
     if (!consumed) {
       return NextResponse.json({ error: 'Alcanzaste el límite de mensajes de tu plan.' }, { status: 403 })
     }
-
-    const openai = getOpenAIClient()
-    if (!openai) {
-      return NextResponse.json(
-        { error: 'La API key de IA no está configurada.' },
-        { status: 500 }
-      )
-    }
-
-    const isCreating = text.trim().length === 0
-
-    if (isCreating && !assistantName && !businessType && (!existingKnowledgeBlocks || existingKnowledgeBlocks.length === 0)) {
-      return NextResponse.json({ error: 'Agrega al menos una idea del negocio para que la IA pueda ayudarte mejor.' }, { status: 400 })
-    }
+    creditConsumed = true
 
     let systemContext = `Eres un experto en redacción comercial para asistentes virtuales. `
     if (isCreating) {
@@ -105,17 +132,24 @@ export async function POST(request: NextRequest) {
     if (assistantName) userMessage += `- Nombre del asistente/negocio: ${assistantName}\n`
     if (businessType) userMessage += `- Tipo de negocio: ${businessType}\n`
     if (activeTemplate) userMessage += `- Plantilla base: ${activeTemplate}\n`
-    
-    if (existingKnowledgeBlocks && existingKnowledgeBlocks.length > 0) {
+
+    if (Array.isArray(existingKnowledgeBlocks) && existingKnowledgeBlocks.length > 0) {
       userMessage += `\nOtros bloques ya completados (para referencia):\n`
       existingKnowledgeBlocks.forEach((b: any) => {
-        if (b.type !== blockType && b.content.trim().length > 0) {
-          userMessage += `- ${b.title}: ${b.content.substring(0, 100)}...\n`
+        if (
+          b &&
+          typeof b.type === 'string' &&
+          b.type !== blockType &&
+          typeof b.content === 'string' &&
+          b.content.trim().length > 0
+        ) {
+          const title = typeof b.title === 'string' ? b.title : 'Bloque'
+          userMessage += `- ${title}: ${b.content.substring(0, 100)}...\n`
         }
       })
     }
-    
-    if (instructionsLegacy) {
+
+    if (typeof instructionsLegacy === 'string' && instructionsLegacy.length > 0) {
       userMessage += `\nInformación general extra:\n${instructionsLegacy.substring(0, 200)}...\n`
     }
 
@@ -125,7 +159,7 @@ export async function POST(request: NextRequest) {
       userMessage += `\n(Actualmente está vacío, por favor genera una buena base).`
     }
 
-    const aiModel = getModelForPlan(normalizePlan(sub.plan), 'improve_training', { messageLength: userMessage.length })
+    const aiModel = getModelForPlan(plan, 'improve_training', { messageLength: userMessage.length })
 
     const response = await openai.chat.completions.create({
       model: aiModel,
@@ -143,11 +177,20 @@ export async function POST(request: NextRequest) {
       throw new Error('La respuesta de OpenAI estaba vacía.')
     }
 
+    creditConsumed = false
     return NextResponse.json({ improvedText })
   } catch (error: unknown) {
+    if (creditConsumed && userId) {
+      const refunded = await refundMessageCredit(userId)
+      if (!refunded) {
+        console.error('[POST /api/ai/improve-business-info] No se pudo reembolsar el crédito consumido tras un fallo de IA.')
+      }
+      creditConsumed = false
+    }
+
     let errorMessage = 'No se pudo mejorar la redacción. Intenta de nuevo.'
     let statusCode = 500
-    
+
     const err = error as { status?: number; error?: { code?: string } }
 
     if (err?.status === 401 || err?.error?.code === 'invalid_api_key') {
@@ -160,10 +203,8 @@ export async function POST(request: NextRequest) {
     ) {
       errorMessage = 'El servicio de IA no tiene saldo o cuota disponible.'
       statusCode = 429
-    } else {
-       if (process.env.NODE_ENV === 'development') {
-           console.error('[POST /api/ai/improve-business-info] Unhandled error:', error)
-       }
+    } else if (process.env.NODE_ENV === 'development') {
+      console.error('[POST /api/ai/improve-business-info] Unhandled error:', error)
     }
 
     return NextResponse.json(
