@@ -2,10 +2,17 @@ import OpenAI from 'openai'
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini'
 
-// Server-only client — never import this in client components
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+// Server-only client — initialized lazily so a missing build-time secret
+// cannot crash Next.js while it is collecting route/page data.
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
+
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY is not configured')
+  }
+
+  return new OpenAI({ apiKey })
+}
 
 import { buildAssistantSystemPrompt, type Assistant } from './assistant/buildPrompt'
 
@@ -52,6 +59,7 @@ export async function generateAssistantReply(
     }
   })
 
+  const openai = getOpenAIClient()
   const response = await openai.responses.create({
     model: model,
     instructions: systemPrompt,
