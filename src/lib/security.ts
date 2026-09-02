@@ -27,6 +27,29 @@ export async function consumeMessageCredit(userId: string, limit: number | null)
 }
 
 /**
+ * Devuelve un crédito reservado cuando una operación de IA falla antes de completarse.
+ */
+export async function refundMessageCredit(userId: string, amount = 1): Promise<boolean> {
+  try {
+    const supabaseAdmin = createSupabaseAdmin()
+    const { data, error } = await supabaseAdmin.rpc('decrement_message_usage', {
+      p_user_id: userId,
+      p_amount: amount,
+    })
+
+    if (error) {
+      console.error('[refundMessageCredit] RPC Error:', error)
+      return false
+    }
+
+    return !!data
+  } catch (error) {
+    console.error('[refundMessageCredit] Error:', error)
+    return false
+  }
+}
+
+/**
  * Valida un rate limit usando la RPC segura en base de datos.
  */
 export async function checkRateLimit(key: string, route: string, limit: number, windowSeconds: number): Promise<boolean> {
@@ -97,7 +120,7 @@ export function escapeHtml(unsafe: string): string {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#039;")
 }
 
