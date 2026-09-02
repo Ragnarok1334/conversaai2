@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getPlanConfig } from '@/lib/plans';
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -13,54 +13,60 @@ export async function POST(req: Request) {
     }
 
     const supabaseAdmin = createSupabaseAdmin();
-
-    // 1. Fetch user profile
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('trial_used')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError || !profile) {
-      return NextResponse.json({ error: 'No se pudo obtener el perfil del usuario.' }, { status: 500 });
-    }
-
-    if (profile.trial_used) {
-      return NextResponse.json({ error: 'La prueba gratis ya ha sido utilizada.' }, { status: 400 });
-    }
-
-    // 2. Fetch current subscription
-    const { data: subscription } = await supabaseAdmin
-      .from('subscriptions')
-      .select('plan, status')
-      .eq('user_id', user.id)
-      .single();
-
-    if (subscription && subscription.status === 'active' && subscription.plan !== 'trial' && subscription.plan !== 'free') {
-      return NextResponse.json({ error: 'Ya tienes un plan activo. La prueba gratis solo está disponible para nuevos usuarios sin plan.' }, { status: 400 });
-    }
-
     const trialConfig = getPlanConfig('trial');
     const trialStart = new Date();
     const trialEnd = new Date(trialStart);
     trialEnd.setDate(trialEnd.getDate() + 7);
 
-    // 3. Update Profile to set trial_used = true
-    const { error: updateProfileError } = await supabaseAdmin
+    // Claim the trial atomically. Two concurrent requests cannot both activate it.
+    const { data: claimedProfile, error: claimError } = await supabaseAdmin
       .from('profiles')
       .update({
         trial_used: true,
         trial_started_at: trialStart.toISOString(),
         trial_ends_at: trialEnd.toISOString(),
       })
-      .eq('id', user.id);
+      .eq('id', user.id)
+      .eq('trial_used', false)
+      .select('id')
+      .maybeSingle();
 
-    if (updateProfileError) {
-      console.error('Error updating profile trial status:', updateProfileError);
-      return NextResponse.json({ error: 'No se pudo activar la prueba en tu perfil.' }, { status: 500 });
+    if (claimError) {
+      console.error('Error claiming trial:', claimError);
+      return NextResponse.json({ error: 'No se pudo activar la prueba gratis.' }, { status: 500 });
     }
 
-    // 4. Update or Insert Subscription
+    if (!claimedProfile) {
+      return NextResponse.json({ error: 'La prueba gratis ya ha sido utilizada.' }, { status: 400 });
+    }
+
+    // Re-check the current subscription after atomically claiming the trial.
+    const { data: subscription, error: subscriptionError } = await supabaseAdmin
+      .from('subscriptions')
+      .select('id, plan, status')
+      .eq('user_id', user.id)
+      .single();
+
+    if (subscriptionError && subscriptionError.code !== 'PGRST116') {
+      console.error('Error fetching subscription:', subscriptionError);
+      return NextResponse.json({ error: 'No se pudo verificar tu suscripción.' }, { status: 500 });
+    }
+
+    if (subscription && subscription.status === 'active' && subscription.plan !== 'trial' && subscription.plan !== 'free') {
+      // Roll back the claim because the user already has a paid/active plan.
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          trial_used: false,
+          trial_started_at: null,
+          trial_ends_at: null,
+        })
+        .eq('id', user.id)
+        .eq('trial_used', true);
+
+      return NextResponse.json({ error: 'Ya tienes un plan activo. La prueba gratis solo está disponible para nuevos usuarios sin plan.' }, { status: 400 });
+    }
+
     if (subscription) {
       const { error: subUpdateError } = await supabaseAdmin
         .from('subscriptions')
@@ -70,9 +76,14 @@ export async function POST(req: Request) {
           assistants_limit: trialConfig.limits.assistants,
           messages_limit: trialConfig.limits.messagesPerMonth,
           current_messages_used: 0,
+          current_period_start: trialStart.toISOString(),
+          current_period_end: trialEnd.toISOString(),
+          cancel_at_period_end: false,
+          cancelled_at: null,
+          cancellation_reason: null,
         })
-        .eq('user_id', user.id);
-        
+        .eq('id', subscription.id);
+
       if (subUpdateError) throw subUpdateError;
     } else {
       const { error: subInsertError } = await supabaseAdmin
@@ -84,13 +95,17 @@ export async function POST(req: Request) {
           assistants_limit: trialConfig.limits.assistants,
           messages_limit: trialConfig.limits.messagesPerMonth,
           current_messages_used: 0,
+          current_period_start: trialStart.toISOString(),
+          current_period_end: trialEnd.toISOString(),
+          cancel_at_period_end: false,
+          cancelled_at: null,
+          cancellation_reason: null,
         });
-        
+
       if (subInsertError) throw subInsertError;
     }
 
     return NextResponse.json({ success: true, message: 'Prueba gratis activada correctamente.' });
-
   } catch (error: unknown) {
     console.error('Trial Start Error:', error);
     return NextResponse.json({ error: 'Ocurrió un error al activar la prueba gratis.' }, { status: 500 });
