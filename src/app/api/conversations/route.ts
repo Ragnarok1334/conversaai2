@@ -3,6 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
+const DEFAULT_LIMIT = 25
+const MAX_LIMIT = 100
+const MAX_SEARCH_LENGTH = 100
+
+function escapePostgrestLike(value: string) {
+  return value.replace(/[\\%_(),]/g, (char) => `\\${char}`)
+}
+
 export async function GET(request: Request) {
   try {
     const supabase = await createClient()
@@ -13,15 +21,18 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '25', 10)
-    const page = parseInt(searchParams.get('page') || '1', 10)
+    const rawLimit = Number.parseInt(searchParams.get('limit') || '', 10)
+    const rawPage = Number.parseInt(searchParams.get('page') || '', 10)
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), MAX_LIMIT) : DEFAULT_LIMIT
+    const page = Number.isFinite(rawPage) ? Math.max(rawPage, 1) : 1
     const offset = (page - 1) * limit
-    
+
     // Filtros opcionales
     const status = searchParams.get('status')
     const channel = searchParams.get('channel')
     const assistantId = searchParams.get('assistantId')
-    const search = searchParams.get('search')
+    const rawSearch = searchParams.get('search')?.trim() || ''
+    const search = rawSearch.slice(0, MAX_SEARCH_LENGTH)
 
     const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
     const supabaseAdmin = createSupabaseAdmin()
@@ -33,7 +44,7 @@ export async function GET(request: Request) {
     ])
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
     const effectiveStatus = getEffectiveSubscriptionStatus(subRes.data, profileRes.data)
-    
+
     if (['free', 'expired', 'cancelled'].includes(effectiveStatus)) {
       return NextResponse.json({ error: 'Plan inválido para ver conversaciones' }, { status: 403 })
     }
@@ -49,7 +60,8 @@ export async function GET(request: Request) {
     if (channel && channel !== 'all') query = query.eq('channel', channel)
     if (assistantId && assistantId !== 'all') query = query.eq('assistant_id', assistantId)
     if (search) {
-      query = query.or(`visitor_name.ilike.%${search}%,visitor_email.ilike.%${search}%,visitor_phone.ilike.%${search}%,last_message.ilike.%${search}%`)
+      const escapedSearch = escapePostgrestLike(search)
+      query = query.or(`visitor_name.ilike.%${escapedSearch}%,visitor_email.ilike.%${escapedSearch}%,visitor_phone.ilike.%${escapedSearch}%,last_message.ilike.%${escapedSearch}%`)
     }
 
     const { data, count, error } = await query
@@ -58,7 +70,7 @@ export async function GET(request: Request) {
 
     // Fetch stats
     const { data: allConvs } = await supabase.from('conversations').select('status, channel').eq('user_id', user.id)
-    
+
     const stats = {
       total: allConvs?.length || 0,
       open: allConvs?.filter(c => c.status === 'open').length || 0,
