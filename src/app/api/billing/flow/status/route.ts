@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
+import { checkRateLimit } from '@/lib/security';
 
 const MAX_TOKEN_LENGTH = 512;
+const STATUS_REQUESTS_PER_MINUTE = 12;
 
 export async function GET(req: Request) {
   try {
@@ -11,6 +13,10 @@ export async function GET(req: Request) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión para verificar el pago.' }, { status: 401 });
+    }
+
+    if (!await checkRateLimit(`flow-status-user-${user.id}`, 'flow-status-user-minute', STATUS_REQUESTS_PER_MINUTE, 60)) {
+      return NextResponse.json({ error: 'Demasiadas verificaciones de pago. Intenta nuevamente en unos minutos.' }, { status: 429 });
     }
 
     const { searchParams } = new URL(req.url);
@@ -24,7 +30,7 @@ export async function GET(req: Request) {
       .from('billing_payments')
       .select('id, user_id, plan, amount, currency, status')
       .eq('flow_token', token)
-      .single();
+      .maybeSingle();
 
     if (paymentError || !payment) {
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
