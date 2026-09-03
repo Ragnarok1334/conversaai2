@@ -30,7 +30,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { data: subscriptionData, error: subscriptionError } = await supabase
+    const { data: subscriptionDataRaw, error: subscriptionError } = await supabase
       .from('subscriptions')
       .select(SUBSCRIPTION_FIELDS)
       .eq('user_id', user.id)
@@ -41,14 +41,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Failed to load subscription' }, { status: 500 })
     }
 
-    let subscription = subscriptionData
+    let subscription = subscriptionDataRaw as unknown as UserSubscription | null
 
     // Create a fallback free subscription if one does not exist.
     // The unique(user_id) constraint protects against duplicate subscriptions.
     if (!subscription) {
       const planConfig = getPlanConfig('free')
       const supabaseAdmin = createSupabaseAdmin()
-      const { data: newSub, error: insertError } = await supabaseAdmin
+      const { data: newSubRaw, error: insertError } = await supabaseAdmin
         .from('subscriptions')
         .insert({
           user_id: user.id,
@@ -64,12 +64,13 @@ export async function GET() {
       if (insertError) {
         // Another request may have created the subscription concurrently.
         if (insertError.code === '23505') {
-          const { data: existingSub, error: refetchError } = await supabase
+          const { data: existingSubRaw, error: refetchError } = await supabase
             .from('subscriptions')
             .select(SUBSCRIPTION_FIELDS)
             .eq('user_id', user.id)
             .maybeSingle()
 
+          const existingSub = existingSubRaw as unknown as UserSubscription | null
           if (refetchError || !existingSub) {
             console.error('Subscription fallback refetch error:', refetchError?.message || 'subscription not found')
             return NextResponse.json({ error: 'Failed to load subscription' }, { status: 500 })
@@ -81,7 +82,7 @@ export async function GET() {
           return NextResponse.json({ error: 'Failed to load subscription' }, { status: 500 })
         }
       } else {
-        subscription = newSub
+        subscription = newSubRaw as unknown as UserSubscription
       }
     }
 
@@ -96,7 +97,6 @@ export async function GET() {
     }
 
     const normalizedPlan = normalizePlan(subscription.plan)
-    const sub = subscription as UserSubscription
     const planConfig = getPlanConfig(normalizedPlan)
 
     // Use limits from PLAN_CONFIGS (source of truth), not stored DB value.
@@ -105,14 +105,14 @@ export async function GET() {
     const assistantsUsedCount = assistantsUsed ?? 0
 
     const payload = {
-      subscription: { ...sub, plan: normalizedPlan },
+      subscription: { ...subscription, plan: normalizedPlan },
       planConfig,
       usage: {
         assistantsUsed: assistantsUsedCount,
         assistantsLimit,
-        messagesUsed: sub.current_messages_used,
+        messagesUsed: subscription.current_messages_used,
         messagesLimit,
-        messagesPercentage: getUsagePercentage(sub.current_messages_used, messagesLimit),
+        messagesPercentage: getUsagePercentage(subscription.current_messages_used, messagesLimit),
         assistantsPercentage: getUsagePercentage(assistantsUsedCount, assistantsLimit),
       },
     }
