@@ -6,6 +6,13 @@ import { consumeMessageCredit, refundMessageCredit } from '@/lib/security'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { canUsePremiumFeatures } from '@/lib/billing/subscription-status'
 
+const MAX_BODY_BYTES = 64 * 1024
+const MAX_MESSAGE_LENGTH = 4000
+const MAX_CONFIG_BYTES = 48 * 1024
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
 export async function POST(request: NextRequest) {
   let creditConsumed = false
   const userIdRef: { value: string | null } = { value: null }
@@ -20,24 +27,48 @@ export async function POST(request: NextRequest) {
 
     userIdRef.value = user.id
 
-    const body = await request.json()
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && Number.isFinite(Number(contentLength)) && Number(contentLength) > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'La solicitud es demasiado grande.' }, { status: 413 })
+    }
+
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'La solicitud es demasiado grande.' }, { status: 413 })
+    }
+
+    let body: unknown
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      return NextResponse.json({ error: 'JSON inválido.' }, { status: 400 })
+    }
+
+    if (!isPlainObject(body)) {
+      return NextResponse.json({ error: 'Cuerpo de solicitud inválido.' }, { status: 400 })
+    }
+
     const { assistantId, assistantConfig, userMessage } = body
 
-    if (!userMessage || typeof userMessage !== 'string' || userMessage.trim().length === 0) {
+    if (typeof userMessage !== 'string') {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
     }
 
-    // Validate the assistant before consuming a message credit.
+    const normalizedMessage = userMessage.trim()
+    if (!normalizedMessage || normalizedMessage.length > MAX_MESSAGE_LENGTH) {
+      return NextResponse.json({ error: `El mensaje debe tener entre 1 y ${MAX_MESSAGE_LENGTH} caracteres.` }, { status: 400 })
+    }
+
     let config: AssistantConfig
 
-    if (assistantId) {
-      if (typeof assistantId !== 'string') {
+    if (assistantId !== undefined && assistantId !== null) {
+      if (typeof assistantId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(assistantId)) {
         return NextResponse.json({ error: 'assistantId inválido' }, { status: 400 })
       }
 
       const { data: assistant, error: dbError } = await supabase
         .from('assistants')
-        .select('*')
+        .select('assistant_name,business_name,business_type,channel,tone,main_goal,instructions,faqs,services,schedule,fallback_message,language,behavior,knowledge_blocks')
         .eq('id', assistantId)
         .eq('user_id', user.id)
         .single()
@@ -62,14 +93,21 @@ export async function POST(request: NextRequest) {
         behavior: assistant.behavior,
         knowledge_blocks: assistant.knowledge_blocks,
       }
-    } else if (assistantConfig && typeof assistantConfig === 'object') {
-      // Preview mode — use provided config without saving.
+    } else if (assistantConfig !== undefined) {
+      if (!isPlainObject(assistantConfig)) {
+        return NextResponse.json({ error: 'assistantConfig inválido' }, { status: 400 })
+      }
+
+      const configBytes = new TextEncoder().encode(JSON.stringify(assistantConfig)).byteLength
+      if (configBytes > MAX_CONFIG_BYTES) {
+        return NextResponse.json({ error: 'La configuración del asistente es demasiado grande.' }, { status: 413 })
+      }
+
       config = assistantConfig as AssistantConfig
     } else {
       return NextResponse.json({ error: 'Se requiere assistantId o assistantConfig' }, { status: 400 })
     }
 
-    // --- Subscription Limits ---
     const { data: profile } = await supabase
       .from('profiles')
       .select('trial_ends_at')
@@ -78,7 +116,7 @@ export async function POST(request: NextRequest) {
 
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('*')
+      .select('plan,current_messages_used,status')
       .eq('user_id', user.id)
       .single()
 
@@ -90,7 +128,6 @@ export async function POST(request: NextRequest) {
     const planConfig = getPlanConfig(normalizedPlan)
     const effectiveLimit = planConfig.limits.messagesPerMonth
 
-    // Reserve one message credit atomically immediately before the AI call.
     const consumed = await consumeMessageCredit(user.id, effectiveLimit)
     if (!consumed) {
       return NextResponse.json({
@@ -104,16 +141,14 @@ export async function POST(request: NextRequest) {
     creditConsumed = true
 
     try {
-      const aiModel = getModelForPlan(normalizedPlan, 'assistant_test', { messageLength: userMessage.length })
-      const reply = await generateAssistantReply(config, userMessage.trim(), aiModel)
+      const aiModel = getModelForPlan(normalizedPlan, 'assistant_test', { messageLength: normalizedMessage.length })
+      const reply = await generateAssistantReply(config, normalizedMessage, aiModel)
 
-      // Save test message if assistantId exists. A successful AI response consumes
-      // the credit even if persistence fails, because the model call already happened.
       if (assistantId) {
         const { error: saveError } = await supabase.from('assistant_test_messages').insert({
           assistant_id: assistantId,
           user_id: user.id,
-          user_message: userMessage.trim(),
+          user_message: normalizedMessage,
           assistant_reply: reply,
         })
 
@@ -137,10 +172,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No se pudo generar la respuesta. Intenta nuevamente.' }, { status: 502 })
     }
   } catch (error) {
-    console.error('[API /assistant/test]', error)
+    console.error('[API /assistant/test] Unexpected error:', error instanceof Error ? error.message : 'unknown')
 
-    // Safety net: return a reserved credit if an unexpected exception occurs
-    // after the reservation and before the AI response is successfully returned.
     if (creditConsumed && userIdRef.value) {
       const refunded = await refundMessageCredit(userIdRef.value)
       if (!refunded) {
