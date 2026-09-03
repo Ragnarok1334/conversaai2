@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
+import { UserSubscription } from '@/lib/plans';
 
 const SUBSCRIPTION_FIELDS = [
   'id',
@@ -38,7 +39,7 @@ export async function POST() {
       return NextResponse.json({ error: 'No se pudo validar la suscripción.' }, { status: 500 });
     }
 
-    const { data: subscription, error } = await supabaseAdmin
+    const { data: subscriptionData, error } = await supabaseAdmin
       .from('subscriptions')
       .select(SUBSCRIPTION_FIELDS)
       .eq('user_id', user.id)
@@ -48,6 +49,8 @@ export async function POST() {
       console.error('Error obteniendo suscripción:', error.message);
       return NextResponse.json({ error: 'No se pudo cargar la suscripción.' }, { status: 500 });
     }
+
+    const subscription = subscriptionData as unknown as UserSubscription | null;
 
     if (!subscription) {
       return NextResponse.json({ error: 'Suscripción no encontrada.' }, { status: 404 });
