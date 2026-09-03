@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     const newStatus = flowStatus.status === 2
       ? 'paid'
       : flowStatus.status === 3
-        ? 'rejected'
+        ? 'failed'
         : flowStatus.status === 4
           ? 'cancelled'
           : 'pending';
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'No se pudo actualizar el estado del pago.' }, { status: 500 });
       }
 
-      if (newStatus === 'rejected' || newStatus === 'cancelled') {
+      if (newStatus === 'failed' || newStatus === 'cancelled') {
         await logAuditEvent({ userId: payment.user_id, action: 'payment_failed', description: `Pago fallido o cancelado (${newStatus})`, req });
       }
     }
