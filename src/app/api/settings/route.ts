@@ -3,6 +3,20 @@ import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { logAuditEvent } from '@/lib/audit'
 
+const MAX_BODY_BYTES = 8 * 1024
+const SETTINGS_FIELDS = [
+  'weekly_summary', 'lead_alerts', 'conversation_alerts',
+  'usage_limit_alerts', 'billing_alerts', 'security_alerts',
+  'product_updates', 'email_notifications', 'dashboard_notifications',
+  'telegram_notifications'
+] as const
+
+const SAFE_SELECT = SETTINGS_FIELDS.join(',')
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
@@ -10,13 +24,17 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const supabaseAdmin = createSupabaseAdmin()
-    const { data: settings } = await supabaseAdmin
+    const { data: settings, error } = await supabaseAdmin
       .from('user_settings')
-      .select('*')
+      .select(SAFE_SELECT)
       .eq('user_id', user.id)
-      .single()
+      .maybeSingle()
 
-    // If no settings row yet, return safe defaults
+    if (error) {
+      console.error('[GET /api/settings] lookup failed')
+      return NextResponse.json({ error: 'No se pudieron cargar las preferencias' }, { status: 500 })
+    }
+
     if (!settings) {
       return NextResponse.json({
         weekly_summary: false,
@@ -29,74 +47,69 @@ export async function GET() {
         email_notifications: false,
         dashboard_notifications: true,
         telegram_notifications: false,
-        dashboard_density: 'comfortable',
-        default_dashboard_page: 'dashboard',
-        language: 'es'
       })
     }
 
     return NextResponse.json(settings)
   } catch (err) {
-    console.error('[GET /api/settings]', err)
+    console.error('[GET /api/settings] Error:', err instanceof Error ? err.message : 'unknown')
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
 
 export async function PATCH(req: NextRequest) {
   try {
+    const contentLength = Number.parseInt(req.headers.get('content-length') || '', 10)
+    if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Solicitud demasiado grande' }, { status: 413 })
+    }
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await req.json()
-
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[PATCH /api/settings] User: ${user.id} | Body:`, body)
+    const rawBody = await req.text()
+    if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Solicitud demasiado grande' }, { status: 413 })
     }
 
-    // Only allow safe boolean fields — never trust user_id from body
-    const booleanFields = [
-      'weekly_summary', 'lead_alerts', 'conversation_alerts',
-      'usage_limit_alerts', 'billing_alerts', 'security_alerts',
-      'product_updates', 'email_notifications', 'dashboard_notifications',
-      'telegram_notifications'
-    ]
-    const patch: Record<string, unknown> = {}
-    
-    for (const key of booleanFields) {
+    let body: unknown
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
+    }
+    if (!isPlainObject(body)) return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 })
+
+    const patch: Record<string, boolean> = {}
+    for (const key of SETTINGS_FIELDS) {
       if (key in body) {
-        // Validate it's actually a boolean to prevent SQL type errors
-        if (typeof body[key] === 'boolean') {
-          patch[key] = body[key]
+        if (typeof body[key] !== 'boolean') {
+          return NextResponse.json({ error: `Valor inválido para ${key}` }, { status: 400 })
         }
+        patch[key] = body[key]
       }
     }
 
     if (Object.keys(patch).length === 0) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn(`[PATCH /api/settings] No valid boolean fields found in body.`)
-      }
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
     const supabaseAdmin = createSupabaseAdmin()
-
-    // Upsert — creates the row if it doesn't exist
     const { data, error } = await supabaseAdmin
       .from('user_settings')
       .upsert(
         { user_id: user.id, ...patch, updated_at: new Date().toISOString() },
         { onConflict: 'user_id' }
       )
-      .select()
+      .select(SAFE_SELECT)
       .single()
 
     if (error) {
-      console.error('[PATCH /api/settings] upsert error details:', error)
+      console.error('[PATCH /api/settings] upsert failed')
       return NextResponse.json({ error: 'Error guardando preferencias' }, { status: 500 })
     }
 
-    // Only log if not just read
     await logAuditEvent({
       userId: user.id,
       action: 'notification_settings_updated',
@@ -109,7 +122,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json(data)
   } catch (err) {
-    console.error('[PATCH /api/settings] unexpected error:', err)
+    console.error('[PATCH /api/settings] Error:', err instanceof Error ? err.message : 'unknown')
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }
