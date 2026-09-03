@@ -39,6 +39,9 @@ export async function POST(req: Request) {
     try { parsedBody = JSON.parse(rawBody) } catch { return NextResponse.json({ error: 'Body no válido.' }, { status: 400, headers: corsHeaders }) }
     if (!isPlainObject(parsedBody)) return NextResponse.json({ error: 'Body no válido.' }, { status: 400, headers: corsHeaders })
 
+    const allowedKeys = new Set(['assistantId', 'pageUrl', 'visitorId'])
+    if (Object.keys(parsedBody).some((key) => !allowedKeys.has(key))) return NextResponse.json({ error: 'Body no válido.' }, { status: 400, headers: corsHeaders })
+
     const assistantId = typeof parsedBody.assistantId === 'string' ? parsedBody.assistantId.trim() : ''
     const pageUrl = typeof parsedBody.pageUrl === 'string' ? parsedBody.pageUrl.trim() : undefined
     const visitorId = typeof parsedBody.visitorId === 'string' ? parsedBody.visitorId.trim() : undefined
@@ -68,31 +71,31 @@ export async function POST(req: Request) {
 
     const admin = createSupabaseAdmin()
     const userAgent = req.headers.get('user-agent')?.slice(0, 512) || null
-    const now = new Date().toISOString()
-    const { data: currentDomain, error: selectError } = await admin
-      .from('assistant_domains')
-      .select('id,assistant_id,user_id,domain,is_active,install_events_count')
-      .eq('id', domainValidation.dbDomainId)
-      .eq('assistant_id', assistantId)
-      .eq('domain', normalizedDomain!)
-      .eq('is_active', true)
-      .maybeSingle()
+    const { data: updatedRows, error: updateError } = await admin.rpc('record_widget_install_event', {
+      p_domain_id: domainValidation.dbDomainId,
+      p_assistant_id: assistantId,
+      p_domain: normalizedDomain,
+      p_page_url: pageUrl || null,
+      p_user_agent: userAgent,
+      p_ip: ip !== 'unknown' ? ip : null,
+    })
 
-    if (selectError || !currentDomain) return NextResponse.json({ error: 'No se pudo validar el dominio.' }, { status: 500, headers: corsHeaders })
+    if (updateError) {
+      if (updateError.code === '42501' && updateError.message === 'widget_domain_not_found') {
+        return NextResponse.json({ error: 'No se pudo validar el dominio.' }, { status: 500, headers: corsHeaders })
+      }
+      throw updateError
+    }
 
-    const nextCount = (currentDomain.install_events_count ?? 0) + 1
-    const { data: updatedRows, error: updateError } = await admin
-      .from('assistant_domains')
-      .update({ is_verified: true, verification_status: 'verified', last_seen_at: now, last_seen_url: pageUrl || null, last_seen_user_agent: userAgent, last_seen_ip: ip !== 'unknown' ? ip : null, install_events_count: nextCount, updated_at: now })
-      .eq('id', currentDomain.id)
-      .eq('assistant_id', assistantId)
-      .eq('domain', normalizedDomain!)
-      .eq('is_active', true)
-      .select('id,assistant_id,domain,is_verified,verification_status,last_seen_at,install_events_count')
+    const updatedDomain = Array.isArray(updatedRows) ? updatedRows[0] : updatedRows
+    if (!updatedDomain || typeof updatedDomain !== 'object') throw new Error('Invalid widget install RPC response')
 
-    if (updateError || !updatedRows?.length) return NextResponse.json({ error: 'No se pudo verificar el dominio.' }, { status: 500, headers: corsHeaders })
+    const userId = typeof updatedDomain.user_id === 'string' ? updatedDomain.user_id : null
+    const domainId = typeof updatedDomain.id === 'string' ? updatedDomain.id : null
+    const installEventsCount = typeof updatedDomain.install_events_count === 'number' ? updatedDomain.install_events_count : null
+    if (!userId || !domainId || installEventsCount === null) throw new Error('Invalid widget install RPC response')
 
-    if (nextCount === 1) await logAuditEvent({ userId: currentDomain.user_id, action: 'widget_installation_detected', description: `El script del widget fue detectado por primera vez en ${normalizedDomain}`, entityType: 'assistant_domains', entityId: currentDomain.id, req })
+    if (installEventsCount === 1) await logAuditEvent({ userId, action: 'widget_installation_detected', description: `El script del widget fue detectado por primera vez en ${normalizedDomain}`, entityType: 'assistant_domains', entityId: domainId, req })
 
     return NextResponse.json({ success: true, status: 'verified' }, { headers: corsHeaders })
   } catch (error: unknown) {
