@@ -28,6 +28,12 @@ function getStoredFlowUrl(value: unknown): string | null {
   return typeof url === 'string' && url.length > 0 && url.length <= 2048 ? url : null;
 }
 
+function buildFlowPaymentUrl(url: string, token: string): string {
+  const paymentUrl = new URL(url);
+  paymentUrl.searchParams.set('token', token);
+  return paymentUrl.toString();
+}
+
 export async function POST(req: Request) {
   let commerceOrder = '';
   let planKey = '';
@@ -94,40 +100,83 @@ export async function POST(req: Request) {
     }
 
     amount = config.priceCLP;
-
     const supabaseAdmin = createSupabaseAdmin();
-
-    // Reuse a recent pending payment instead of creating another external Flow payment
-    // when the client retries the checkout request.
     const pendingSince = new Date(Date.now() - PENDING_PAYMENT_WINDOW_MS).toISOString();
-    const { data: existingPayment, error: existingPaymentError } = await supabaseAdmin
+
+    // Expire stale pending attempts first so an abandoned checkout cannot block
+    // a legitimate retry forever. The partial unique index below serializes
+    // concurrent pending checkouts for the same user and plan.
+    const { error: expireError } = await supabaseAdmin
       .from('billing_payments')
-      .select('flow_token, raw_response')
+      .update({ status: 'expired', updated_at: new Date().toISOString() })
       .eq('user_id', user.id)
       .eq('provider', 'flow')
       .eq('plan', planKey)
       .eq('status', 'pending')
-      .gte('created_at', pendingSince)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .lt('created_at', pendingSince);
 
-    if (existingPaymentError) {
-      console.error('[Flow checkout] Existing payment lookup error:', existingPaymentError.message);
-      return NextResponse.json({ error: 'No se pudo validar un pago pendiente.' }, { status: 500 });
-    }
-
-    if (existingPayment) {
-      const existingToken = getStoredFlowToken(existingPayment.raw_response);
-      const existingUrl = getStoredFlowUrl(existingPayment.raw_response);
-      if (existingToken && existingUrl) {
-        return NextResponse.json({ url: `${existingUrl}?token=${encodeURIComponent(existingToken)}` });
-      }
+    if (expireError) {
+      console.error('[Flow checkout] Stale payment cleanup error:', expireError.message);
+      return NextResponse.json({ error: 'No se pudo validar pagos pendientes.' }, { status: 500 });
     }
 
     const shortId = user.id.split('-')[0];
     const timestamp = Date.now();
     commerceOrder = `conversaai-${shortId}-${planKey}-${timestamp}`;
+
+    // Reserve the checkout in the database before calling Flow. The unique
+    // partial index on (user_id, plan) makes this reservation atomic across
+    // concurrent requests, preventing duplicate external Flow payments.
+    const { data: reservation, error: reservationError } = await supabaseAdmin
+      .from('billing_payments')
+      .insert({
+        user_id: user.id,
+        provider: 'flow',
+        flow_token: null,
+        flow_order: commerceOrder,
+        plan: planKey,
+        amount,
+        currency: 'CLP',
+        status: 'pending',
+        raw_response: {},
+      })
+      .select('id')
+      .single();
+
+    if (reservationError) {
+      if (reservationError.code === '23505') {
+        const { data: existingPayment, error: existingPaymentError } = await supabaseAdmin
+          .from('billing_payments')
+          .select('flow_token, raw_response')
+          .eq('user_id', user.id)
+          .eq('provider', 'flow')
+          .eq('plan', planKey)
+          .eq('status', 'pending')
+          .gte('created_at', pendingSince)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingPaymentError) {
+          console.error('[Flow checkout] Existing payment lookup error:', existingPaymentError.message);
+          return NextResponse.json({ error: 'No se pudo validar un pago pendiente.' }, { status: 500 });
+        }
+
+        const existingToken = getStoredFlowToken(existingPayment?.raw_response);
+        const existingUrl = getStoredFlowUrl(existingPayment?.raw_response);
+        if (existingToken && existingUrl) {
+          return NextResponse.json({ url: buildFlowPaymentUrl(existingUrl, existingToken) });
+        }
+
+        return NextResponse.json(
+          { error: 'Ya existe un checkout de este plan en proceso. Espera unos segundos e inténtalo nuevamente.' },
+          { status: 409 }
+        );
+      }
+
+      console.error('[Flow checkout] Payment reservation error:', reservationError.message);
+      return NextResponse.json({ error: 'No se pudo reservar el pago.' }, { status: 500 });
+    }
 
     const flowResponse = await createFlowPayment({
       commerceOrder,
@@ -140,33 +189,37 @@ export async function POST(req: Request) {
     });
 
     if (!flowResponse.token || !flowResponse.url || !Number.isFinite(flowResponse.flowOrder)) {
+      await supabaseAdmin
+        .from('billing_payments')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', reservation.id)
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
       return NextResponse.json({ error: 'Flow devolvió una respuesta de pago incompleta.' }, { status: 502 });
     }
 
-    const { error: paymentInsertError } = await supabaseAdmin
+    const { error: paymentUpdateError } = await supabaseAdmin
       .from('billing_payments')
-      .insert({
-        user_id: user.id,
-        provider: 'flow',
+      .update({
         flow_token: flowResponse.token,
-        flow_order: commerceOrder,
-        plan: planKey,
-        amount,
-        currency: 'CLP',
-        status: 'pending',
         raw_response: flowResponse,
-      });
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', reservation.id)
+      .eq('user_id', user.id)
+      .eq('status', 'pending');
 
-    if (paymentInsertError) {
-      console.error('[Flow checkout] Payment insert error:', paymentInsertError.message);
+    if (paymentUpdateError) {
+      console.error('[Flow checkout] Payment update error:', paymentUpdateError.message);
       return NextResponse.json(
-        { error: 'Flow creó el pago, pero no se pudo guardar en el sistema.' },
+        { error: 'Flow creó el pago, pero no se pudo guardar el token en el sistema.' },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      url: `${flowResponse.url}?token=${encodeURIComponent(flowResponse.token)}`
+      url: buildFlowPaymentUrl(flowResponse.url, flowResponse.token)
     });
   } catch (error: unknown) {
     if (isPlainObject(error) && error.isFlowParseError === true) {
