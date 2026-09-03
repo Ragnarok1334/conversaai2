@@ -3,10 +3,19 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { validateWidgetDomain, checkRateLimit } from '@/lib/security'
 import { logSecurityEvent, logAuditEvent } from '@/lib/audit'
 
+const MAX_BODY_BYTES = 8 * 1024
+const MAX_PAGE_URL_LENGTH = 2048
+const MAX_VISITOR_ID_LENGTH = 128
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
 export async function OPTIONS() {
@@ -17,189 +26,77 @@ export async function POST(req: Request) {
   const isDev = process.env.NODE_ENV === 'development'
 
   try {
-    let body: { assistantId?: string; pageUrl?: string; visitorId?: string }
-    try {
-      body = await req.json()
-    } catch {
-      return NextResponse.json(
-        { error: 'Body no válido' },
-        { status: 400, headers: corsHeaders }
-      )
+    const contentLength = req.headers.get('content-length')
+    if (contentLength) {
+      const parsed = Number(contentLength)
+      if (!Number.isFinite(parsed) || parsed > MAX_BODY_BYTES) return NextResponse.json({ error: 'Solicitud demasiado grande.' }, { status: 413, headers: corsHeaders })
     }
 
-    const { assistantId, pageUrl, visitorId } = body
+    const rawBody = await req.text()
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) return NextResponse.json({ error: 'Solicitud demasiado grande.' }, { status: 413, headers: corsHeaders })
 
-    if (!assistantId) {
-      return NextResponse.json(
-        { error: 'Falta assistantId' },
-        { status: 400, headers: corsHeaders }
-      )
-    }
+    let parsedBody: unknown
+    try { parsedBody = JSON.parse(rawBody) } catch { return NextResponse.json({ error: 'Body no válido.' }, { status: 400, headers: corsHeaders }) }
+    if (!isPlainObject(parsedBody)) return NextResponse.json({ error: 'Body no válido.' }, { status: 400, headers: corsHeaders })
 
-    // --- Rate Limit ---
+    const assistantId = typeof parsedBody.assistantId === 'string' ? parsedBody.assistantId.trim() : ''
+    const pageUrl = typeof parsedBody.pageUrl === 'string' ? parsedBody.pageUrl.trim() : undefined
+    const visitorId = typeof parsedBody.visitorId === 'string' ? parsedBody.visitorId.trim() : undefined
+
+    if (!UUID_RE.test(assistantId)) return NextResponse.json({ error: 'assistantId inválido.' }, { status: 400, headers: corsHeaders })
+    if (pageUrl && pageUrl.length > MAX_PAGE_URL_LENGTH) return NextResponse.json({ error: 'pageUrl inválida.' }, { status: 400, headers: corsHeaders })
+    if (visitorId && visitorId.length > MAX_VISITOR_ID_LENGTH) return NextResponse.json({ error: 'visitorId inválido.' }, { status: 400, headers: corsHeaders })
+
     const forwardedFor = req.headers.get('x-forwarded-for')
-    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
-    const rlKey = `widget_ping:${assistantId}:${ip}`
-
-    const isAllowed = await checkRateLimit(rlKey, 'widget_ping', 30, 60)
-    if (!isAllowed) {
-      await logSecurityEvent({
-        eventType: 'widget_ping_rate_limited',
-        severity: 'warning',
-        message: 'Rate limit excedido para ping de widget',
-        req,
-      })
-      return NextResponse.json(
-        { error: 'Demasiados intentos' },
-        { status: 429, headers: corsHeaders }
-      )
+    const ip = forwardedFor ? forwardedFor.split(',')[0].trim().slice(0, 128) : 'unknown'
+    if (!await checkRateLimit(`widget_ping:${assistantId}:${ip}`, 'widget_ping', 30, 60)) {
+      await logSecurityEvent({ eventType: 'widget_ping_rate_limited', severity: 'warning', message: 'Widget ping rate limit exceeded.', req })
+      return NextResponse.json({ error: 'Demasiados intentos' }, { status: 429, headers: corsHeaders })
     }
 
-    // --- Validación de dominio ---
     const domainValidation = await validateWidgetDomain({ assistantId, req, pageUrl })
     const { isValid, normalizedDomain } = domainValidation
-
     if (!isValid) {
-      await logSecurityEvent({
-        eventType: 'widget_domain_blocked',
-        severity: 'warning',
-        message: `Dominio no autorizado para ping: ${normalizedDomain}`,
-        metadata: { assistantId, visitorId, pageUrl, normalizedDomain },
-        req,
-      })
-      return NextResponse.json(
-        { error: 'Este dominio no está autorizado para usar este asistente.' },
-        { status: 403, headers: corsHeaders }
-      )
+      await logSecurityEvent({ eventType: 'widget_domain_blocked', severity: 'warning', message: 'Unauthorized widget ping domain.', req })
+      return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
     }
 
-    // --- Actualización de assistant_domains ---
-    // Solo actualizamos si existe un dbDomainId (fila real en la tabla)
     if (!domainValidation.dbDomainId) {
-      // Caso: localhost en dev sin fila registrada → permitir el widget pero no actualizar DB
-      if (isDev) {
-        return NextResponse.json(
-          {
-            success: true,
-            status: 'allowed_dev_no_db_record',
-            assistantId,
-            normalizedDomain,
-            warning: 'El dominio no tiene fila en assistant_domains. Agrega localhost para actualizar la verificación.',
-          },
-          { headers: corsHeaders }
-        )
-      }
-      // En producción esto no debería ocurrir (el dominio fue validado pero no tiene fila)
-      return NextResponse.json(
-        { error: 'No se encontró el registro de dominio.' },
-        { status: 500, headers: corsHeaders }
-      )
+      if (isDev) return NextResponse.json({ success: true, status: 'allowed_dev_no_db_record' }, { headers: corsHeaders })
+      return NextResponse.json({ error: 'No se encontró el registro de dominio.' }, { status: 500, headers: corsHeaders })
     }
 
     const admin = createSupabaseAdmin()
-    const userAgent = req.headers.get('user-agent') || null
+    const userAgent = req.headers.get('user-agent')?.slice(0, 512) || null
     const now = new Date().toISOString()
-
-    // Leer el contador actual de forma segura desde backend (service_role)
     const { data: currentDomain, error: selectError } = await admin
       .from('assistant_domains')
-      .select('install_events_count, user_id')
+      .select('id,assistant_id,user_id,domain,is_active,install_events_count')
       .eq('id', domainValidation.dbDomainId)
-      .single()
-
-    if (selectError || !currentDomain) {
-      console.error('[ping] Error leyendo fila actual:', selectError)
-      return NextResponse.json(
-        { error: 'Error interno al leer el dominio' },
-        { status: 500, headers: corsHeaders }
-      )
-    }
-
-    const nextCount = (currentDomain.install_events_count ?? 0) + 1
-
-    // Actualizar usando assistant_id + domain + is_active como condición (más robusto)
-    const { data: updatedRows, error: updateError } = await admin
-      .from('assistant_domains')
-      .update({
-        is_verified: true,
-        verification_status: 'verified',
-        last_seen_at: now,
-        last_seen_url: pageUrl || null,
-        last_seen_user_agent: userAgent,
-        last_seen_ip: ip !== 'unknown' ? ip : null,
-        install_events_count: nextCount,
-        updated_at: now,
-      })
       .eq('assistant_id', assistantId)
       .eq('domain', normalizedDomain!)
       .eq('is_active', true)
-      .select('id, assistant_id, domain, is_verified, verification_status, last_seen_at, install_events_count')
+      .maybeSingle()
 
-    if (updateError) {
-      console.error('[ping] Error actualizando assistant_domains:', updateError)
-      return NextResponse.json(
-        { error: 'Error interno al actualizar el dominio', detail: isDev ? updateError.message : undefined },
-        { status: 500, headers: corsHeaders }
-      )
-    }
+    if (selectError || !currentDomain) return NextResponse.json({ error: 'No se pudo validar el dominio.' }, { status: 500, headers: corsHeaders })
 
-    // Si no actualizó ninguna fila, reportar error
-    if (!updatedRows || updatedRows.length === 0) {
-      console.error('[ping] UPDATE no afectó ninguna fila:', { assistantId, normalizedDomain })
-      if (isDev) {
-        return NextResponse.json(
-          {
-            error: 'No matching assistant_domain row updated',
-            assistantId,
-            normalizedDomain,
-          },
-          { status: 500, headers: corsHeaders }
-        )
-      }
-      return NextResponse.json(
-        { error: 'No se pudo verificar el dominio' },
-        { status: 500, headers: corsHeaders }
-      )
-    }
+    const nextCount = (currentDomain.install_events_count ?? 0) + 1
+    const { data: updatedRows, error: updateError } = await admin
+      .from('assistant_domains')
+      .update({ is_verified: true, verification_status: 'verified', last_seen_at: now, last_seen_url: pageUrl || null, last_seen_user_agent: userAgent, last_seen_ip: ip !== 'unknown' ? ip : null, install_events_count: nextCount, updated_at: now })
+      .eq('id', currentDomain.id)
+      .eq('assistant_id', assistantId)
+      .eq('domain', normalizedDomain!)
+      .eq('is_active', true)
+      .select('id,assistant_id,domain,is_verified,verification_status,last_seen_at,install_events_count')
 
-    const updatedRow = updatedRows[0]
+    if (updateError || !updatedRows?.length) return NextResponse.json({ error: 'No se pudo verificar el dominio.' }, { status: 500, headers: corsHeaders })
 
-    // Registrar auditoría solo en primer ping (install_events_count era 0)
-    if (nextCount === 1) {
-      await logAuditEvent({
-        userId: currentDomain.user_id,
-        action: 'widget_installation_detected',
-        description: `El script del widget fue detectado por primera vez en ${normalizedDomain}`,
-        entityType: 'assistant_domains',
-        entityId: updatedRow.id,
-        req,
-      })
-    }
+    if (nextCount === 1) await logAuditEvent({ userId: currentDomain.user_id, action: 'widget_installation_detected', description: `El script del widget fue detectado por primera vez en ${normalizedDomain}`, entityType: 'assistant_domains', entityId: currentDomain.id, req })
 
-    // Respuesta con debug info en desarrollo
-    if (isDev) {
-      return NextResponse.json(
-        {
-          success: true,
-          status: 'verified',
-          assistantId,
-          normalizedDomain,
-          updatedDomainId: updatedRow.id,
-          updatedRow,
-        },
-        { headers: corsHeaders }
-      )
-    }
-
-    return NextResponse.json(
-      { success: true, status: 'verified' },
-      { headers: corsHeaders }
-    )
-  } catch (error) {
-    console.error('[POST /api/widget/ping] Error inesperado:', error)
-    return NextResponse.json(
-      { error: 'Error interno del servidor' },
-      { status: 500, headers: corsHeaders }
-    )
+    return NextResponse.json({ success: true, status: 'verified' }, { headers: corsHeaders })
+  } catch (error: unknown) {
+    console.error('[POST /api/widget/ping] Error:', error instanceof Error ? error.message : 'Unknown error')
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500, headers: corsHeaders })
   }
 }
