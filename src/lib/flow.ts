@@ -36,17 +36,13 @@ export interface FlowPaymentStatus {
 
 export function createFlowSignature(params: Record<string, string>): string {
   const secretKey = getEnvVar('FLOW_SECRET_KEY');
-  
-  // 1. Sort keys alphabetically
+
   const sortedKeys = Object.keys(params).sort();
-  
-  // 2. Concatenate key + value
   let stringToSign = '';
   for (const key of sortedKeys) {
     stringToSign += `${key}${params[key]}`;
   }
-  
-  // 3. Create HMAC SHA256
+
   const hmac = crypto.createHmac('sha256', secretKey);
   hmac.update(stringToSign);
   return hmac.digest('hex');
@@ -61,7 +57,6 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
     throw new Error('Configuración de Flow incompleta. Revisa FLOW_API_KEY, FLOW_SECRET_KEY y FLOW_API_URL.');
   }
 
-  // Normalize baseUrl to ensure it ends with /api
   baseUrl = baseUrl.replace(/\/+$/, '');
   if (!baseUrl.endsWith('/api')) {
     baseUrl = `${baseUrl}/api`;
@@ -80,9 +75,9 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
 
   const s = createFlowSignature(payload);
   payload.s = s;
-  
+
   const bodyParams = new URLSearchParams(payload);
-  
+
   const response = await fetch(`${baseUrl}/payment/create`, {
     method: 'POST',
     headers: {
@@ -90,47 +85,56 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
     },
     body: bodyParams.toString()
   });
-  
-  const contentType = response.headers.get("content-type") || "";
+
+  const contentType = response.headers.get('content-type') || '';
   const rawText = await response.text();
-  let data: any = null;
+  let data: unknown = null;
 
   try {
     data = JSON.parse(rawText);
   } catch {
     const debugInfo = {
-      flowBaseUrl: baseUrl,
-      flowCreateUrl: `${baseUrl}/payment/create`,
       status: response.status,
       statusText: response.statusText,
       contentType,
-      preview: rawText.slice(0, 800),
     };
-    
-    console.error("[Flow checkout debug]", debugInfo);
 
-    // Throwing an object so the route handler can catch it and return it in dev
-    // eslint-disable-next-line no-throw-literal
+    console.error('[Flow checkout] Non-JSON response:', debugInfo);
+
+    // Keep diagnostics server-side without persisting provider response bodies,
+    // which may contain payment tokens or other sensitive information.
     throw {
       isFlowParseError: true,
       message: 'Flow devolvió una respuesta no válida.',
       debug: {
         flowStatus: response.status,
         contentType,
-        preview: rawText.slice(0, 300)
       }
     };
   }
-  
-  if (!response.ok || data.code) {
-    console.error('Flow API Error (createPayment):', data);
-    throw new Error(data.message || data.error || 'Flow rechazó la creación del pago.');
+
+  if (!response.ok || (typeof data === 'object' && data !== null && 'code' in data && data.code)) {
+    const errorCode = typeof data === 'object' && data !== null && 'code' in data ? String(data.code) : undefined;
+    console.error('[Flow checkout] Provider rejected request:', {
+      status: response.status,
+      code: errorCode,
+    });
+    throw new Error('Flow rechazó la creación del pago.');
   }
-  
+
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Flow devolvió una respuesta de pago inválida.');
+  }
+
+  const paymentData = data as Record<string, unknown>;
+  if (typeof paymentData.url !== 'string' || typeof paymentData.token !== 'string' || !Number.isFinite(Number(paymentData.flowOrder))) {
+    throw new Error('Flow devolvió una respuesta de pago incompleta.');
+  }
+
   return {
-    url: data.url,
-    token: data.token,
-    flowOrder: data.flowOrder
+    url: paymentData.url,
+    token: paymentData.token,
+    flowOrder: Number(paymentData.flowOrder)
   };
 }
 
@@ -138,46 +142,50 @@ export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentSt
   const apiKey = getEnvVar('FLOW_API_KEY');
   let baseUrl = getEnvVar('FLOW_BASE_URL');
 
-  // Normalize baseUrl to ensure it ends with /api
   baseUrl = baseUrl.replace(/\/+$/, '');
   if (!baseUrl.endsWith('/api')) {
     baseUrl = `${baseUrl}/api`;
   }
-  
+
   const payload: Record<string, string> = {
     apiKey,
     token
   };
-  
+
   const s = createFlowSignature(payload);
-  
-  // Flow getStatus is a GET request with query params
   const queryParams = new URLSearchParams({
     apiKey,
     token,
     s
   });
-  
+
   const response = await fetch(`${baseUrl}/payment/getStatus?${queryParams.toString()}`);
-  const contentType = response.headers.get("content-type") || "";
+  const contentType = response.headers.get('content-type') || '';
   const rawText = await response.text();
-  let data: any = null;
+  let data: unknown = null;
 
   try {
     data = JSON.parse(rawText);
   } catch {
-    console.error("[Flow status] Non JSON response:", {
+    console.error('[Flow status] Non-JSON response:', {
       status: response.status,
       contentType,
-      preview: rawText.slice(0, 500),
     });
     throw new Error('Flow devolvió una respuesta inválida al consultar el estado.');
   }
-  
-  if (!response.ok || data.code) {
-    console.error('Flow API Error (getStatus):', data);
-    throw new Error(data.message || data.error || 'Error al obtener el estado del pago en Flow');
+
+  if (!response.ok || (typeof data === 'object' && data !== null && 'code' in data && data.code)) {
+    const errorCode = typeof data === 'object' && data !== null && 'code' in data ? String(data.code) : undefined;
+    console.error('[Flow status] Provider rejected request:', {
+      status: response.status,
+      code: errorCode,
+    });
+    throw new Error('Error al obtener el estado del pago en Flow.');
   }
-  
-  return data;
+
+  if (typeof data !== 'object' || data === null || typeof data.status !== 'number' || typeof data.commerceOrder !== 'string' || typeof data.amount !== 'number' || typeof data.currency !== 'string' || typeof data.subject !== 'string') {
+    throw new Error('Flow devolvió un estado de pago inválido.');
+  }
+
+  return data as FlowPaymentStatus;
 }
