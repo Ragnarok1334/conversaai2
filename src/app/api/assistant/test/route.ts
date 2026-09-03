@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
       .eq('user_id', user.id)
       .single()
 
-    if (!canUsePremiumFeatures(sub, profile)) {
+    if (!sub || !canUsePremiumFeatures(sub, profile)) {
       return NextResponse.json({ error: 'Suscripción inactiva o no encontrada' }, { status: 403 })
     }
 
