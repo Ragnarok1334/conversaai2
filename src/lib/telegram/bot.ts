@@ -16,6 +16,9 @@ import {
   commandsKeyboard,
 } from "@/lib/telegram/keyboards";
 import { generateConversaBotReply } from "@/lib/telegram/openai-bot";
+import { checkRateLimit } from "@/lib/security";
+
+const TELEGRAM_AI_REQUESTS_PER_MINUTE = 10;
 
 // ─── Lead Saving (best-effort, non-blocking) ──────────────────────────────────
 async function saveTelegramLead(
@@ -145,6 +148,20 @@ export function createConversaBot(): Bot {
     const userMessage = ctx.message.text;
 
     if (user) {
+      const allowed = await checkRateLimit(
+        `telegram-ai-${user.id}`,
+        "telegram-ai-user-minute",
+        TELEGRAM_AI_REQUESTS_PER_MINUTE,
+        60
+      );
+
+      if (!allowed) {
+        await ctx.reply("Has enviado demasiados mensajes en poco tiempo. Espera un momento e inténtalo de nuevo.", {
+          reply_markup: mainMenuKeyboard(),
+        });
+        return;
+      }
+
       saveTelegramLead(
         String(user.id),
         user.username,
