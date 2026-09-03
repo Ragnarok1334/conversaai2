@@ -4,8 +4,10 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { extractDomain } from '@/lib/security'
 import { logAuditEvent } from '@/lib/audit'
 
-// Forzar renderizado dinámico para evitar cache de Next.js
 export const dynamic = 'force-dynamic'
+
+const MAX_BODY_BYTES = 4 * 1024
+const MAX_DOMAIN_LENGTH = 253
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -17,7 +19,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    // Verificar propiedad con cliente autenticado
     const { data: assistant } = await supabase
       .from('assistants')
       .select('id')
@@ -29,7 +30,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Asistente no encontrado o sin acceso' }, { status: 404 })
     }
 
-    // Usar admin (service_role) para leer los datos reales sin restricciones de RLS
     const admin = createSupabaseAdmin()
     const { data: domains, error } = await admin
       .from('assistant_domains')
@@ -41,13 +41,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     return NextResponse.json(domains || [], {
       headers: {
-        // Evitar cache en el navegador y en Next.js
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'Pragma': 'no-cache',
       }
     })
   } catch (error) {
-    console.error('[GET /api/assistants/[id]/domains]', error)
+    console.error('[GET /api/assistants/[id]/domains]', error instanceof Error ? error.message : 'unknown error')
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
@@ -55,6 +54,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: assistantId } = await params
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && Number.isFinite(Number(contentLength)) && Number(contentLength) > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Solicitud demasiado grande' }, { status: 413 })
+    }
+
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -62,7 +66,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    // Verificar propiedad
     const { data: assistant } = await supabase
       .from('assistants')
       .select('id')
@@ -74,17 +77,34 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404 })
     }
 
-    const body = await request.json()
-    const { domain } = body
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Solicitud demasiado grande' }, { status: 413 })
+    }
 
-    const normalizedDomain = extractDomain(domain)
-    if (!normalizedDomain) {
+    let body: unknown
+    try {
+      body = JSON.parse(rawBody)
+    } catch {
+      return NextResponse.json({ error: 'JSON inválido' }, { status: 400 })
+    }
+
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 })
+    }
+
+    const domainValue = (body as Record<string, unknown>).domain
+    if (typeof domainValue !== 'string' || !domainValue.trim() || domainValue.length > MAX_DOMAIN_LENGTH) {
       return NextResponse.json({ error: 'Dominio inválido' }, { status: 400 })
     }
 
-    // --- Verificación de límites y suscripción ---
+    const normalizedDomain = extractDomain(domainValue.trim())
+    if (!normalizedDomain || normalizedDomain.length > MAX_DOMAIN_LENGTH) {
+      return NextResponse.json({ error: 'Dominio inválido' }, { status: 400 })
+    }
+
     const admin = createSupabaseAdmin()
-    
+
     const [subRes, profileRes] = await Promise.all([
       admin
         .from('subscriptions')
@@ -103,9 +123,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
     const { normalizePlan, getPlanLimits } = await import('@/lib/plans')
-    
+
     const effectiveStatus = getEffectiveSubscriptionStatus(sub, profile)
-    
+
     if (['free', 'expired', 'cancelled'].includes(effectiveStatus)) {
       return NextResponse.json(
         { error: 'No tienes un plan activo. Renueva tu plan o activa tu prueba gratis para autorizar dominios.' },
@@ -117,10 +137,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const planKey = normalizePlan(rawPlan)
     const planLimits = getPlanLimits(planKey)
 
-    // Contar dominios actuales
     const { count, error: countError } = await admin
       .from('assistant_domains')
-      .select('*', { count: 'exact', head: true })
+      .select('id', { count: 'exact', head: true })
       .eq('assistant_id', assistantId)
 
     if (countError) throw countError
@@ -133,13 +152,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    // Verificar duplicado (usando admin para evitar restricciones RLS)
     const { data: existing } = await admin
       .from('assistant_domains')
       .select('id')
       .eq('assistant_id', assistantId)
       .eq('domain', normalizedDomain)
-      .single()
+      .maybeSingle()
 
     if (existing) {
       return NextResponse.json({ error: 'El dominio ya está registrado.' }, { status: 400 })
@@ -171,7 +189,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json(data)
   } catch (error) {
-    console.error('[POST /api/assistants/[id]/domains]', error)
+    console.error('[POST /api/assistants/[id]/domains]', error instanceof Error ? error.message : 'unknown error')
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
 }
