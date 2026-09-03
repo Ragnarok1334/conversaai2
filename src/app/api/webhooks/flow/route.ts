@@ -3,12 +3,33 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit';
 
+const MAX_BODY_BYTES = 8 * 1024;
+const MAX_TOKEN_LENGTH = 512;
+
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
+    const contentLength = req.headers.get('content-length');
+    if (contentLength) {
+      const parsedLength = Number(contentLength);
+      if (!Number.isFinite(parsedLength) || parsedLength > MAX_BODY_BYTES) {
+        return NextResponse.json({ error: 'Solicitud demasiado grande.' }, { status: 413 });
+      }
+    }
+
+    const contentType = (req.headers.get('content-type') || '').toLowerCase();
+    if (!contentType.startsWith('application/x-www-form-urlencoded')) {
+      return NextResponse.json({ error: 'Content-Type no soportado.' }, { status: 415 });
+    }
+
+    const rawBody = await req.text();
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Solicitud demasiado grande.' }, { status: 413 });
+    }
+
+    const formData = new URLSearchParams(rawBody);
     const token = formData.get('token');
 
-    if (!token || typeof token !== 'string' || token.length > 512) {
+    if (!token || token.length > MAX_TOKEN_LENGTH) {
       return NextResponse.json({ error: 'Token inválido.' }, { status: 400 });
     }
 
@@ -19,15 +40,26 @@ export async function POST(req: Request) {
       .from('billing_payments')
       .select('id, user_id, flow_order, plan, status')
       .eq('flow_token', token)
-      .single();
+      .maybeSingle();
 
     if (paymentError || !payment) {
       console.error('[Flow webhook] Payment not found');
-      await logSecurityEvent({ eventType: 'flow_webhook_invalid', severity: 'warning', message: 'Webhook de Flow para pago no encontrado.', req });
+      await logSecurityEvent({
+        eventType: 'flow_webhook_invalid',
+        severity: 'warning',
+        message: 'Webhook de Flow para pago no encontrado.',
+        req,
+      });
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
 
-    const newStatus = flowStatus.status === 2 ? 'paid' : flowStatus.status === 3 ? 'rejected' : flowStatus.status === 4 ? 'cancelled' : 'pending';
+    const newStatus = flowStatus.status === 2
+      ? 'paid'
+      : flowStatus.status === 3
+        ? 'rejected'
+        : flowStatus.status === 4
+          ? 'cancelled'
+          : 'pending';
 
     if (newStatus === 'paid') {
       const { data: result, error: fulfillmentError } = await supabase.rpc('fulfill_flow_payment', {
@@ -36,7 +68,7 @@ export async function POST(req: Request) {
       });
 
       if (fulfillmentError) {
-        console.error('[Flow webhook] Fulfillment error:', fulfillmentError);
+        console.error('[Flow webhook] Fulfillment error:', fulfillmentError.message);
         return NextResponse.json({ error: 'No se pudo confirmar el pago.' }, { status: 500 });
       }
 
@@ -54,10 +86,11 @@ export async function POST(req: Request) {
         .from('billing_payments')
         .update({ status: newStatus, raw_response: flowStatus, updated_at: new Date().toISOString() })
         .eq('id', payment.id)
+        .eq('user_id', payment.user_id)
         .neq('status', 'paid');
 
       if (statusError) {
-        console.error('[Flow webhook] Status update error:', statusError);
+        console.error('[Flow webhook] Status update error:', statusError.message);
         return NextResponse.json({ error: 'No se pudo actualizar el estado del pago.' }, { status: 500 });
       }
 
@@ -68,7 +101,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    console.error('[Flow webhook] Error:', error instanceof Error ? error.message : error);
+    console.error('[Flow webhook] Error:', error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json({ error: 'Error procesando webhook.' }, { status: 500 });
   }
 }
