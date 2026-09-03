@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
 
+const MAX_TOKEN_LENGTH = 512;
+
 export async function GET(req: Request) {
   try {
     const supabase = await createClient();
@@ -13,7 +15,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
-    if (!token || token.length > 512) {
+    if (!token || token.length > MAX_TOKEN_LENGTH) {
       return NextResponse.json({ error: 'Token inválido.' }, { status: 400 });
     }
 
@@ -32,15 +34,13 @@ export async function GET(req: Request) {
     }
 
     const flowStatus = await getFlowPaymentStatus(token);
-    if (
-      flowStatus.commerceOrder !== undefined &&
-      flowStatus.amount !== undefined &&
-      flowStatus.currency !== undefined
-    ) {
-      // The database RPC performs the authoritative order/amount/currency validation.
-    }
-
-    const newStatus = flowStatus.status === 2 ? 'paid' : flowStatus.status === 3 ? 'rejected' : flowStatus.status === 4 ? 'cancelled' : 'pending';
+    const newStatus = flowStatus.status === 2
+      ? 'paid'
+      : flowStatus.status === 3
+        ? 'failed'
+        : flowStatus.status === 4
+          ? 'cancelled'
+          : 'pending';
 
     if (newStatus === 'paid') {
       const { data: result, error: fulfillmentError } = await supabaseAdmin.rpc('fulfill_flow_payment', {
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
       });
 
       if (fulfillmentError) {
-        console.error('[Flow status] Fulfillment error:', fulfillmentError);
+        console.error('[Flow status] Fulfillment error:', fulfillmentError.message);
         return NextResponse.json({ error: 'No se pudo confirmar el pago.' }, { status: 500 });
       }
       if (!result?.success) {
@@ -61,16 +61,17 @@ export async function GET(req: Request) {
         .from('billing_payments')
         .update({ status: newStatus, raw_response: flowStatus, updated_at: new Date().toISOString() })
         .eq('id', payment.id)
+        .eq('user_id', user.id)
         .neq('status', 'paid');
       if (statusError) {
-        console.error('[Flow status] Status update error:', statusError);
+        console.error('[Flow status] Status update error:', statusError.message);
         return NextResponse.json({ error: 'No se pudo actualizar el estado del pago.' }, { status: 500 });
       }
     }
 
     return NextResponse.json({ status: newStatus, plan: payment.plan, amount: payment.amount, currency: payment.currency });
   } catch (error: unknown) {
-    console.error('[Flow status] Error:', error instanceof Error ? error.message : error);
+    console.error('[Flow status] Error:', error instanceof Error ? error.message : 'Unknown error');
     return NextResponse.json({ error: 'No se pudo verificar el pago.' }, { status: 500 });
   }
 }
