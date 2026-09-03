@@ -7,122 +7,140 @@ import { createClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/security'
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
 
+const MAX_EMAIL_LENGTH = 254
+const MAX_PASSWORD_LENGTH = 256
+const MAX_NAME_LENGTH = 120
+const MAX_PROFILE_FIELD_LENGTHS: Record<string, number> = {
+  company_name: 160,
+  phone: 40,
+  country: 80,
+  business_type: 100,
+  preferred_channel: 32,
+  onboarding_goal: 500,
+  business_website: 2048,
+}
+
+function getConfiguredAppUrl(): string | null {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL
+  if (!raw) return null
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:' || !url.hostname) return null
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
+function isValidEmail(value: string): boolean {
+  return value.length <= MAX_EMAIL_LENGTH && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
 async function getIpFromHeaders(): Promise<string> {
   const headersList = await headers()
-  return headersList.get('x-forwarded-for')?.split(',')[0] || 
-         headersList.get('x-real-ip') || 
+  return headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+         headersList.get('x-real-ip')?.trim() ||
          'unknown-ip'
 }
 
 export async function login(formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const captchaToken = formData.get('captchaToken') as string
-  
-  if (!email || !password) {
-    return { error: 'Por favor completa todos los campos' }
-  }
+  const email = String(formData.get('email') || '').trim().toLowerCase()
+  const password = String(formData.get('password') || '')
+  const captchaToken = String(formData.get('captchaToken') || '')
+
+  if (!email || !password) return { error: 'Por favor completa todos los campos' }
+  if (!isValidEmail(email) || password.length > MAX_PASSWORD_LENGTH) return { error: 'Correo o contraseña incorrectos.' }
 
   const ip = await getIpFromHeaders()
-  
-  // Rate limit: 5 intentos por 10 minutos por IP + email
   const rlKey = `login-${ip}-${email}`
   const isAllowed = await checkRateLimit(rlKey, 'login', 5, 600)
   if (!isAllowed) {
-    await logSecurityEvent({ eventType: 'login_rate_limited', severity: 'warning', message: `Rate limit excedido para: ${email}`, ip_address: ip })
+    await logSecurityEvent({ eventType: 'login_rate_limited', severity: 'warning', message: 'Rate limit de inicio de sesión excedido', ip_address: ip })
     return { error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }
   }
 
   const supabase = await createClient()
-
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
-    options: {
-      captchaToken: captchaToken || undefined
-    }
+    options: { captchaToken: captchaToken || undefined }
   })
 
   if (error) {
     await logSecurityEvent({ eventType: 'login_failed', severity: 'info', message: 'Credenciales inválidas', ip_address: ip })
-    return { error: 'Correo o contraseña incorrectos.' } // Mensaje genérico profesional
+    return { error: 'Correo o contraseña incorrectos.' }
   }
 
   await logAuditEvent({ userId: data.user.id, action: 'login_success', description: 'Inicio de sesión exitoso', ip_address: ip })
-
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
 
 export async function signup(formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const confirmPassword = formData.get('confirmPassword') as string
-  const name = (formData.get('name') as string)?.trim()
-  const captchaToken = formData.get('captchaToken') as string
+  const email = String(formData.get('email') || '').trim().toLowerCase()
+  const password = String(formData.get('password') || '')
+  const confirmPassword = String(formData.get('confirmPassword') || '')
+  const name = String(formData.get('name') || '').trim()
+  const captchaToken = String(formData.get('captchaToken') || '')
 
-  // Extended profile fields from step 2 & 3
-  const company_name = (formData.get('company_name') as string)?.trim() || null
-  const phone = (formData.get('phone') as string)?.trim() || null
-  const country = (formData.get('country') as string)?.trim() || null
-  const business_type = (formData.get('business_type') as string)?.trim() || null
-  const preferred_channel = (formData.get('preferred_channel') as string)?.trim() || null
-  const onboarding_goal = (formData.get('onboarding_goal') as string)?.trim() || null
+  const rawFields: Record<string, string | null> = {
+    company_name: String(formData.get('company_name') || '').trim() || null,
+    phone: String(formData.get('phone') || '').trim() || null,
+    country: String(formData.get('country') || '').trim() || null,
+    business_type: String(formData.get('business_type') || '').trim() || null,
+    preferred_channel: String(formData.get('preferred_channel') || '').trim() || null,
+    onboarding_goal: String(formData.get('onboarding_goal') || '').trim() || null,
+    business_website: String(formData.get('business_website') || '').trim() || null,
+  }
   const marketing_opt_in = formData.get('marketing_opt_in') === 'true'
   const terms_accepted = formData.get('terms_accepted') === 'true'
-  const business_website = (formData.get('business_website') as string)?.trim() || null
-  const website_honeypot = (formData.get('website') as string) || ''
+  const website_honeypot = String(formData.get('website') || '')
 
   const ip = await getIpFromHeaders()
-
   if (website_honeypot) {
     await logSecurityEvent({ eventType: 'suspicious_input', severity: 'critical', message: 'Honeypot llenado en registro', ip_address: ip })
-    // Return fake success
     return { success: true, requiresEmailConfirmation: true }
   }
 
-  // Rate limit: 5 registros por hora por IP
+  if (!email || !password || !confirmPassword || !name) return { error: 'Por favor completa todos los campos de acceso.' }
+  if (!isValidEmail(email)) return { error: 'Ingresa un correo electrónico válido.' }
+  if (name.length > MAX_NAME_LENGTH) return { error: 'El nombre es demasiado largo.' }
+  if (password.length > MAX_PASSWORD_LENGTH) return { error: 'La contraseña es demasiado larga.' }
+  if (!terms_accepted) return { error: 'Debes aceptar los términos y condiciones.' }
+  if (!rawFields.company_name || !rawFields.business_type || !rawFields.country || !rawFields.preferred_channel || !rawFields.onboarding_goal) {
+    return { error: 'Por favor completa todos los datos del negocio y objetivos.' }
+  }
+  for (const [field, value] of Object.entries(rawFields)) {
+    if (value && value.length > MAX_PROFILE_FIELD_LENGTHS[field]) return { error: `El campo ${field} es demasiado largo.` }
+  }
+  if (password !== confirmPassword) return { error: 'Las contraseñas no coinciden.' }
+  if (password.length < 8) return { error: 'La contraseña debe tener al menos 8 caracteres.' }
+
   const rlKeyIp = `signup-${ip}`
-  // Rate limit: 3 registros por hora por email
   const rlKeyEmail = `signup-${email}`
-
-  const isAllowedIp = await checkRateLimit(rlKeyIp, 'signup-ip', 5, 3600)
-  const isAllowedEmail = await checkRateLimit(rlKeyEmail, 'signup-email', 3, 3600)
-
+  const [isAllowedIp, isAllowedEmail] = await Promise.all([
+    checkRateLimit(rlKeyIp, 'signup-ip', 5, 3600),
+    checkRateLimit(rlKeyEmail, 'signup-email', 3, 3600),
+  ])
   if (!isAllowedIp || !isAllowedEmail) {
-    await logSecurityEvent({ eventType: 'signup_rate_limited', severity: 'warning', message: `Rate limit excedido para registro IP/Email`, ip_address: ip })
+    await logSecurityEvent({ eventType: 'signup_rate_limited', severity: 'warning', message: 'Rate limit de registro IP/email excedido', ip_address: ip })
     return { error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }
   }
 
-  if (!email || !password || !confirmPassword || !name) {
-    return { error: 'Por favor completa todos los campos de acceso.' }
-  }
-
-  if (!terms_accepted) {
-    return { error: 'Debes aceptar los términos y condiciones.' }
-  }
-
-  if (!company_name || !business_type || !country || !preferred_channel || !onboarding_goal) {
-    return { error: 'Por favor completa todos los datos del negocio y objetivos.' }
-  }
-
-  if (password !== confirmPassword) {
-    return { error: 'Las contraseñas no coinciden.' }
-  }
-
-  if (password.length < 8) {
-    return { error: 'La contraseña debe tener al menos 8 caracteres.' }
+  const appUrl = getConfiguredAppUrl()
+  if (!appUrl) {
+    console.error('[signup] authentication app URL is not configured correctly')
+    return { error: 'El registro no está disponible temporalmente.' }
   }
 
   const supabase = await createClient()
-
   const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
     email,
     password,
     options: {
       captchaToken: captchaToken || undefined,
       data: { name },
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
+      emailRedirectTo: `${appUrl}/auth/callback`,
     },
   })
 
@@ -131,139 +149,102 @@ export async function signup(formData: FormData) {
     return { error: 'No pudimos crear la cuenta. Revisa los datos o intenta iniciar sesión.' }
   }
 
-  // Save profile using the user.id returned by signUp (works even without email confirmation)
-  // Use admin client to bypass RLS — user_id comes from Supabase response, never from frontend body
   const userId = signUpData?.user?.id
   if (userId) {
     try {
       const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
       const admin = createSupabaseAdmin()
+      await admin.from('profiles').upsert({
+        id: userId,
+        full_name: name,
+        email,
+        company_name: rawFields.company_name,
+        phone: rawFields.phone,
+        country: rawFields.country,
+        business_type: rawFields.business_type,
+        preferred_channel: rawFields.preferred_channel,
+        onboarding_goal: rawFields.onboarding_goal,
+        marketing_opt_in,
+        website: rawFields.business_website,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' })
 
-      // 1. Create/Update Profile
-      await admin.from('profiles').upsert(
-        {
-          id: userId,
-          full_name: name,
-          email,
-          company_name,
-          phone,
-          country,
-          business_type,
-          preferred_channel,
-          onboarding_goal,
-          marketing_opt_in,
-          website: business_website, // La columna 'website' en profiles debe haber sido creada
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'id' }
-      )
-
-      // 2. Create Free Subscription if it doesn't exist
-      // First check if user already has a subscription
-      const { data: existingSub } = await admin
-        .from('subscriptions')
-        .select('id')
-        .eq('user_id', userId)
-        .single()
-
+      const { data: existingSub } = await admin.from('subscriptions').select('id').eq('user_id', userId).maybeSingle()
       if (!existingSub) {
-        await admin.from('subscriptions').insert({
-          user_id: userId,
-          plan: 'free',
-          status: 'active',
-          current_messages_used: 0
-        })
+        await admin.from('subscriptions').insert({ user_id: userId, plan: 'free', status: 'active', current_messages_used: 0 })
       }
     } catch (dbErr) {
-      // Profile/Subscription save failure is non-fatal for returning success (user was created in auth)
-      console.error('[signup] profile/subscription error:', dbErr)
+      console.error('[signup] profile/subscription error:', dbErr instanceof Error ? dbErr.message : 'unknown error')
     }
-
     await logAuditEvent({ userId, action: 'signup_success', description: 'Registro de cuenta exitoso', ip_address: ip })
   }
 
-  // If there is no session returned, email confirmation is required.
-  const requiresEmailConfirmation = !signUpData?.session
-
-  // Return success to the frontend instead of directly redirecting
-  // The frontend will handle the redirection or show the success screen
-  return { success: true, requiresEmailConfirmation }
+  return { success: true, requiresEmailConfirmation: !signUpData?.session }
 }
 
 export async function resetPassword(formData: FormData) {
-  const email = formData.get('email') as string
-
-  if (!email) {
-    return { error: 'Por favor ingresa tu correo' }
-  }
+  const email = String(formData.get('email') || '').trim().toLowerCase()
+  if (!email || !isValidEmail(email)) return { error: 'Por favor ingresa un correo válido' }
 
   const ip = await getIpFromHeaders()
-  
-  // Rate limit: 3 intentos por 15 minutos por IP + email
   const rlKey = `reset-${ip}-${email}`
   const isAllowed = await checkRateLimit(rlKey, 'reset-password', 3, 900)
   if (!isAllowed) {
-    await logSecurityEvent({ eventType: 'forgot_password_rate_limited', severity: 'warning', message: `Rate limit excedido para: ${email}`, ip_address: ip })
-    // Return neutral message
+    await logSecurityEvent({ eventType: 'forgot_password_rate_limited', severity: 'warning', message: 'Rate limit de restablecimiento excedido', ip_address: ip })
+    return { success: 'Si existe una cuenta con ese correo, recibirás un enlace.' }
+  }
+
+  const appUrl = getConfiguredAppUrl()
+  if (!appUrl) {
+    console.error('[resetPassword] authentication app URL is not configured correctly')
     return { success: 'Si existe una cuenta con ese correo, recibirás un enlace.' }
   }
 
   const supabase = await createClient()
-
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/reset-password`,
+    redirectTo: `${appUrl}/auth/callback?next=/reset-password`,
   })
 
   if (error) {
-    // Logueamos pero devolvemos mensaje neutro
-    await logSecurityEvent({ eventType: 'forgot_password_failed', severity: 'info', message: 'Fallo al resetear password', ip_address: ip })
+    await logSecurityEvent({ eventType: 'forgot_password_failed', severity: 'info', message: 'Fallo al solicitar restablecimiento', ip_address: ip })
     return { success: 'Si existe una cuenta con ese correo, recibirás un enlace.' }
   }
 
-  await logAuditEvent({ action: 'password_reset_requested', description: `Solicitud de restablecimiento para: ${email}`, ip_address: ip })
-
+  await logAuditEvent({ action: 'password_reset_requested', description: 'Solicitud de restablecimiento de contraseña', ip_address: ip })
   return { success: 'Si existe una cuenta con ese correo, recibirás un enlace.' }
 }
 
 export async function updatePassword(formData: FormData) {
-  const password = formData.get('password') as string
-  const confirmPassword = formData.get('confirmPassword') as string
-
-  if (!password || !confirmPassword) {
-    return { error: 'Por favor completa todos los campos' }
-  }
-
-  if (password !== confirmPassword) {
-    return { error: 'Las contraseñas no coinciden' }
-  }
+  const password = String(formData.get('password') || '')
+  const confirmPassword = String(formData.get('confirmPassword') || '')
+  if (!password || !confirmPassword) return { error: 'Por favor completa todos los campos' }
+  if (password !== confirmPassword) return { error: 'Las contraseñas no coinciden' }
+  if (password.length < 8) return { error: 'La contraseña debe tener al menos 8 caracteres.' }
+  if (password.length > MAX_PASSWORD_LENGTH) return { error: 'La contraseña es demasiado larga.' }
 
   const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'Tu sesión de restablecimiento ha expirado. Solicita un nuevo enlace.' }
 
-  const { data, error } = await supabase.auth.updateUser({
-    password: password
-  })
-
+  const { data, error } = await supabase.auth.updateUser({ password })
   if (error) {
-    return { error: error.message }
+    console.error('[updatePassword] password update failed:', error.message)
+    return { error: 'No se pudo actualizar la contraseña. Solicita un nuevo enlace e inténtalo nuevamente.' }
   }
 
   const ip = await getIpFromHeaders()
-  await logAuditEvent({ userId: data.user?.id, action: 'password_updated', description: 'Contraseña actualizada exitosamente', ip_address: ip })
-
+  await logAuditEvent({ userId: data.user?.id || user.id, action: 'password_updated', description: 'Contraseña actualizada exitosamente', ip_address: ip })
   redirect('/login')
 }
 
 export async function signOut() {
   const supabase = await createClient()
   const { data } = await supabase.auth.getUser()
-  
   if (data.user) {
     const ip = await getIpFromHeaders()
     await logAuditEvent({ userId: data.user.id, action: 'logout', description: 'Cierre de sesión', ip_address: ip })
   }
-
   await supabase.auth.signOut()
-  
   revalidatePath('/', 'layout')
   redirect('/login')
 }
