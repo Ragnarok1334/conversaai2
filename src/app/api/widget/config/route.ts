@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
-import { validateWidgetDomain } from '@/lib/security'
+import { validateWidgetDomain, checkRateLimit } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
+
+const MAX_ASSISTANT_ID_LENGTH = 64
+const CONFIG_REQUESTS_PER_MINUTE = 60
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,8 +26,16 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const assistantId = searchParams.get('assistantId') || searchParams.get('id')
 
-    if (!assistantId || assistantId.length > 64 || !UUID_RE.test(assistantId)) {
+    if (!assistantId || assistantId.length > MAX_ASSISTANT_ID_LENGTH || !UUID_RE.test(assistantId)) {
       return NextResponse.json({ error: 'assistantId inválido' }, { status: 400, headers: corsHeaders })
+    }
+
+    // Vercel overwrites x-forwarded-for with the client IP unless a trusted proxy is configured.
+    const forwardedFor = request.headers.get('x-forwarded-for')
+    const ip = forwardedFor ? forwardedFor.split(',')[0].trim().slice(0, 128) : 'unknown-ip'
+    if (!await checkRateLimit(`widget-config:${assistantId}:${ip}`, 'widget-config-ip-minute', CONFIG_REQUESTS_PER_MINUTE, 60)) {
+      await logSecurityEvent({ eventType: 'widget_config_rate_limited', severity: 'warning', message: 'Widget config rate limit exceeded.', req: request })
+      return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en unos minutos.' }, { status: 429, headers: corsHeaders })
     }
 
     const supabaseAdmin = createSupabaseAdmin()
