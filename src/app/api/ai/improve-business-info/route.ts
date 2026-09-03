@@ -6,12 +6,41 @@ import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { canUsePremiumFeatures } from '@/lib/billing/subscription-status'
 
+const MAX_BODY_BYTES = 32 * 1024
+const MAX_TEXT_LENGTH = 5000
+const MAX_BLOCK_TITLE_LENGTH = 160
+const MAX_BLOCK_TYPE_LENGTH = 60
+const MAX_CONTEXT_FIELD_LENGTH = 300
+const MAX_TEMPLATE_LENGTH = 500
+const MAX_INSTRUCTIONS_LENGTH = 1000
+const MAX_KNOWLEDGE_BLOCKS = 50
+const MAX_KNOWLEDGE_BLOCK_CONTENT = 1000
+const MAX_KNOWLEDGE_CONTEXT_LENGTH = 20_000
+
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY?.trim()
   if (!apiKey) {
     return null
   }
   return new OpenAI({ apiKey })
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const isString = (value: unknown): value is string => typeof value === 'string'
+
+const readOptionalString = (
+  body: Record<string, unknown>,
+  key: string,
+  maxLength: number,
+): { value?: string; error?: string } => {
+  const raw = body[key]
+  if (raw === undefined || raw === null) return {}
+  if (!isString(raw)) return { error: `${key} debe ser texto.` }
+  const value = raw.trim()
+  if (value.length > maxLength) return { error: `${key} es demasiado largo.` }
+  return { value }
 }
 
 export async function POST(request: NextRequest) {
@@ -28,36 +57,103 @@ export async function POST(request: NextRequest) {
 
     userId = user.id
 
-    const body = await request.json()
-    const {
-      text,
-      blockType,
-      blockTitle,
-      assistantName,
-      businessType,
-      activeTemplate,
-      existingKnowledgeBlocks,
-      instructionsLegacy,
-    } = body
-
-    if (typeof text !== 'string' || text.length > 5000) {
-      return NextResponse.json(
-        { error: 'El texto no puede exceder los 5000 caracteres.' },
-        { status: 400 }
-      )
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && Number.isFinite(Number(contentLength)) && Number(contentLength) > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'La solicitud es demasiado grande.' }, { status: 413 })
     }
+
+    const rawBody = await request.text()
+    if (new TextEncoder().encode(rawBody).byteLength > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'La solicitud es demasiado grande.' }, { status: 413 })
+    }
+
+    let parsedBody: unknown
+    try {
+      parsedBody = JSON.parse(rawBody)
+    } catch {
+      return NextResponse.json({ error: 'JSON inválido.' }, { status: 400 })
+    }
+
+    if (!isRecord(parsedBody)) {
+      return NextResponse.json({ error: 'El cuerpo de la solicitud no es válido.' }, { status: 400 })
+    }
+
+    const body = parsedBody
+    const textResult = readOptionalString(body, 'text', MAX_TEXT_LENGTH)
+    const blockTypeResult = readOptionalString(body, 'blockType', MAX_BLOCK_TYPE_LENGTH)
+    const blockTitleResult = readOptionalString(body, 'blockTitle', MAX_BLOCK_TITLE_LENGTH)
+    const assistantNameResult = readOptionalString(body, 'assistantName', MAX_CONTEXT_FIELD_LENGTH)
+    const businessTypeResult = readOptionalString(body, 'businessType', MAX_CONTEXT_FIELD_LENGTH)
+    const activeTemplateResult = readOptionalString(body, 'activeTemplate', MAX_TEMPLATE_LENGTH)
+    const instructionsResult = readOptionalString(body, 'instructionsLegacy', MAX_INSTRUCTIONS_LENGTH)
+
+    const validationError =
+      textResult.error ||
+      blockTypeResult.error ||
+      blockTitleResult.error ||
+      assistantNameResult.error ||
+      businessTypeResult.error ||
+      activeTemplateResult.error ||
+      instructionsResult.error
+
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 })
+    }
+
+    const text = textResult.value ?? ''
+    const blockType = blockTypeResult.value ?? ''
+    const blockTitle = blockTitleResult.value ?? ''
+    const assistantName = assistantNameResult.value
+    const businessType = businessTypeResult.value
+    const activeTemplate = activeTemplateResult.value
+    const instructionsLegacy = instructionsResult.value
 
     if (!blockType) {
       return NextResponse.json({ error: 'Falta blockType' }, { status: 400 })
     }
 
-    const isCreating = text.trim().length === 0
+    const rawBlocks = body.existingKnowledgeBlocks
+    if (rawBlocks !== undefined && rawBlocks !== null && !Array.isArray(rawBlocks)) {
+      return NextResponse.json({ error: 'existingKnowledgeBlocks debe ser una lista.' }, { status: 400 })
+    }
+
+    const existingKnowledgeBlocks = Array.isArray(rawBlocks) ? rawBlocks : []
+    if (existingKnowledgeBlocks.length > MAX_KNOWLEDGE_BLOCKS) {
+      return NextResponse.json({ error: 'Demasiados bloques de conocimiento.' }, { status: 400 })
+    }
+
+    let knowledgeContextLength = 0
+    for (const block of existingKnowledgeBlocks) {
+      if (!isRecord(block)) {
+        return NextResponse.json({ error: 'Un bloque de conocimiento no es válido.' }, { status: 400 })
+      }
+
+      if (block.type !== undefined && !isString(block.type)) {
+        return NextResponse.json({ error: 'El tipo de un bloque no es válido.' }, { status: 400 })
+      }
+
+      if (block.title !== undefined && !isString(block.title)) {
+        return NextResponse.json({ error: 'El título de un bloque no es válido.' }, { status: 400 })
+      }
+
+      if (block.content !== undefined && !isString(block.content)) {
+        return NextResponse.json({ error: 'El contenido de un bloque no es válido.' }, { status: 400 })
+      }
+
+      const content = isString(block.content) ? block.content.trim() : ''
+      knowledgeContextLength += Math.min(content.length, MAX_KNOWLEDGE_BLOCK_CONTENT)
+      if (knowledgeContextLength > MAX_KNOWLEDGE_CONTEXT_LENGTH) {
+        return NextResponse.json({ error: 'El contexto de conocimiento es demasiado grande.' }, { status: 400 })
+      }
+    }
+
+    const isCreating = text.length === 0
 
     if (
       isCreating &&
       !assistantName &&
       !businessType &&
-      (!Array.isArray(existingKnowledgeBlocks) || existingKnowledgeBlocks.length === 0)
+      existingKnowledgeBlocks.length === 0
     ) {
       return NextResponse.json(
         { error: 'Agrega al menos una idea del negocio para que la IA pueda ayudarte mejor.' },
@@ -90,7 +186,7 @@ export async function POST(request: NextRequest) {
 
     const { data: sub } = await supabase
       .from('subscriptions')
-      .select('*')
+      .select('plan, status, current_period_end, trial_ends_at')
       .eq('user_id', user.id)
       .single()
 
@@ -133,23 +229,19 @@ export async function POST(request: NextRequest) {
     if (businessType) userMessage += `- Tipo de negocio: ${businessType}\n`
     if (activeTemplate) userMessage += `- Plantilla base: ${activeTemplate}\n`
 
-    if (Array.isArray(existingKnowledgeBlocks) && existingKnowledgeBlocks.length > 0) {
+    if (existingKnowledgeBlocks.length > 0) {
       userMessage += `\nOtros bloques ya completados (para referencia):\n`
-      existingKnowledgeBlocks.forEach((b: any) => {
-        if (
-          b &&
-          typeof b.type === 'string' &&
-          b.type !== blockType &&
-          typeof b.content === 'string' &&
-          b.content.trim().length > 0
-        ) {
-          const title = typeof b.title === 'string' ? b.title : 'Bloque'
-          userMessage += `- ${title}: ${b.content.substring(0, 100)}...\n`
+      existingKnowledgeBlocks.forEach((b) => {
+        const type = isString(b.type) ? b.type : ''
+        const content = isString(b.content) ? b.content.trim() : ''
+        if (type && type !== blockType && content.length > 0) {
+          const title = isString(b.title) ? b.title.trim().slice(0, MAX_BLOCK_TITLE_LENGTH) : 'Bloque'
+          userMessage += `- ${title}: ${content.substring(0, 100)}...\n`
         }
       })
     }
 
-    if (typeof instructionsLegacy === 'string' && instructionsLegacy.length > 0) {
+    if (instructionsLegacy) {
       userMessage += `\nInformación general extra:\n${instructionsLegacy.substring(0, 200)}...\n`
     }
 
