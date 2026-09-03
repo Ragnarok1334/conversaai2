@@ -183,9 +183,20 @@ export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentSt
     throw new Error('Error al obtener el estado del pago en Flow.');
   }
 
-  if (typeof data !== 'object' || data === null || typeof data.status !== 'number' || typeof data.commerceOrder !== 'string' || typeof data.amount !== 'number' || typeof data.currency !== 'string' || typeof data.subject !== 'string') {
+  if (typeof data !== 'object' || data === null) {
     throw new Error('Flow devolvió un estado de pago inválido.');
   }
 
-  return data as FlowPaymentStatus;
+  const statusData = data as Record<string, unknown>;
+  if (
+    typeof statusData.status !== 'number' ||
+    typeof statusData.commerceOrder !== 'string' ||
+    typeof statusData.amount !== 'number' ||
+    typeof statusData.currency !== 'string' ||
+    typeof statusData.subject !== 'string'
+  ) {
+    throw new Error('Flow devolvió un estado de pago inválido.');
+  }
+
+  return statusData as FlowPaymentStatus;
 }
