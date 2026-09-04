@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/security'
 
 export async function GET(request: NextRequest) {
   try {
@@ -8,6 +9,11 @@ export async function GET(request: NextRequest) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+
+    const allowed = await checkRateLimit(`audit-logs-${user.id}`, 'audit-logs-read', 60, 60)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes. Inténtalo de nuevo más tarde.' }, { status: 429 })
     }
 
     const { data, error } = await supabase
