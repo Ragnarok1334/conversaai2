@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { UserSubscription, getPlanConfig, getUsagePercentage, normalizePlan } from '@/lib/plans'
+import { checkRateLimit } from '@/lib/security'
 
 const SUBSCRIPTION_FIELDS = [
   'id',
@@ -29,6 +30,9 @@ export async function GET() {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const isAllowed = await checkRateLimit(`subscription-read-${user.id}`, 'subscription-read', 60, 60)
+    if (!isAllowed) return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en un momento.' }, { status: 429 })
 
     const { data: subscriptionDataRaw, error: subscriptionError } = await supabase
       .from('subscriptions')
