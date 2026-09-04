@@ -58,6 +58,7 @@ export async function GET() {
 
     const subscription = subscriptionResult.data || {
       id: 'fallback', user_id: user.id, plan: 'free', status: 'active', current_messages_used: 0,
+      current_period_start: null, current_period_end: null,
     }
     const profileData = profileResult.data
     const planKey = normalizePlan(subscription.plan ?? 'free')
