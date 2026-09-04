@@ -10,6 +10,8 @@ const MAX_PLAN_LENGTH = 32;
 const PENDING_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
 const CHECKOUT_REQUESTS_PER_WINDOW = 10;
 const CHECKOUT_WINDOW_SECONDS = 10 * 60;
+const APP_URL = 'https://conversaai.store';
+const FLOW_CHECKOUT_HOSTS = new Set(['www.flow.cl', 'sandbox.flow.cl', 'api.flow.cl']);
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -31,7 +33,29 @@ function getStoredFlowUrl(value: unknown): string | null {
   return typeof url === 'string' && url.length > 0 && url.length <= 2048 ? url : null;
 }
 
+function isConfiguredAppUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && url.origin === APP_URL;
+  } catch {
+    return false;
+  }
+}
+
+function isSafeFlowCheckoutUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:' && FLOW_CHECKOUT_HOSTS.has(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function buildFlowPaymentUrl(url: string, token: string): string {
+  if (!isSafeFlowCheckoutUrl(url)) {
+    throw new Error('Flow devolvió una URL de checkout no autorizada.');
+  }
+
   const paymentUrl = new URL(url);
   paymentUrl.searchParams.set('token', token);
   return paymentUrl.toString();
@@ -48,10 +72,15 @@ export async function POST(req: Request) {
     const flowApiKey = process.env.FLOW_API_KEY;
     const flowSecretKey = process.env.FLOW_SECRET_KEY;
     const flowBaseUrl = process.env.FLOW_BASE_URL;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://conversaai.store';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
     if (!supabaseUrl || !serviceRoleKey || !flowApiKey || !flowSecretKey || !flowBaseUrl || !appUrl) {
       return NextResponse.json({ error: 'Faltan variables de entorno del servidor (Supabase Admin o Flow).' }, { status: 500 });
+    }
+
+    if (!isConfiguredAppUrl(appUrl)) {
+      console.error('[Flow checkout] Invalid NEXT_PUBLIC_APP_URL configuration');
+      return NextResponse.json({ error: 'Configuración de URL de aplicación inválida.' }, { status: 500 });
     }
 
     const contentLength = req.headers.get('content-length');
@@ -110,9 +139,6 @@ export async function POST(req: Request) {
     const supabaseAdmin = createSupabaseAdmin();
     const pendingSince = new Date(Date.now() - PENDING_PAYMENT_WINDOW_MS).toISOString();
 
-    // Expire stale pending attempts first so an abandoned checkout cannot block
-    // a legitimate retry forever. The partial unique index below serializes
-    // concurrent pending checkouts for the same user and plan.
     const { error: expireError } = await supabaseAdmin
       .from('billing_payments')
       .update({ status: 'expired', updated_at: new Date().toISOString() })
@@ -131,9 +157,6 @@ export async function POST(req: Request) {
     const timestamp = Date.now();
     commerceOrder = `conversaai-${shortId}-${planKey}-${timestamp}`;
 
-    // Reserve the checkout in the database before calling Flow. The unique
-    // partial index on (user_id, plan) makes this reservation atomic across
-    // concurrent requests, preventing duplicate external Flow payments.
     const { data: reservation, error: reservationError } = await supabaseAdmin
       .from('billing_payments')
       .insert({
@@ -172,7 +195,11 @@ export async function POST(req: Request) {
         const existingToken = getStoredFlowToken(existingPayment?.raw_response);
         const existingUrl = getStoredFlowUrl(existingPayment?.raw_response);
         if (existingToken && existingUrl) {
-          return NextResponse.json({ url: buildFlowPaymentUrl(existingUrl, existingToken) });
+          try {
+            return NextResponse.json({ url: buildFlowPaymentUrl(existingUrl, existingToken) });
+          } catch {
+            return NextResponse.json({ error: 'El checkout pendiente no tiene una URL válida.' }, { status: 409 });
+          }
         }
 
         return NextResponse.json(
@@ -191,8 +218,8 @@ export async function POST(req: Request) {
       currency: 'CLP',
       amount,
       email: user.email || 'usuario@conversaai.store',
-      urlConfirmation: `${appUrl}/api/webhooks/flow`,
-      urlReturn: `${appUrl}/api/billing/flow/return`
+      urlConfirmation: `${APP_URL}/api/webhooks/flow`,
+      urlReturn: `${APP_URL}/api/billing/flow/return`
     });
 
     if (!flowResponse.token || !flowResponse.url || !Number.isFinite(flowResponse.flowOrder)) {
@@ -204,6 +231,21 @@ export async function POST(req: Request) {
         .eq('status', 'pending');
 
       return NextResponse.json({ error: 'Flow devolvió una respuesta de pago incompleta.' }, { status: 502 });
+    }
+
+    let checkoutUrl: string;
+    try {
+      checkoutUrl = buildFlowPaymentUrl(flowResponse.url, flowResponse.token);
+    } catch {
+      await supabaseAdmin
+        .from('billing_payments')
+        .update({ status: 'failed', updated_at: new Date().toISOString() })
+        .eq('id', reservation.id)
+        .eq('user_id', user.id)
+        .eq('status', 'pending');
+
+      console.error('[Flow checkout] Unauthorized checkout URL returned by provider');
+      return NextResponse.json({ error: 'Flow devolvió una URL de checkout no válida.' }, { status: 502 });
     }
 
     const { error: paymentUpdateError } = await supabaseAdmin
@@ -225,9 +267,7 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({
-      url: buildFlowPaymentUrl(flowResponse.url, flowResponse.token)
-    });
+    return NextResponse.json({ url: checkoutUrl });
   } catch (error: unknown) {
     if (isPlainObject(error) && error.isFlowParseError === true) {
       const message = typeof error.message === 'string' ? error.message : 'Flow devolvió una respuesta no válida.';
