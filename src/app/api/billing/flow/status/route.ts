@@ -1,108 +1,42 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
-import { getPlanConfig, normalizePlan } from '@/lib/plans';
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const token = searchParams.get('token');
 
-    if (!token) {
+    if (!token || token.length > 512) {
       return NextResponse.json({ error: 'Token requerido.' }, { status: 400 });
     }
 
     const supabaseAdmin = createSupabaseAdmin();
-
-    // 1. Verify token in Flow
     const flowStatus = await getFlowPaymentStatus(token);
 
-    // 2. Fetch billing_payment record
     const { data: payment, error: paymentError } = await supabaseAdmin
       .from('billing_payments')
-      .select('*')
+      .select('id,plan,status,amount,currency,flow_token')
       .eq('flow_token', token)
       .single();
 
-    if (!payment || paymentError) {
+    if (paymentError || !payment) {
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
 
-    // Map Flow status to our DB status
-    // 1: Pending, 2: Paid, 3: Rejected, 4: Cancelled
-    let newStatus = 'pending';
-    if (flowStatus.status === 2) newStatus = 'paid';
-    else if (flowStatus.status === 3) newStatus = 'rejected';
-    else if (flowStatus.status === 4) newStatus = 'cancelled';
-
-    // 3. Update billing_payments
-    const currentMetadata = payment.metadata || {}
-    let updatedMetadata = { ...currentMetadata }
-    if (payment.status === 'cancelled' && newStatus === 'paid') {
-      updatedMetadata.recoveredFromCancelled = true
-    }
-
-    await supabaseAdmin
-      .from('billing_payments')
-      .update({
-        status: newStatus,
-        metadata: updatedMetadata,
-        raw_response: flowStatus
-      })
-      .eq('id', payment.id);
-
-    // 4. If paid, update subscription with correct limits from plans config
-    if (newStatus === 'paid') {
-      const planKey = normalizePlan(payment.plan)
-      const planConfig = getPlanConfig(planKey)
-
-      const { data: subscription } = await supabaseAdmin
-        .from('subscriptions')
-        .select('*')
-        .eq('user_id', payment.user_id)
-        .single();
-
-      const now = new Date();
-      const periodEnd = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      const graceEnd = new Date(now.getTime() + 32 * 24 * 60 * 60 * 1000);
-
-      const subscriptionData = {
-        plan: planKey,
-        status: 'active',
-        assistants_limit: planConfig.limits.assistants,
-        messages_limit: planConfig.limits.messagesPerMonth,
-        current_period_start: now.toISOString(),
-        current_period_end: periodEnd.toISOString(),
-        grace_ends_at: graceEnd.toISOString(),
-        cancel_at_period_end: false,
-        cancelled_at: null,
-        cancellation_reason: null
-      };
-
-      if (subscription) {
-        await supabaseAdmin
-          .from('subscriptions')
-          .update(subscriptionData)
-          .eq('user_id', payment.user_id);
-      } else {
-        // Create if missing
-        await supabaseAdmin
-          .from('subscriptions')
-          .insert({
-            user_id: payment.user_id,
-            ...subscriptionData,
-            current_messages_used: 0
-          });
-      }
-    }
+    // This endpoint is intentionally read-only. Payment fulfillment is performed
+    // exclusively by the verified webhook/RPC path.
+    let providerStatus = 'pending';
+    if (flowStatus.status === 2) providerStatus = 'paid';
+    else if (flowStatus.status === 3) providerStatus = 'rejected';
+    else if (flowStatus.status === 4) providerStatus = 'cancelled';
 
     return NextResponse.json({
-      status: newStatus,
+      status: providerStatus,
       plan: payment.plan,
       amount: payment.amount,
       currency: payment.currency
     });
-
   } catch (error: unknown) {
     console.error('Flow Status Check Error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'No se pudo verificar el pago.' }, { status: 500 });
