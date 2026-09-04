@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { checkRateLimit } from '@/lib/security'
 
 const MAX_BODY_BYTES = 16 * 1024
 const MAX_TEXT_LENGTH = 2000
@@ -45,6 +46,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { id } = await params
     if (!UUID_RE.test(id)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    if (await checkRateLimit(`${user.id}:lead-patch`, '/api/leads/[id]:PATCH', 60, 600)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': '600' } })
+    }
+
     const contentLength = Number.parseInt(request.headers.get('content-length') || '', 10)
     if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
       return NextResponse.json({ error: 'Solicitud demasiado grande' }, { status: 413 })
@@ -65,10 +74,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!isPlainObject(body)) return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 })
 
     const { status, notes, name, email, phone } = body
-
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     if (status !== undefined && (typeof status !== 'string' || !['new', 'contacted', 'qualified', 'converted', 'discarded'].includes(status))) {
       return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
