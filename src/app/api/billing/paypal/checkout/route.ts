@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return NextResponse.json({ error: 'Debes iniciar sesión para activar un plan.' }, { status: 401 });
-    if (!await checkRateLimit(`paypal-checkout-${user.id}`, 'paypal-checkout-user', 10, 600)) return NextResponse.json({ error: 'Demasiados intentos de pago. Espera unos minutos.' }, { status: 429 });
+    if (await checkRateLimit(`paypal-checkout-${user.id}`, 'paypal-checkout-user', 10, 600)) return NextResponse.json({ error: 'Demasiados intentos de pago. Espera unos minutos.' }, { status: 429 });
 
     const planKey = normalizePlan(body.plan);
     if (!['starter', 'pro', 'growth', 'business'].includes(planKey)) return NextResponse.json({ error: 'Plan no válido para checkout automático.' }, { status: 400 });

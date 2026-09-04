@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       if (payment.status !== 'paid') await admin.from('billing_payments').update({ status: 'failed', raw_response: webhookEvent, updated_at: new Date().toISOString() }).eq('id', payment.id).eq('status', 'pending');
     } else {
       let order = await getPayPalOrder(orderId);
-      if (eventType === 'CHECKOUT.ORDER.APPROVED' && order.status === 'PAYER_ACTION_REQUIRED') order = await capturePayPalOrder(orderId);
+      if (eventType === 'CHECKOUT.ORDER.APPROVED' && order.status === 'APPROVED') order = await capturePayPalOrder(orderId);
       if (order.status !== 'COMPLETED') return NextResponse.json({ success: true });
       const { data: result, error: fulfillmentError } = await admin.rpc('fulfill_paypal_payment', { p_payment_id: payment.id, p_order: order });
       if (fulfillmentError || !result?.success) { console.error('[PayPal webhook] Fulfillment rejected:', fulfillmentError?.message || result?.code || 'unknown'); return NextResponse.json({ error: 'No se pudo confirmar el pago.' }, { status: 500 }); }

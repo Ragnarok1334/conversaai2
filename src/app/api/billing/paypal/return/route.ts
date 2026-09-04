@@ -30,7 +30,7 @@ export async function GET(req: Request) {
     if (payment.status !== 'pending') return redirect('/dashboard/billing?paypal=unavailable');
 
     let order = await getPayPalOrder(orderId);
-    if (order.status === 'PAYER_ACTION_REQUIRED') order = await capturePayPalOrder(orderId);
+    if (order.status === 'APPROVED') order = await capturePayPalOrder(orderId);
     if (order.status !== 'COMPLETED') return redirect('/dashboard/billing?paypal=pending');
 
     const { data: result, error: fulfillmentError } = await admin.rpc('fulfill_paypal_payment', { p_payment_id: payment.id, p_order: order });
