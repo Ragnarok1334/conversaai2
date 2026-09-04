@@ -3,10 +3,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { createFlowPayment } from '@/lib/flow';
 import { getPlanConfig, normalizePlan } from '@/lib/plans';
+import { checkRateLimit } from '@/lib/security';
 
 const MAX_BODY_BYTES = 8 * 1024;
 const MAX_PLAN_LENGTH = 32;
 const PENDING_PAYMENT_WINDOW_MS = 10 * 60 * 1000;
+const CHECKOUT_REQUESTS_PER_WINDOW = 10;
+const CHECKOUT_WINDOW_SECONDS = 10 * 60;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -77,6 +80,10 @@ export async function POST(req: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Debes iniciar sesión para activar un plan.' }, { status: 401 });
+    }
+
+    if (!await checkRateLimit(`flow-checkout-${user.id}`, 'flow-checkout-user', CHECKOUT_REQUESTS_PER_WINDOW, CHECKOUT_WINDOW_SECONDS)) {
+      return NextResponse.json({ error: 'Demasiados intentos de pago. Espera unos minutos e inténtalo nuevamente.' }, { status: 429 });
     }
 
     planKey = normalizePlan(body.plan);
