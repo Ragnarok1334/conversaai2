@@ -141,7 +141,7 @@ export async function PATCH(
 
         // Validation for status whitelist
         if (key === 'status') {
-          if (!['active', 'inactive', 'draft'].includes(val)) {
+          if (!['active', 'inactive'].includes(val)) {
             return NextResponse.json({ error: `El estado '${val}' no es válido.` }, { status: 400 })
           }
         }
