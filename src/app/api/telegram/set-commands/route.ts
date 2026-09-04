@@ -3,50 +3,51 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "nodejs";
 
 const BOT_COMMANDS = [
-  { command: "start",    description: "Iniciar conversación y ver bienvenida" },
-  { command: "help",     description: "Ver ayuda y qué puede hacer el bot" },
-  { command: "plans",    description: "Ver planes y precios de ConversaAI" },
-  { command: "contact",  description: "Contactar soporte humano" },
-  { command: "demo",     description: "Cómo crear tu primer asistente IA" },
+  { command: "start", description: "Iniciar conversación y ver bienvenida" },
+  { command: "help", description: "Ver ayuda y qué puede hacer el bot" },
+  { command: "plans", description: "Ver planes y precios de ConversaAI" },
+  { command: "contact", description: "Contactar soporte humano" },
+  { command: "demo", description: "Cómo crear tu primer asistente IA" },
   { command: "commands", description: "Ver todos los comandos disponibles" },
 ];
 
-// ─── GET ─ register bot commands with Telegram ────────────────────────────────
 export async function GET(req: NextRequest) {
   const setupSecret = process.env.SETUP_SECRET;
-  const { searchParams } = new URL(req.url);
-  const incomingSecret = searchParams.get("secret");
+  const incomingSecret = req.headers.get("x-setup-secret");
 
-  if (!setupSecret || incomingSecret !== setupSecret) {
-    return NextResponse.json(
-      { error: "Forbidden. Provide ?secret=YOUR_SETUP_SECRET in the URL." },
-      { status: 403 }
-    );
+  if (!setupSecret || !incomingSecret || incomingSecret.length > 512 || incomingSecret !== setupSecret) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
-
   if (!token) {
-    return NextResponse.json(
-      { error: "TELEGRAM_BOT_TOKEN not configured." },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Telegram bot is not configured" }, { status: 500 });
   }
 
-  const res = await fetch(
-    `https://api.telegram.org/bot${token}/setMyCommands`,
-    {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/setMyCommands`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ commands: BOT_COMMANDS }),
+      signal: AbortSignal.timeout(10_000),
+    });
+
+    if (!res.ok) {
+      console.error("[GET /api/telegram/set-commands] Telegram request failed", res.status);
+      return NextResponse.json({ error: "Could not register bot commands" }, { status: 502 });
     }
-  );
 
-  const data = await res.json();
+    const data: unknown = await res.json();
+    if (!data || typeof data !== "object" || !("ok" in data) || (data as { ok?: unknown }).ok !== true) {
+      return NextResponse.json({ error: "Telegram rejected the command update" }, { status: 502 });
+    }
 
-  return NextResponse.json({
-    ok: data.ok,
-    commands: BOT_COMMANDS,
-    telegramResponse: data,
-  });
+    return NextResponse.json({ ok: true, commands: BOT_COMMANDS });
+  } catch (error) {
+    console.error(
+      "[GET /api/telegram/set-commands] exception",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+    return NextResponse.json({ error: "Could not register bot commands" }, { status: 502 });
+  }
 }
