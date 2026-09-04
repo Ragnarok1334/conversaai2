@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { checkRateLimit } from '@/lib/security'
 import { logAuditEvent } from '@/lib/audit'
 
 const MAX_BODY_BYTES = 8 * 1024
@@ -35,6 +36,11 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const allowed = await checkRateLimit(`profile:get:${user.id}`, 'profile:get', 120, 60)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en unos segundos.' }, { status: 429 })
     }
 
     const supabaseAdmin = createSupabaseAdmin()
@@ -86,6 +92,11 @@ export async function PATCH(req: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const allowed = await checkRateLimit(`profile:patch:${user.id}`, 'profile:patch', 20, 600)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Demasiadas actualizaciones. Intenta nuevamente más tarde.' }, { status: 429 })
     }
 
     const contentLength = req.headers.get('content-length')
