@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { logAuditEvent } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/security'
 import { revalidatePath } from 'next/cache'
 
 export const dynamic = 'force-dynamic'
@@ -94,6 +95,11 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'Debes iniciar sesión para crear un asistente.' }, { status: 401 })
+
+    const rateLimit = await checkRateLimit(`assistant-create-${user.id}`, 'assistant-create', 5, 600)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente más tarde.' }, { status: 429, headers: { 'Retry-After': String(rateLimit.retryAfterSeconds) } })
+    }
 
     let body: Record<string, unknown>
     try {
