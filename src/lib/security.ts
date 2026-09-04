@@ -50,6 +50,8 @@ export async function refundMessageCredit(userId: string, amount = 1): Promise<b
 
 /**
  * Valida un rate limit usando la RPC segura en base de datos.
+ * Retorna true cuando la solicitud debe ser bloqueada, incluyendo fallos del
+ * propio mecanismo de rate limiting (fail-closed).
  */
 export async function checkRateLimit(key: string, route: string, limit: number, windowSeconds: number): Promise<boolean> {
   try {
@@ -64,14 +66,14 @@ export async function checkRateLimit(key: string, route: string, limit: number, 
 
     if (error) {
       console.error('[checkRateLimit] RPC Error:', error.message)
-      // Si falla la DB de rate limit, por seguridad bloqueamos o devolvemos error controlado.
-      return false
+      // Fail-closed: si no podemos validar el límite, bloqueamos la operación.
+      return true
     }
 
     return !!data
   } catch (error) {
     console.error('[checkRateLimit] Error:', error instanceof Error ? error.message : 'Unknown error')
-    return false 
+    return true
   }
 }
 
@@ -109,11 +111,11 @@ export const normalizeDomainForStorage = extractDomain
 export function escapeHtml(unsafe: string): string {
   if (!unsafe) return ''
   return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;")
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#039;')
 }
 
 /**
