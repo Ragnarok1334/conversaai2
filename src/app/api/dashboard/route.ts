@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { normalizePlan, getPlanConfig, getPlanLimits, formatLimit } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
+import { checkRateLimit } from '@/lib/security'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,6 +25,9 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
+    const isAllowed = await checkRateLimit(`dashboard-read-${user.id}`, 'dashboard-read', 60, 60)
+    if (!isAllowed) return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en un momento.' }, { status: 429 })
+
     const [
       profileResult, subscriptionResult, assistantsResult, activeAssistantsResult,
       conversationsResult, openConversationsResult, leadsResult, newLeadsResult,
@@ -38,7 +42,8 @@ export async function GET() {
       supabase.from('conversations').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'open'),
       supabase.from('leads').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       supabase.from('leads').select('id', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-      supabase.from('assistant_channels').select('channel, is_enabled, config, assistant_id').eq('user_id', user.id).eq('is_enabled', true).limit(50),
+      // Never select channel config here: it can contain provider credentials/tokens.
+      supabase.from('assistant_channels').select('channel, is_enabled, assistant_id').eq('user_id', user.id).eq('is_enabled', true).limit(50),
       supabase.from('notifications').select('id, title, message, type, created_at, metadata').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       supabase.from('assistants').select('id, assistant_name, business_name, channel, status, created_at, tone').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('conversations').select('id, created_at, status, last_message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -86,7 +91,7 @@ export async function GET() {
     }
 
     const channelRows = assistantChannelsResult.data ?? []
-    const hasTelegramActive = channelRows.some(r => r.channel === 'telegram' && r.is_enabled === true && Boolean((r.config as Record<string, unknown> | null)?.telegram_token))
+    const hasTelegramActive = channelRows.some(r => r.channel === 'telegram' && r.is_enabled === true)
     const telegramAllowed = activePlanConfig.channels.telegram
     const telegramStatus = !telegramAllowed ? 'locked' : hasTelegramActive ? 'connected' : 'pending'
     const channels = { webchat: webchatObj.status, telegram: telegramStatus, whatsapp: 'coming_soon' }
@@ -152,40 +157,36 @@ export async function GET() {
     else if (subscription?.status !== 'active') alerts.push({ type: 'error', message: 'Tu suscripción no está activa. El asistente no responderá.', action: 'Ver facturación', href: '/dashboard/billing' })
     if (webchatObj.status === 'blocked') alerts.push({ type: 'error', message: 'Tu dominio de Web Chat se encuentra bloqueado por políticas de seguridad.', action: 'Soporte', href: '/contact' })
     if (messagesLimit && messagesPercentage >= 90) alerts.push({ type: 'warning', message: `Usaste el ${messagesPercentage}% de tus mensajes este ciclo.`, action: planKey === 'business' ? 'Administrar' : 'Mejorar plan', href: '/dashboard/billing' })
-    if (assistantsLimit && assistantsUsed >= assistantsLimit) alerts.push({ type: 'warning', message: 'Alcanzaste el límite de asistentes de tu plan.', action: planKey === 'business' || planKey === 'enterprise' ? 'Administrar' : 'Mejorar plan', href: '/dashboard/billing' })
+    if (assistantsLimit && assistantsUsed >= assistantsLimit) alerts.push({ type: 'warning', message: 'Alcanzaste el límite de asistentes de tu plan.', action: planKey === 'business' ? 'Administrar' : 'Mejorar plan', href: '/dashboard/billing' })
 
-    let activity: { id: string; type: string; title: string; description: string; created_at: string; href?: string }[] = []
-    const auditLogs = auditLogsResult.data ?? []
-    if (auditLogs.length > 0) {
-      activity = auditLogs.map(log => {
-        let title = 'Acción de seguridad', description = 'Se ha registrado una actividad en tu cuenta.', href = '/dashboard'
-        switch (log.action) {
-          case 'lead_status_updated': title = 'Estado de Lead actualizado'; description = `El lead cambió al estado ${(log.details as Record<string, unknown> | null)?.new_status || ''}.`; href = '/dashboard/leads'; break
-          case 'assistant_created': title = 'Asistente creado'; description = `Se creó el asistente ${(log.details as Record<string, unknown> | null)?.assistant_name || ''}.`; href = '/dashboard/assistants'; break
-          case 'domain_verified': title = 'Web Chat detectado'; description = `Se verificó el dominio ${(log.details as Record<string, unknown> | null)?.domain || ''}.`; href = '/dashboard/assistants'; break
-          case 'profile_updated': title = 'Perfil actualizado'; description = 'Se actualizaron los datos de tu empresa.'; href = '/dashboard/settings'; break
-          default: title = 'Actividad registrada'; description = String(log.action)
-        }
-        return { id: log.id, type: 'activity', title, description, created_at: log.created_at, href }
-      })
-    } else {
-      const assistantItems = (recentAssistantsResult.data ?? []).map(a => ({ id: `assistant-${a.id}`, type: 'assistant', title: 'Asistente creado', description: `"${a.assistant_name}" fue configurado.`, created_at: a.created_at, href: `/dashboard/assistants/${a.id}` }))
-      const convItems = (recentConversationsResult.data ?? []).map(c => ({ id: `conv-${c.id}`, type: 'conversation', title: 'Nueva conversación', description: c.last_message ? `Mensaje: "${String(c.last_message).substring(0, 40)}..."` : 'Iniciada desde Web Chat.', created_at: c.created_at, href: '/dashboard/conversations' }))
-      const leadItems = (recentLeadsResult.data ?? []).map(l => ({ id: `lead-${l.id}`, type: 'lead', title: 'Nuevo lead captado', description: l.name ? `${l.name} dejó sus datos.` : 'Lead capturado vía widget.', created_at: l.created_at, href: '/dashboard/leads' }))
-      activity = [...assistantItems, ...convItems, ...leadItems].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 3)
-    }
-
-    const timestamps = { lastUpdatedAt: new Date().toISOString(), lastConversationAt, lastLeadAt, lastAssistantCreatedAt, webchatLastSeenAt: webchatObj.lastSeenAt }
     return NextResponse.json({
-      profile: { full_name: profileData?.full_name || user.user_metadata?.full_name || null, email: user.email ?? null },
-      plan: { key: planKey, label: planConfig.label, status: effectiveStatus, channels: activePlanConfig.channels, description: planConfig.description },
-      usage: { assistantsUsed, assistantsLimit, messagesUsed, messagesLimit, messagesPercentage, assistantsPercentage, assistantsLimitFormatted: formatLimit(assistantsLimit), messagesLimitFormatted: formatLimit(messagesLimit) },
-      stats: { assistantCount: assistantsUsed, activeAssistantCount: activeAssistantsResult.count ?? 0, conversationCount: conversationsResult.count ?? 0, openConversationCount: openConversationsResult.count ?? 0, leadCount: leadsResult.count ?? 0, newLeadCount: newLeadsResult.count ?? 0 },
-      recentAssistants: (recentAssistantsResult.data ?? []).map(a => ({ id: a.id, assistant_name: a.assistant_name, business_name: a.business_name, channel: a.channel, status: a.status, created_at: a.created_at, tone: a.tone })),
-      webchat: webchatObj, channels, health, timestamps, executiveSummary, alerts, activity: activity.slice(0, 3),
-    }, { headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate', Pragma: 'no-cache' } })
-  } catch (err) {
-    console.error('[GET /api/dashboard]', err instanceof Error ? err.message : 'unknown error')
-    return NextResponse.json({ success: false, error: 'No se pudo actualizar el dashboard' }, { status: 500 })
+      profile: profileData,
+      subscription: {
+        plan: activePlanConfig.label,
+        planKey: activePlanKey,
+        status: effectiveStatus,
+        messagesUsed,
+        messagesLimit,
+        messagesPercentage,
+        currentPeriodStart: subscription.current_period_start,
+        currentPeriodEnd: subscription.current_period_end,
+      },
+      assistants: { total: assistantsUsed, active: activeAssistantsResult.count ?? 0, limit: assistantsLimit, percentage: assistantsPercentage },
+      conversations: { total: conversationsResult.count ?? 0, open: openConversationsResult.count ?? 0 },
+      leads: { total: leadsResult.count ?? 0, newLast7Days: newLeadsResult.count ?? 0 },
+      channels,
+      notifications: notificationsResult.data ?? [],
+      recentAssistants: recentAssistantsResult.data ?? [],
+      recentConversations: recentConversationsResult.data ?? [],
+      recentLeads: recentLeadsResult.data ?? [],
+      domains,
+      auditLogs: auditLogsResult.data ?? [],
+      health,
+      executiveSummary,
+      alerts,
+    })
+  } catch (error) {
+    console.error('[GET /api/dashboard] Error:', error instanceof Error ? error.message : 'unknown')
+    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
