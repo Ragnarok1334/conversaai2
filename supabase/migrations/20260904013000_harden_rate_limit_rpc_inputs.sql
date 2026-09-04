@@ -33,8 +33,8 @@ begin
         else public.api_rate_limits.hits + 1
       end,
       window_start = case
-        when extract(epoch from (now() - public.api_rate_limits.window_start)) > p_window_seconds then 1
-        else public.api_rate_limits.hits + 1
+        when extract(epoch from (now() - public.api_rate_limits.window_start)) > p_window_seconds then now()
+        else public.api_rate_limits.window_start
       end
   returning hits into v_hits;
 
