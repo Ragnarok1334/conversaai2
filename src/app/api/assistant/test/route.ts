@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { normalizePlan, getPlanConfig } from '@/lib/plans'
-import { consumeMessageCredit, refundMessageCredit } from '@/lib/security'
+import { checkRateLimit, consumeMessageCredit, refundMessageCredit } from '@/lib/security'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { canUsePremiumFeatures } from '@/lib/billing/subscription-status'
 
@@ -57,6 +57,11 @@ export async function POST(request: NextRequest) {
     const normalizedMessage = userMessage.trim()
     if (!normalizedMessage || normalizedMessage.length > MAX_MESSAGE_LENGTH) {
       return NextResponse.json({ error: `El mensaje debe tener entre 1 y ${MAX_MESSAGE_LENGTH} caracteres.` }, { status: 400 })
+    }
+
+    const rateAllowed = await checkRateLimit(`assistant-test-${user.id}`, 'assistant-test', 10, 60)
+    if (!rateAllowed) {
+      return NextResponse.json({ error: 'Demasiados intentos. Espera un minuto e intenta nuevamente.' }, { status: 429 })
     }
 
     let config: AssistantConfig
