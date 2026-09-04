@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { logAuditEvent } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/security'
 
 const MAX_BODY_BYTES = 8 * 1024
 const SETTINGS_FIELDS = [
@@ -22,6 +23,9 @@ export async function GET() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const isAllowed = await checkRateLimit(`settings-read-${user.id}`, 'settings-read', 120, 60)
+    if (!isAllowed) return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en un momento.' }, { status: 429 })
 
     const supabaseAdmin = createSupabaseAdmin()
     const { data: settings, error } = await supabaseAdmin
@@ -67,6 +71,9 @@ export async function PATCH(req: NextRequest) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const isAllowed = await checkRateLimit(`settings-write-${user.id}`, 'settings-write', 30, 600)
+    if (!isAllowed) return NextResponse.json({ error: 'Demasiadas actualizaciones. Intenta nuevamente en unos minutos.' }, { status: 429 })
 
     const rawBody = await req.text()
     if (new TextEncoder().encode(rawBody).length > MAX_BODY_BYTES) {
