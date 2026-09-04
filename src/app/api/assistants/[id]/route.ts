@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
+import { checkRateLimit } from '@/lib/security'
 import { revalidatePath } from 'next/cache'
 
 const SELECT_FIELDS = `
@@ -17,6 +18,8 @@ const MAX_BLOCKS = 50
 const MAX_KNOWLEDGE_TOTAL = 100_000
 const VALID_TONES = ['amigable', 'profesional', 'vendedor', 'cercano', 'directo']
 const VALID_STATUS = ['active', 'inactive', 'draft']
+const PATCH_REQUESTS_PER_WINDOW = 30
+const DELETE_REQUESTS_PER_HOUR = 10
 
 function validUuid(id: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)
@@ -84,6 +87,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     if (authError || !user) {
       await logSecurityEvent({ eventType: 'unauthorized_api_access', severity: 'warning', message: 'Intento de actualizar asistente sin auth', req: request })
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+    if (!await checkRateLimit(`assistant-update-user-${user.id}`, 'assistant-update-user-window', PATCH_REQUESTS_PER_WINDOW, 600)) {
+      return NextResponse.json({ error: 'Demasiadas actualizaciones de asistentes. Intenta nuevamente en unos minutos.' }, { status: 429 })
     }
     let body: unknown
     try { body = await request.json() } catch { return NextResponse.json({ error: 'JSON inválido.' }, { status: 400 }) }
@@ -176,6 +182,9 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (authError || !user) {
       await logSecurityEvent({ eventType: 'unauthorized_api_access', severity: 'warning', message: 'Intento de eliminar asistente sin auth', req: request })
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+    }
+    if (!await checkRateLimit(`assistant-delete-user-${user.id}`, 'assistant-delete-user-hour', DELETE_REQUESTS_PER_HOUR, 3600)) {
+      return NextResponse.json({ error: 'Demasiadas eliminaciones de asistentes. Intenta nuevamente más tarde.' }, { status: 429 })
     }
     const { error } = await supabase.from('assistants').delete().eq('id', id).eq('user_id', user.id)
     if (error) {
