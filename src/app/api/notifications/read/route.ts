@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { checkRateLimit } from '@/lib/security'
 
 const MAX_BODY_BYTES = 4 * 1024
 const MAX_ID_LENGTH = 128
@@ -22,6 +23,11 @@ export async function PATCH(req: NextRequest) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const allowed = await checkRateLimit(`user:${user.id}`, 'notifications-read', 60, 60)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
     const contentLength = getContentLength(req)
