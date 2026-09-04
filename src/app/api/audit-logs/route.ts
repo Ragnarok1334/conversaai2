@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    // Usamos el cliente regular ya que RLS limitará la búsqueda al propio usuario.
     const { data, error } = await supabase
       .from('audit_logs')
       .select('id, action, description, created_at, ip_address, user_agent')
@@ -19,13 +18,13 @@ export async function GET(request: NextRequest) {
       .limit(20)
 
     if (error) {
-      console.error('[GET /api/audit-logs] DB Error:', error)
+      console.error('[GET /api/audit-logs] DB Error:', error.message)
       return NextResponse.json({ error: 'Error al obtener los logs de auditoría' }, { status: 500 })
     }
 
     return NextResponse.json({ logs: data })
   } catch (error) {
-    console.error('[GET /api/audit-logs]', error)
+    console.error('[GET /api/audit-logs]', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }
 }
