@@ -4,6 +4,10 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ConversaAISupportWidget } from "@/components/ConversaAISupportWidget"
 
+// Nonce-based CSP requires request-time rendering so Next.js can attach the
+// per-request nonce to framework-generated scripts and inline payloads.
+export const dynamic = "force-dynamic";
+
 const figtree = Figtree({subsets:['latin'],variable:'--font-sans'});
 
 const geistSans = Geist({
