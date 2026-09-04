@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { checkRateLimit } from '@/lib/security'
 
 const MAX_BODY_BYTES = 16 * 1024
 const MAX_NAME_LENGTH = 120
@@ -77,6 +78,10 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    if (await checkRateLimit(`${user.id}:lead-convert`, '/api/leads/convert:POST', 30, 600)) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429, headers: { 'Retry-After': '600' } })
     }
 
     const supabaseAdmin = createSupabaseAdmin()
