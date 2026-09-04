@@ -25,8 +25,7 @@ function FlowReturnContent() {
       try {
         const query = new URLSearchParams({ token });
         const res = await fetch(`/api/billing/flow/status?${query.toString()}`, {
-          cache: 'no-store',
-          headers: { 'Referrer-Policy': 'no-referrer' }
+          cache: 'no-store'
         });
 
         const contentType = res.headers.get("content-type") || "";
@@ -81,66 +80,44 @@ function FlowReturnContent() {
           <div className="space-y-6">
             {!token ? (
               <div className="space-y-2">
-                <div className="h-16 w-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">⏳</span>
-                </div>
+                <div className="h-16 w-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-2xl">⏳</span></div>
                 <h2 className="text-2xl font-bold text-slate-200">Volviste desde Flow</h2>
-                <p className="text-slate-400">
-                  Si tu pago fue aprobado, se reflejará en unos momentos en tu cuenta.
-                </p>
+                <p className="text-slate-400">Si tu pago fue aprobado, se reflejará en unos momentos en tu cuenta.</p>
               </div>
             ) : error ? (
               <div className="space-y-2">
-                <div className="h-16 w-16 bg-red-900/30 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
+                <div className="h-16 w-16 bg-red-900/30 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></div>
                 <h2 className="text-xl font-bold text-slate-200">No se pudo verificar</h2>
                 <p className="text-slate-400 text-sm">{error}</p>
               </div>
             ) : status === 'paid' ? (
               <div className="space-y-2">
-                <div className="h-16 w-16 bg-emerald-900/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
+                <div className="h-16 w-16 bg-emerald-900/30 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-4"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg></div>
                 <h2 className="text-2xl font-bold text-emerald-400">¡Pago Aprobado!</h2>
                 <p className="text-slate-400">Tu suscripción ha sido activada exitosamente.</p>
               </div>
             ) : status === 'pending' ? (
               <div className="space-y-2">
-                <div className="h-16 w-16 bg-yellow-900/30 text-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">⏳</span>
-                </div>
+                <div className="h-16 w-16 bg-yellow-900/30 text-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-2xl">⏳</span></div>
                 <h2 className="text-xl font-bold text-yellow-400">Pago Pendiente</h2>
                 <p className="text-slate-400">El pago está en proceso de validación.</p>
               </div>
             ) : status === 'rejected' ? (
               <div className="space-y-2">
-                <div className="h-16 w-16 bg-red-900/30 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
+                <div className="h-16 w-16 bg-red-900/30 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4"><svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></div>
                 <h2 className="text-xl font-bold text-red-400">Pago Rechazado</h2>
                 <p className="text-slate-400">Tu pago fue rechazado. Puedes intentarlo de nuevo.</p>
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="h-16 w-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">❓</span>
-                </div>
+                <div className="h-16 w-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4"><span className="text-2xl">❓</span></div>
                 <h2 className="text-xl font-bold text-slate-200">Estado Desconocido</h2>
                 <p className="text-slate-400">No pudimos determinar el estado final del pago.</p>
               </div>
             )}
 
             <div className="pt-4">
-              <Link href="/dashboard/billing" className="inline-block w-full py-3 px-4 rounded-xl text-white font-medium bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 transition-all shadow-lg shadow-cyan-500/20">
-                Ir a facturación
-              </Link>
+              <Link href="/dashboard/billing" className="inline-block w-full py-3 px-4 rounded-xl text-white font-medium bg-gradient-to-r from-violet-600 to-cyan-500 hover:from-violet-500 hover:to-cyan-400 transition-all shadow-lg shadow-cyan-500/20">Ir a facturación</Link>
             </div>
           </div>
         )}
