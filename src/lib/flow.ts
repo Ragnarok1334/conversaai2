@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 
+const FLOW_TIMEOUT_MS = 10_000;
+
 function getEnvVar(name: string): string {
   const value = process.env[name];
   if (!value) {
@@ -83,7 +85,8 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: bodyParams.toString()
+    body: bodyParams.toString(),
+    signal: AbortSignal.timeout(FLOW_TIMEOUT_MS),
   });
 
   const contentType = response.headers.get('content-type') || '';
@@ -159,7 +162,9 @@ export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentSt
     s
   });
 
-  const response = await fetch(`${baseUrl}/payment/getStatus?${queryParams.toString()}`);
+  const response = await fetch(`${baseUrl}/payment/getStatus?${queryParams.toString()}`, {
+    signal: AbortSignal.timeout(FLOW_TIMEOUT_MS),
+  });
   const contentType = response.headers.get('content-type') || '';
   const rawText = await response.text();
   let data: unknown = null;
