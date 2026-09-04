@@ -17,9 +17,18 @@ function FlowReturnContent() {
         window.location.href = '/dashboard/billing?payment=unknown';
         return;
       }
+
+      // Flow's return URL necessarily carries the bearer token once. Remove it
+      // from browser history/address bar immediately before making the status call.
+      window.history.replaceState({}, document.title, '/flow/return');
+
       try {
-        const res = await fetch(`/api/billing/flow/status?token=${token}`);
-        
+        const query = new URLSearchParams({ token });
+        const res = await fetch(`/api/billing/flow/status?${query.toString()}`, {
+          cache: 'no-store',
+          headers: { 'Referrer-Policy': 'no-referrer' }
+        });
+
         const contentType = res.headers.get("content-type") || "";
         if (!contentType.includes("application/json")) {
           const text = await res.text();
@@ -28,7 +37,7 @@ function FlowReturnContent() {
         }
 
         const data = await res.json();
-        
+
         if (res.ok) {
           setStatus(data.status);
           if (data.status === 'paid') {
@@ -46,7 +55,7 @@ function FlowReturnContent() {
             window.location.href = '/dashboard/billing?payment=unknown';
           }, 3000);
         }
-      } catch (err) {
+      } catch {
         setError('Error de conexión al verificar el pago');
         setTimeout(() => {
           window.location.href = '/dashboard/billing?payment=unknown';
@@ -62,7 +71,6 @@ function FlowReturnContent() {
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="max-w-md w-full backdrop-blur-xl bg-slate-900/60 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center">
-        
         {loading ? (
           <div className="space-y-4">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto"></div>
