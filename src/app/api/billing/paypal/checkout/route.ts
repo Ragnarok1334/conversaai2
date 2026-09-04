@@ -43,7 +43,25 @@ export async function POST(req: Request) {
     if (existing?.paypal_order_id && isPlainObject(existing.metadata) && typeof existing.metadata.approval_url === 'string' && validPayPalUrl(existing.metadata.approval_url)) return NextResponse.json({ url: existing.metadata.approval_url });
 
     const { data: payment, error: insertError } = await admin.from('billing_payments').insert({ user_id: user.id, provider: 'paypal', plan: planKey, amount: amountCents, currency: 'USD', status: 'pending', raw_response: {}, metadata: {} }).select('id').single();
-    if (insertError || !payment) return NextResponse.json({ error: 'No se pudo reservar el pago.' }, { status: 500 });
+    if (insertError || !payment) {
+      // The unique pending-payment index handles concurrent requests that both
+      // passed the earlier lookup. Reuse the winner instead of surfacing a 500.
+      if (insertError?.code === '23505') {
+        const { data: concurrent } = await admin.from('billing_payments')
+          .select('paypal_order_id, metadata')
+          .eq('user_id', user.id)
+          .eq('provider', 'paypal')
+          .eq('plan', planKey)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (concurrent?.paypal_order_id && isPlainObject(concurrent.metadata) && typeof concurrent.metadata.approval_url === 'string' && validPayPalUrl(concurrent.metadata.approval_url)) {
+          return NextResponse.json({ url: concurrent.metadata.approval_url });
+        }
+      }
+      return NextResponse.json({ error: 'No se pudo reservar el pago.' }, { status: 500 });
+    }
 
     const order = await createPayPalOrder({ amountCents, plan: planKey, referenceId: payment.id, returnUrl: `${APP_URL}/api/billing/paypal/return`, cancelUrl: `${APP_URL}/dashboard/billing?paypal=cancelled` });
     const approval = order.links?.find((link) => link.rel === 'approve' || link.rel === 'payer-action');
