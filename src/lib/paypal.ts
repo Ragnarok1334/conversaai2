@@ -63,11 +63,20 @@ export async function getPayPalOrder(orderId: string): Promise<PayPalOrderResult
 export async function capturePayPalOrder(orderId: string): Promise<PayPalOrderResult> {
   if (!/^[A-Z0-9-]{8,64}$/i.test(orderId)) throw new Error('ID de orden PayPal inválido.');
   const response = await authorizedFetch(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'PayPal-Request-Id': orderId }, body: '{}' });
-  const data = await parsePayPalJson(response);
-  if (!data || typeof data !== 'object') throw new Error('Respuesta PayPal inválida.');
-  const order = data as PayPalOrderResult;
-  if (typeof order.id !== 'string' || typeof order.status !== 'string') throw new Error('PayPal devolvió una captura incompleta.');
-  return order;
+  try {
+    const data = await parsePayPalJson(response);
+    if (!data || typeof data !== 'object') throw new Error('Respuesta PayPal inválida.');
+    const order = data as PayPalOrderResult;
+    if (typeof order.id !== 'string' || typeof order.status !== 'string') throw new Error('PayPal devolvió una captura incompleta.');
+    return order;
+  } catch (error) {
+    // PayPal documents that a simultaneous duplicate request with the same
+    // idempotency key may fail. Reconcile with its authoritative order state
+    // before treating the capture as failed.
+    const current = await getPayPalOrder(orderId).catch(() => null);
+    if (current?.status === 'COMPLETED') return current;
+    throw error;
+  }
 }
 export async function verifyPayPalWebhook(input: { rawBody: string; transmissionId: string; transmissionTime: string; certUrl: string; authAlgo: string; transmissionSig: string; webhookId: string }): Promise<boolean> {
   const fields = [input.transmissionId, input.transmissionTime, input.certUrl, input.authAlgo, input.transmissionSig, input.webhookId];
