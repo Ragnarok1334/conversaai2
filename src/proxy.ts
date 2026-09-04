@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
 function createNonce() {
-  return btoa(crypto.randomUUID())
+  return Buffer.from(crypto.randomUUID()).toString('base64')
 }
 
 function buildContentSecurityPolicy(nonce: string) {
@@ -33,11 +33,13 @@ function buildContentSecurityPolicy(nonce: string) {
 
 export async function proxy(request: NextRequest) {
   const nonce = createNonce()
+  const contentSecurityPolicy = buildContentSecurityPolicy(nonce)
   const requestHeaders = new Headers(request.headers)
 
-  // Next.js uses this request header to attach the nonce to its generated
-  // scripts/styles, allowing us to avoid unsafe-inline in the CSP.
+  // Next.js reads these request headers during rendering so it can attach the
+  // nonce to framework-generated scripts, styles, and inline payloads.
   requestHeaders.set('x-nonce', nonce)
+  requestHeaders.set('Content-Security-Policy', contentSecurityPolicy)
 
   const response = await updateSession(
     new NextRequest(request, {
@@ -45,7 +47,8 @@ export async function proxy(request: NextRequest) {
     }),
   )
 
-  response.headers.set('Content-Security-Policy', buildContentSecurityPolicy(nonce))
+  // Keep the same policy on the response delivered to the browser.
+  response.headers.set('Content-Security-Policy', contentSecurityPolicy)
 
   return response
 }
