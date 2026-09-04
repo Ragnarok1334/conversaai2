@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/security'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,6 +31,11 @@ export async function GET(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const allowed = await checkRateLimit(`user:${user.id}`, 'leads-list', 60, 60)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
     const { searchParams } = new URL(request.url)
