@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
-import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
+import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { checkRateLimit, consumeMessageCredit, validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
 import { getModelForPlan } from '@/lib/ai/model-router'
@@ -13,29 +13,66 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+const VISITOR_ID_RE = /^[A-Za-z0-9_-]{16,128}$/
+const MAX_CONTENT_LENGTH = 16 * 1024
+
+function isValidUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_RE.test(value)
+}
+
+function isValidVisitorId(value: unknown): value is string {
+  return typeof value === 'string' && VISITOR_ID_RE.test(value)
+}
+
 export async function OPTIONS() {
   return NextResponse.json({}, { headers: corsHeaders })
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { assistantId, message, conversationId, visitorId } = body
-
-    if (!assistantId) {
-      return NextResponse.json({ error: 'Missing assistantId' }, { status: 400, headers: corsHeaders })
+    const contentLength = request.headers.get('content-length')
+    if (contentLength) {
+      const parsedLength = Number(contentLength)
+      if (!Number.isFinite(parsedLength) || parsedLength > MAX_CONTENT_LENGTH) {
+        return NextResponse.json({ error: 'Solicitud demasiado grande.' }, { status: 413, headers: corsHeaders })
+      }
     }
 
-    if (!message || typeof message !== 'string' || message.trim().length === 0 || message.length > 1000) {
+    const body = await request.json()
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'Body inválido.' }, { status: 400, headers: corsHeaders })
+    }
+
+    const { assistantId, message, conversationId, visitorId } = body as {
+      assistantId?: unknown
+      message?: unknown
+      conversationId?: unknown
+      visitorId?: unknown
+    }
+
+    if (!isValidUuid(assistantId)) {
+      return NextResponse.json({ error: 'assistantId inválido.' }, { status: 400, headers: corsHeaders })
+    }
+
+    if (!isValidVisitorId(visitorId)) {
+      return NextResponse.json({ error: 'visitorId inválido.' }, { status: 400, headers: corsHeaders })
+    }
+
+    if (conversationId !== undefined && conversationId !== null && !isValidUuid(conversationId)) {
+      return NextResponse.json({ error: 'conversationId inválido.' }, { status: 400, headers: corsHeaders })
+    }
+
+    if (typeof message !== 'string' || message.trim().length === 0 || message.length > 1000) {
       return NextResponse.json({ error: 'Mensaje inválido o demasiado largo.' }, { status: 400, headers: corsHeaders })
     }
 
     const supabaseAdmin = createSupabaseAdmin()
 
-    // 1. Fetch assistant and check status
+    // 1. Fetch assistant and check status. Owner is always derived server-side.
     const { data: assistant, error: assistantError } = await supabaseAdmin
       .from('assistants')
-      .select('*')
+      .select('id, user_id, status, assistant_name, business_name, business_type, channel, tone, main_goal, instructions, faqs, services, schedule, fallback_message, language, behavior, knowledge_blocks')
       .eq('id', assistantId)
       .single()
 
@@ -51,25 +88,28 @@ export async function POST(request: NextRequest) {
 
     // 2. Validate Domain
     const domainValidation = await validateWidgetDomain({ assistantId, req: request })
-    
     if (!domainValidation.isValid) {
-      await logSecurityEvent({ userId: ownerId, eventType: 'widget_message_domain_blocked', severity: 'warning', message: `Widget message domain block (${domainValidation.normalizedDomain || 'no-origin'}) for assistant ${assistantId}`, req: request })
+      await logSecurityEvent({
+        userId: ownerId,
+        eventType: 'widget_message_domain_blocked',
+        severity: 'warning',
+        message: `Widget message domain block (${domainValidation.normalizedDomain || 'no-origin'}) for assistant ${assistantId}`,
+        req: request,
+      })
       return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
     }
 
     // 3. Rate Limit Checks
-    const ip = request.headers.get('x-forwarded-for') || 'unknown-ip'
-    
-    // Max 60 messages per minute per IP per assistant
+    const forwardedFor = request.headers.get('x-forwarded-for')
+    const ip = forwardedFor?.split(',')[0]?.trim() || 'unknown-ip'
+
     const ipRateLimitOk = await checkRateLimit(`widget-ip-${assistantId}-${ip}`, 'widget-message-ip-minute', 60, 60)
     if (!ipRateLimitOk) {
       await logSecurityEvent({ userId: ownerId, eventType: 'widget_rate_limited', severity: 'warning', message: `Widget IP rate limit para asistente ${assistantId}`, req: request })
       return NextResponse.json({ error: 'Demasiados mensajes desde tu red. Intenta nuevamente en unos minutos.' }, { status: 429, headers: corsHeaders })
     }
-    
-    // Max 20 messages per minute per VisitorID per assistant
-    const visId = visitorId || ip
-    const visitorRateLimitOk = await checkRateLimit(`widget-vis-${assistantId}-${visId}`, 'widget-message-vis-minute', 20, 60)
+
+    const visitorRateLimitOk = await checkRateLimit(`widget-vis-${assistantId}-${visitorId}`, 'widget-message-vis-minute', 20, 60)
     if (!visitorRateLimitOk) {
       await logSecurityEvent({ userId: ownerId, eventType: 'widget_rate_limited', severity: 'warning', message: `Widget visitor rate limit para asistente ${assistantId}`, req: request })
       return NextResponse.json({ error: 'Estás enviando mensajes muy rápido. Intenta nuevamente.' }, { status: 429, headers: corsHeaders })
@@ -91,15 +131,13 @@ export async function POST(request: NextRequest) {
 
     const sub = subRes.data
     const profile = profileRes.data
-
     const effectiveStatus = getEffectiveSubscriptionStatus(sub, profile)
 
     if (effectiveStatus === 'free' || effectiveStatus === 'expired' || effectiveStatus === 'cancelled') {
       return NextResponse.json({ error: 'El plan del asistente no está activo. Renueva tu plan o activa tu prueba para continuar.' }, { status: 403, headers: corsHeaders })
     }
 
-    const rawPlan = sub ? sub.plan : 'free'
-    const normalizedPlan = normalizePlan(rawPlan)
+    const normalizedPlan = normalizePlan(sub?.plan || 'free')
     const planConfig = getPlanConfig(normalizedPlan)
     const effectiveLimit = planConfig.limits.messagesPerMonth
 
@@ -107,16 +145,15 @@ export async function POST(request: NextRequest) {
     const consumed = await consumeMessageCredit(ownerId, effectiveLimit)
     if (!consumed) {
       await logSecurityEvent({ userId: ownerId, eventType: 'message_limit_reached', severity: 'info', message: `Límite de mensajes alcanzado para asistente ${assistantId}`, req: request })
-      return NextResponse.json({
-        error: 'El asistente alcanzó el límite mensual de mensajes.',
-        code: 'MESSAGE_LIMIT_REACHED'
-      }, { status: 403, headers: corsHeaders })
+      return NextResponse.json({ error: 'El asistente alcanzó el límite mensual de mensajes.', code: 'MESSAGE_LIMIT_REACHED' }, { status: 403, headers: corsHeaders })
     }
 
-    // 6. Conversation Handling
-    let currentConversationId = conversationId
+    // 6. Conversation handling.
+    // A browser-controlled conversationId is never sufficient by itself:
+    // it must also match this assistant, webchat channel and visitorId.
+    let currentConversationId: string | null = null
 
-    if (currentConversationId) {
+    if (conversationId) {
       const { data: conv, error: convError } = await supabaseAdmin
         .from('conversations')
         .update({
@@ -124,16 +161,21 @@ export async function POST(request: NextRequest) {
           last_message_at: new Date().toISOString(),
           status: 'open'
         })
-        .eq('id', currentConversationId)
+        .eq('id', conversationId)
         .eq('assistant_id', assistantId)
-        .select()
-        .single()
+        .eq('user_id', ownerId)
+        .eq('channel', 'webchat')
+        .eq('visitor_id', visitorId)
+        .select('id')
+        .maybeSingle()
 
-      if (convError || !conv) {
-        currentConversationId = null
+      if (!convError && conv) {
+        currentConversationId = conv.id
       }
     }
 
+    // If the supplied conversation does not belong to this visitor, start a new one.
+    // We deliberately do not modify or reveal the existence of the rejected conversation.
     if (!currentConversationId) {
       const { data: conv, error: convError } = await supabaseAdmin
         .from('conversations')
@@ -141,23 +183,23 @@ export async function POST(request: NextRequest) {
           user_id: ownerId,
           assistant_id: assistantId,
           channel: 'webchat',
-          visitor_id: visitorId || null,
+          visitor_id: visitorId,
           status: 'open',
           last_message: message.substring(0, 100),
           last_message_at: new Date().toISOString(),
         })
-        .select()
+        .select('id')
         .single()
 
       if (convError || !conv) {
-        console.error('[POST /api/widget/message] Error creating conversation', convError)
+        console.error('[POST /api/widget/message] Error creating conversation')
         return NextResponse.json({ error: 'Error interno guardando conversación.' }, { status: 500, headers: corsHeaders })
       }
       currentConversationId = conv.id
     }
 
-    // Guardar mensaje del usuario
-    await supabaseAdmin.from('messages').insert({
+    // Guardar mensaje del usuario and fail closed if persistence fails.
+    const { error: userMessageError } = await supabaseAdmin.from('messages').insert({
       conversation_id: currentConversationId,
       user_id: ownerId,
       assistant_id: assistantId,
@@ -165,6 +207,11 @@ export async function POST(request: NextRequest) {
       role: 'user',
       content: message
     })
+
+    if (userMessageError) {
+      console.error('[POST /api/widget/message] Error saving user message')
+      return NextResponse.json({ error: 'Error interno guardando mensaje.' }, { status: 500, headers: corsHeaders })
+    }
 
     // 7. Generate AI Reply
     const config: AssistantConfig = {
@@ -187,8 +234,7 @@ export async function POST(request: NextRequest) {
     const aiModel = getModelForPlan(normalizedPlan, 'webchat_message', { messageLength: message.length })
     const reply = await generateAssistantReply(config, message.trim(), aiModel)
 
-    // Guardar respuesta del asistente
-    await supabaseAdmin.from('messages').insert({
+    const { error: assistantMessageError } = await supabaseAdmin.from('messages').insert({
       conversation_id: currentConversationId,
       user_id: ownerId,
       assistant_id: assistantId,
@@ -196,6 +242,11 @@ export async function POST(request: NextRequest) {
       role: 'assistant',
       content: reply
     })
+
+    if (assistantMessageError) {
+      console.error('[POST /api/widget/message] Error saving assistant message')
+      return NextResponse.json({ error: 'Error interno guardando respuesta.' }, { status: 500, headers: corsHeaders })
+    }
 
     // 8. Detección Automática de Leads
     const emailRegex = /[\w.-]+@[\w.-]+\.\w+/i
@@ -209,9 +260,9 @@ export async function POST(request: NextRequest) {
     if (extractedEmail || extractedPhone || extractedName) {
       const { data: existingLead } = await supabaseAdmin
         .from('leads')
-        .select('*')
+        .select('id, email, phone, name')
         .eq('conversation_id', currentConversationId)
-        .single()
+        .maybeSingle()
 
       if (existingLead) {
         const updates: Record<string, string> = {}
@@ -232,7 +283,7 @@ export async function POST(request: NextRequest) {
           email: extractedEmail || null,
           phone: extractedPhone || null,
           name: extractedName || null
-        }).select().single()
+        }).select('id').single()
 
         if (newLead) {
           try {
@@ -243,18 +294,16 @@ export async function POST(request: NextRequest) {
               type: 'lead',
               metadata: { leadId: newLead.id, assistantId, conversationId: currentConversationId }
             })
-          } catch (notifError) {
-            // ignorar error de notificaciones
+          } catch {
+            // Notifications are non-critical and must not break the response.
           }
         }
       }
     }
 
-    // 9. Return response
     return NextResponse.json({ reply, conversationId: currentConversationId }, { headers: corsHeaders })
-
   } catch (error) {
-    console.error('[POST /api/widget/message]', error)
+    console.error('[POST /api/widget/message] Error inesperado')
     return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500, headers: corsHeaders })
   }
 }
