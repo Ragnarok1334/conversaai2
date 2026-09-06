@@ -33,6 +33,9 @@ export async function OPTIONS() {
 export async function POST(request: NextRequest) {
   let creditOwnerId: string | null = null
   let creditConsumed = false
+  let claimedRequestId: string | null = null
+  let claimedAssistantId: string | null = null
+  let claimedVisitorId: string | null = null
 
   try {
     const contentLength = request.headers.get('content-length')
@@ -48,11 +51,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Body inválido.' }, { status: 400, headers: corsHeaders })
     }
 
-    const { assistantId, message, conversationId, visitorId } = body as {
+    const { assistantId, message, conversationId, visitorId, requestId } = body as {
       assistantId?: unknown
       message?: unknown
       conversationId?: unknown
       visitorId?: unknown
+      requestId?: unknown
     }
 
     if (!isValidUuid(assistantId)) {
@@ -65,6 +69,10 @@ export async function POST(request: NextRequest) {
 
     if (conversationId !== undefined && conversationId !== null && !isValidUuid(conversationId)) {
       return NextResponse.json({ error: 'conversationId inválido.' }, { status: 400, headers: corsHeaders })
+    }
+
+    if (!isValidUuid(requestId)) {
+      return NextResponse.json({ error: 'requestId inválido.' }, { status: 400, headers: corsHeaders })
     }
 
     if (typeof message !== 'string' || message.trim().length === 0 || message.length > 1000) {
@@ -160,9 +168,78 @@ export async function POST(request: NextRequest) {
     const planConfig = getPlanConfig(normalizedPlan)
     const effectiveLimit = planConfig.limits.messagesPerMonth
 
+    const { data: claimRows, error: claimError } = await supabaseAdmin.rpc('claim_widget_message_request', {
+      p_assistant_id: assistantId,
+      p_user_id: ownerId,
+      p_visitor_id: visitorId,
+      p_request_id: requestId,
+    })
+    const claim = Array.isArray(claimRows) ? claimRows[0] : claimRows
+    if (claimError || !claim) {
+      console.error('[POST /api/widget/message] Failed to claim idempotency key')
+      return NextResponse.json({ error: 'No se pudo iniciar la solicitud.' }, { status: 503, headers: corsHeaders })
+    }
+
+    if (!claim.claimed) {
+      if (claim.request_status === 'completed' && typeof claim.stored_reply === 'string') {
+        return NextResponse.json({
+          reply: claim.stored_reply,
+          conversationId: claim.stored_conversation_id,
+          replayed: true,
+        }, { headers: corsHeaders })
+      }
+
+      const { data: storedResponse } = await supabaseAdmin
+        .from('messages')
+        .select('content, conversation_id')
+        .eq('assistant_id', assistantId)
+        .eq('user_id', ownerId)
+        .eq('role', 'assistant')
+        .eq('channel', 'webchat')
+        .contains('metadata', { request_id: requestId })
+        .maybeSingle()
+
+      if (storedResponse) {
+        await supabaseAdmin
+          .from('widget_message_requests')
+          .update({
+            status: 'completed',
+            conversation_id: storedResponse.conversation_id,
+            reply: storedResponse.content,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('assistant_id', assistantId)
+          .eq('visitor_id', visitorId)
+          .eq('request_id', requestId)
+          .eq('user_id', ownerId)
+
+        return NextResponse.json({
+          reply: storedResponse.content,
+          conversationId: storedResponse.conversation_id,
+          replayed: true,
+        }, { headers: corsHeaders })
+      }
+
+      return NextResponse.json({
+        error: 'La solicitud todavía está siendo procesada.',
+        code: 'REQUEST_IN_PROGRESS',
+      }, { status: 409, headers: corsHeaders })
+    }
+
+    claimedRequestId = requestId
+    claimedAssistantId = assistantId
+    claimedVisitorId = visitorId
+
     // 5. Consume credit atomically
     const consumed = await consumeMessageCredit(ownerId, effectiveLimit)
     if (!consumed) {
+      await supabaseAdmin
+        .from('widget_message_requests')
+        .update({ status: 'failed', error_code: 'message_limit_reached', updated_at: new Date().toISOString() })
+        .eq('assistant_id', assistantId)
+        .eq('visitor_id', visitorId)
+        .eq('request_id', requestId)
+        .eq('user_id', ownerId)
       await logSecurityEvent({ userId: ownerId, eventType: 'message_limit_reached', severity: 'info', message: `Límite de mensajes alcanzado para asistente ${assistantId}`, req: request })
       return NextResponse.json({ error: 'El asistente alcanzó el límite mensual de mensajes.', code: 'MESSAGE_LIMIT_REACHED' }, { status: 403, headers: corsHeaders })
     }
@@ -226,7 +303,8 @@ export async function POST(request: NextRequest) {
       assistant_id: assistantId,
       channel: 'webchat',
       role: 'user',
-      content: message
+      content: message,
+      metadata: { request_id: requestId },
     })
 
     if (userMessageError) {
@@ -261,13 +339,36 @@ export async function POST(request: NextRequest) {
       assistant_id: assistantId,
       channel: 'webchat',
       role: 'assistant',
-      content: reply
+      content: reply,
+      metadata: { request_id: requestId },
     })
 
     if (assistantMessageError) {
       console.error('[POST /api/widget/message] Error saving assistant message')
       throw new Error('assistant_message_save_failed')
     }
+
+    creditConsumed = false
+
+    const { error: completionError } = await supabaseAdmin
+      .from('widget_message_requests')
+      .update({
+        status: 'completed',
+        conversation_id: currentConversationId,
+        reply,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('assistant_id', assistantId)
+      .eq('visitor_id', visitorId)
+      .eq('request_id', requestId)
+      .eq('user_id', ownerId)
+
+    if (completionError) {
+      console.error('[POST /api/widget/message] Failed to persist idempotency result')
+    }
+    claimedRequestId = null
+    claimedAssistantId = null
+    claimedVisitorId = null
 
     // 8. Detección Automática de Leads
     const emailRegex = /[\w.-]+@[\w.-]+\.\w+/i
@@ -322,7 +423,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    creditConsumed = false
     return NextResponse.json({ reply, conversationId: currentConversationId }, { headers: corsHeaders })
   } catch (error: unknown) {
     if (creditConsumed && creditOwnerId) {
@@ -330,6 +430,16 @@ export async function POST(request: NextRequest) {
       if (!refunded) {
         console.error('[POST /api/widget/message] Failed to refund consumed credit')
       }
+    }
+    if (claimedRequestId && claimedAssistantId && claimedVisitorId && creditOwnerId) {
+      const supabaseAdmin = createSupabaseAdmin()
+      await supabaseAdmin
+        .from('widget_message_requests')
+        .update({ status: 'failed', error_code: 'processing_failed', updated_at: new Date().toISOString() })
+        .eq('assistant_id', claimedAssistantId)
+        .eq('visitor_id', claimedVisitorId)
+        .eq('request_id', claimedRequestId)
+        .eq('user_id', creditOwnerId)
     }
     console.error('[POST /api/widget/message] Error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500, headers: corsHeaders })

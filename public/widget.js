@@ -818,6 +818,13 @@
     }
 
     const typingId = showTyping();
+    const requestBytes = crypto.getRandomValues(new Uint8Array(16));
+    requestBytes[6] = (requestBytes[6] & 0x0f) | 0x40;
+    requestBytes[8] = (requestBytes[8] & 0x3f) | 0x80;
+    const requestHex = Array.from(requestBytes, b => b.toString(16).padStart(2, '0')).join('');
+    const requestId = typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${requestHex.slice(0, 8)}-${requestHex.slice(8, 12)}-${requestHex.slice(12, 16)}-${requestHex.slice(16, 20)}-${requestHex.slice(20)}`;
 
     try {
       const res = await fetch(`${baseUrl}/api/widget/message`, {
@@ -831,7 +838,8 @@
           message: text,
           conversationId: conversationId,
           pageUrl: window.location.href,
-          visitorId: visitorId
+          visitorId: visitorId,
+          requestId: requestId
         })
       });
 
