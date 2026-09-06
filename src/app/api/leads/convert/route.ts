@@ -6,7 +6,6 @@ const MAX_BODY_BYTES = 16 * 1024
 const MAX_NAME_LENGTH = 120
 const MAX_EMAIL_LENGTH = 180
 const MAX_PHONE_LENGTH = 40
-const MAX_SOURCE_LENGTH = 64
 const MAX_NOTES_LENGTH = 5000
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -51,21 +50,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Cuerpo inválido' }, { status: 400 })
     }
 
-    const { conversation_id, assistant_id } = body
-    if (!isUuid(conversation_id) || !isUuid(assistant_id)) {
-      return NextResponse.json({ error: 'IDs inválidos' }, { status: 400 })
+    const { conversation_id } = body
+    if (!isUuid(conversation_id)) {
+      return NextResponse.json({ error: 'Conversation ID inválido' }, { status: 400 })
     }
 
     const name = optionalString(body.name, MAX_NAME_LENGTH)
     const email = optionalString(body.email, MAX_EMAIL_LENGTH)
     const phone = optionalString(body.phone, MAX_PHONE_LENGTH)
-    const source = optionalString(body.source, MAX_SOURCE_LENGTH)
     const notes = optionalString(body.notes, MAX_NOTES_LENGTH)
 
     if (body.name !== undefined && name === null) return NextResponse.json({ error: 'Nombre inválido' }, { status: 400 })
     if (body.email !== undefined && email === null) return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
     if (body.phone !== undefined && phone === null) return NextResponse.json({ error: 'Teléfono inválido' }, { status: 400 })
-    if (body.source !== undefined && source === null) return NextResponse.json({ error: 'Origen inválido' }, { status: 400 })
     if (body.notes !== undefined && notes === null) return NextResponse.json({ error: 'Notas inválidas' }, { status: 400 })
 
     if (!email && !phone && !name) {
@@ -94,7 +91,7 @@ export async function POST(request: Request) {
         .maybeSingle(),
       supabaseAdmin
         .from('conversations')
-        .select('id, assistant_id')
+        .select('id, assistant_id, channel')
         .eq('id', conversation_id)
         .eq('user_id', user.id)
         .maybeSingle(),
@@ -105,9 +102,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No se pudo validar la conversación' }, { status: 500 })
     }
 
-    if (!conversationRes.data || conversationRes.data.assistant_id !== assistant_id) {
+    if (!conversationRes.data || !isUuid(conversationRes.data.assistant_id)) {
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
     }
+
+    const assistantId = conversationRes.data.assistant_id
+    const source = typeof conversationRes.data.channel === 'string'
+      ? conversationRes.data.channel.slice(0, 64)
+      : 'webchat'
 
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
     const effectiveStatus = getEffectiveSubscriptionStatus(subRes.data, profileRes.data)
@@ -123,7 +125,7 @@ export async function POST(request: Request) {
         .from('leads')
         .select(LEAD_FIELDS)
         .eq('user_id', user.id)
-        .eq('assistant_id', assistant_id)
+        .eq('assistant_id', assistantId)
         .eq('email', email)
         .limit(1)
         .maybeSingle()
@@ -137,7 +139,7 @@ export async function POST(request: Request) {
         .from('leads')
         .select(LEAD_FIELDS)
         .eq('user_id', user.id)
-        .eq('assistant_id', assistant_id)
+        .eq('assistant_id', assistantId)
         .eq('phone', phone)
         .limit(1)
         .maybeSingle()
@@ -163,7 +165,7 @@ export async function POST(request: Request) {
         .update(updates)
         .eq('id', existingLead.id)
         .eq('user_id', user.id)
-        .eq('assistant_id', assistant_id)
+        .eq('assistant_id', assistantId)
         .select(LEAD_FIELDS)
         .single()
 
@@ -175,9 +177,9 @@ export async function POST(request: Request) {
       .from('leads')
       .insert({
         user_id: user.id,
-        assistant_id,
+        assistant_id: assistantId,
         conversation_id,
-        source: source || 'webchat',
+        source,
         name,
         email,
         phone,
