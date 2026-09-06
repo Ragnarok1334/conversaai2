@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ reply, conversationId: currentConversationId }, { headers: corsHeaders })
-  } catch (error) {
+  } catch {
     console.error('[POST /api/widget/message] Error inesperado')
     return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500, headers: corsHeaders })
   }

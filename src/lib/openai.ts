@@ -29,7 +29,7 @@ export interface AssistantConfig extends Partial<Assistant> {
   schedule?: string
   fallbackMessage?: string
   language?: string
-  knowledge_blocks?: any[] | null
+  knowledge_blocks?: Assistant['knowledge_blocks']
 }
 
 export async function generateAssistantReply(

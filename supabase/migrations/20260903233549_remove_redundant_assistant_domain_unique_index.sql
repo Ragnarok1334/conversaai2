@@ -1,0 +1,2 @@
+drop index if exists public.assistant_domains_assistant_domain_unique;
+
