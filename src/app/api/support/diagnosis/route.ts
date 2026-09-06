@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
     // 3. Fetch Assistants & Domains
     const { data: assistantsData } = await supabase
       .from('assistants')
-      .select('*, assistant_domains(verification_status, last_seen_at)')
+      .select('*, assistant_domains:assistant_domains!assistant_domains_assistant_user_fkey(verification_status, last_seen_at)')
       .eq('user_id', user.id)
 
     const assistants = assistantsData || []

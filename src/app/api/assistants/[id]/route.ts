@@ -22,8 +22,8 @@ export async function GET(
       .from('assistants')
       .select(`
         *, 
-        assistant_test_messages(*),
-        assistant_domains ( verification_status ),
+        assistant_test_messages:assistant_test_messages!assistant_test_messages_assistant_user_fkey(*),
+        assistant_domains:assistant_domains!assistant_domains_assistant_user_fkey ( verification_status ),
         assistant_channels:assistant_channels!assistant_channels_assistant_user_fkey ( channel, is_enabled )
       `)
       .eq('id', id)

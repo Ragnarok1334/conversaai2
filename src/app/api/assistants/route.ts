@@ -23,7 +23,7 @@ export async function GET() {
       .from('assistants')
       .select(`
         *,
-        assistant_domains ( verification_status ),
+        assistant_domains:assistant_domains!assistant_domains_assistant_user_fkey ( verification_status ),
         assistant_channels:assistant_channels!assistant_channels_assistant_user_fkey ( channel, is_enabled )
       `)
       .eq('user_id', user.id)
