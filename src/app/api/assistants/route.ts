@@ -22,7 +22,8 @@ export async function GET() {
       .from('assistants')
       .select(`
         *,
-        assistant_domains ( verification_status )
+        assistant_domains ( verification_status ),
+        assistant_channels ( channel, is_enabled )
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
@@ -113,14 +114,17 @@ export async function POST(request: NextRequest) {
     const services = body.services || null
     const schedule = body.schedule || body.business_hours || body.businessHours || null
     const fallbackMessage = body.fallback_message || body.fallbackMessage || null
-    const welcomeMessage = body.welcome_message || body.welcomeMessage || null
+    // welcomeMessage was removed since it is no longer supported
 
     // Knowledge blocks
     const rawBlocks = body.knowledge_blocks || body.knowledgeBlocks
     let finalKnowledgeBlocks = null
     if (rawBlocks && Array.isArray(rawBlocks)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const validBlocks = rawBlocks
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .filter((b: any) => b && typeof b === 'object' && b.is_active !== false && b.enabled !== false && typeof b.content === 'string' && b.content.trim().length > 0)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .map((b: any) => ({
           id: b.id || crypto.randomUUID(),
           type: b.type || 'general',
@@ -251,13 +255,10 @@ export async function POST(request: NextRequest) {
       rules,
     }
 
-    // Payload con todas las columnas posibles (incluyendo extendidas)
-    const assistantPayloadFull = {
-      user_id: user.id,
+    const payloadForRpc = {
       assistant_name: name,
       business_name: businessName || name,
       business_type: body.business_type || body.businessType || null,
-      channel: 'webchat',
       tone,
       main_goal: mainGoal,
       instructions: businessInfo || null,
@@ -268,65 +269,22 @@ export async function POST(request: NextRequest) {
       language,
       status: 'active',
       behavior: behaviorData,
-      ...(welcomeMessage ? { welcome_message: welcomeMessage } : {}),
-      ...(businessInfo ? { business_info: businessInfo } : {}),
-      ...(schedule ? { business_hours: schedule } : {}),
       ...(finalKnowledgeBlocks ? { knowledge_blocks: finalKnowledgeBlocks } : {}),
-    }
-
-    // Payload mínimo solo con columnas base (fallback si las extendidas no existen)
-    const assistantPayloadBase = {
-      user_id: user.id,
-      assistant_name: name,
-      business_name: businessName || name,
-      channel: 'webchat',
-      tone,
-      main_goal: mainGoal,
-      instructions: businessInfo || null,
-      language,
-      status: 'active'
+      channels
     }
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('[POST /api/assistants] assistantPayload (full):', {
-        ...assistantPayloadFull,
+      console.log('[POST /api/assistants] payloadForRpc:', payloadForRpc)
+    }
+
+    const { data: assistant, error: assistantError } = await supabaseAdmin
+      .rpc('create_assistant_with_channels', {
+        p_user_id: user.id,
+        p_assistant: payloadForRpc
       })
-    }
-
-    // Intentar primero con payload completo (incluyendo behavior y campos extendidos)
-    let { data: assistant, error: assistantError } = await supabase
-      .from('assistants')
-      .insert(assistantPayloadFull)
-      .select()
-      .single()
-
-    // Si falla por columna desconocida (código PGRST204 o 42703), hacer fallback al payload base
-    if (assistantError) {
-      const isColumnError =
-        assistantError.message?.includes('column') ||
-        assistantError.code === '42703' ||
-        assistantError.code === 'PGRST204'
-
-      if (isColumnError) {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn(
-            '[POST /api/assistants] Columna extendida no existe, reintentando con payload base...',
-            assistantError.message
-          )
-        }
-        const fallbackResult = await supabase
-          .from('assistants')
-          .insert(assistantPayloadBase)
-          .select()
-          .single()
-
-        assistant = fallbackResult.data
-        assistantError = fallbackResult.error
-      }
-    }
 
     if (assistantError || !assistant) {
-      console.error('[api/assistants][POST] Supabase insert error:', {
+      console.error('[api/assistants][POST] Supabase rpc error:', {
         message: assistantError?.message,
         details: assistantError?.details,
         hint: assistantError?.hint,
@@ -340,7 +298,7 @@ export async function POST(request: NextRequest) {
             error: 'El tono seleccionado no está permitido por la base de datos. Actualiza la configuración de tonos.',
             details: process.env.NODE_ENV === 'development' ? assistantError?.message : undefined,
           },
-          { status: 500 } // Or 400 if user wants, but user didn't specify code for this one, actually "devolver error claro"
+          { status: 500 }
         )
       }
 
@@ -351,68 +309,6 @@ export async function POST(request: NextRequest) {
           details: process.env.NODE_ENV === 'development' ? assistantError?.message : undefined,
         },
         { status: 500 }
-      )
-    }
-
-    // PASO 7: Insertar canales en assistant_channels (si la tabla existe)
-    // Si la tabla no existe todavía, el error se captura de forma segura
-    // y no impide que el asistente se cree exitosamente.
-    try {
-      const telegramToken = ''
-      const telegramTokenTrimmed = ''
-
-      const channelsPayload = [
-        {
-          assistant_id: assistant.id,
-          user_id: user.id,
-          channel: 'webchat',
-          is_enabled: true,
-          config: { status: 'active' },
-        },
-        {
-          assistant_id: assistant.id,
-          user_id: user.id,
-          channel: 'telegram',
-          is_enabled: false,
-          config: { status: 'coming_soon' },
-        },
-        {
-          assistant_id: assistant.id,
-          user_id: user.id,
-          channel: 'whatsapp',
-          is_enabled: false,
-          config: { status: 'coming_soon' },
-        },
-      ]
-
-      if (process.env.NODE_ENV === 'development') {
-        // Log seguro — ocultar token real
-        const safeChannelsPayload = channelsPayload.map((ch) => {
-          if (ch.channel === 'telegram' && 'telegram_token' in ch.config) {
-            return { ...ch, config: { ...ch.config, telegram_token: '***' } }
-          }
-          return ch
-        })
-        console.log('[POST /api/assistants] channelsPayload:', safeChannelsPayload)
-      }
-
-      const { error: channelsError } = await supabase
-        .from('assistant_channels')
-        .insert(channelsPayload)
-
-      if (channelsError) {
-        // No fallamos el request completo si assistant_channels no existe aún
-        // Dejamos el asistente creado y logueamos el error para debugging
-        console.error(
-          '[POST /api/assistants] channelsError (non-fatal):',
-          channelsError.message
-        )
-      }
-    } catch (channelsCatchErr) {
-      // Si la tabla assistant_channels no existe todavía, este bloque lo absorbe
-      console.error(
-        '[POST /api/assistants] channels insert failed (non-fatal):',
-        channelsCatchErr
       )
     }
 
@@ -434,6 +330,7 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const err = error as any
     console.error('[api/assistants][POST] Error creating assistant:', err)
     return NextResponse.json(

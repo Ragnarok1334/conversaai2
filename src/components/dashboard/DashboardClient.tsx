@@ -46,6 +46,7 @@ interface DashboardData {
     assistant_name: string
     business_name: string
     channel: string
+    assistant_channels?: { channel: string; is_enabled: boolean }[]
     status: string
     created_at: string
     tone: string
@@ -248,7 +249,7 @@ export function DashboardClient({ initialData, userId }: Props) {
           <p className="text-text-soft text-sm mt-1">Monitorea tus asistentes, conversaciones, leads, canales y uso del plan desde un solo lugar.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={() => refreshDashboard(false)}
             disabled={refreshing}
             className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50"
@@ -345,7 +346,7 @@ export function DashboardClient({ initialData, userId }: Props) {
         </div>
 
         {data.recentAssistants.length === 0 ? (
-          <EmptyState 
+          <EmptyState
             icon={Bot}
             title="Crea tu primer asistente IA"
             description="Configura la información de tu negocio, instala el Web Chat y empieza a capturar conversaciones útiles."
@@ -365,7 +366,7 @@ export function DashboardClient({ initialData, userId }: Props) {
                     <p className="text-xs font-medium text-text-soft truncate mt-0.5">{a.business_name}</p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-3 sm:ml-auto">
                   <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/5">
                     <span className={`w-1.5 h-1.5 rounded-full ${a.status === 'active' ? 'bg-brand-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-slate-500'}`} />
@@ -374,9 +375,16 @@ export function DashboardClient({ initialData, userId }: Props) {
                     </span>
                   </div>
                   <span className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/5 text-slate-300">
-                    {channelLabel[a.channel] || a.channel}
+                    {(() => {
+                      const enabledChannels = a.assistant_channels?.filter(c => c.is_enabled)?.map(c => c.channel) || []
+                      const activeChannel = enabledChannels.includes('webchat') ? 'webchat'
+                                          : enabledChannels.includes('telegram') ? 'telegram'
+                                          : enabledChannels.includes('whatsapp') ? 'whatsapp'
+                                          : a.channel
+                      return channelLabel[activeChannel] || activeChannel
+                    })()}
                   </span>
-                  
+
                   <div className="flex items-center gap-1.5 ml-2">
                     <Link
                       href={`/dashboard/assistants/${a.id}`}

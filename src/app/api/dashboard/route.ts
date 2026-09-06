@@ -53,9 +53,9 @@ export async function GET() {
       supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'open'),
       supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
       supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
-      supabase.from('assistant_channels').select('channel, is_enabled, config, assistant_id').eq('user_id', user.id).eq('is_enabled', true).limit(50),
+      supabase.from('assistant_channels').select('channel, is_enabled, assistant_id').eq('user_id', user.id).eq('is_enabled', true).limit(50),
       supabase.from('notifications').select('id, title, message, type, created_at, metadata').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
-      supabase.from('assistants').select('id, assistant_name, business_name, channel, status, created_at, tone').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+      supabase.from('assistants').select('id, assistant_name, business_name, channel, status, created_at, tone, assistant_channels(channel, is_enabled)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('conversations').select('id, created_at, status, last_message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('leads').select('id, created_at, name, email, source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('assistant_domains').select('domain, is_verified, verification_status, last_seen_at, last_seen_url, assistant_id').eq('user_id', user.id),
@@ -128,7 +128,7 @@ export async function GET() {
     }
 
     const channelRows = assistantChannelsResult.data ?? []
-    const hasTelegramActive = channelRows.some((r) => r.channel === 'telegram' && r.is_enabled === true && (r.config as any)?.telegram_token)
+    const hasTelegramActive = channelRows.some((r) => r.channel === 'telegram' && r.is_enabled === true)
     const telegramAllowed = activePlanConfig.channels.telegram
     const telegramStatus = !telegramAllowed ? 'locked' : hasTelegramActive ? 'connected' : 'pending'
 

@@ -52,7 +52,8 @@ export default async function AssistantDetailPage({
     .select(`
       *, 
       assistant_test_messages(id, user_message, assistant_reply, created_at),
-      assistant_domains(id, domain, is_verified, verification_status, last_seen_at)
+      assistant_domains(id, domain, is_verified, verification_status, last_seen_at),
+      assistant_channels(channel, is_enabled)
     `)
     .eq('id', id)
     .eq('user_id', user.id)
@@ -121,9 +122,9 @@ export default async function AssistantDetailPage({
       }
     },
     channels: {
-      webchat: { enabled: true, domains: [] },
-      telegram: { enabled: false, token: '' },
-      whatsapp: { enabled: false, phone: '', provider: 'meta' }
+      webchat: { enabled: assistant.assistant_channels?.find((c: { channel: string; is_enabled: boolean }) => c.channel === 'webchat')?.is_enabled ?? true, domains: [] },
+      telegram: { enabled: assistant.assistant_channels?.find((c: { channel: string; is_enabled: boolean }) => c.channel === 'telegram')?.is_enabled ?? false, token: '' },
+      whatsapp: { enabled: assistant.assistant_channels?.find((c: { channel: string; is_enabled: boolean }) => c.channel === 'whatsapp')?.is_enabled ?? false, phone: '', provider: 'meta' }
     },
     knowledgeBlocks: assistant.knowledge_blocks || []
   }

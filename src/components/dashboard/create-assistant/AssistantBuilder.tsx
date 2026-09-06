@@ -108,7 +108,8 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
         responseStyle: form.behavior.responseStyle,
         rules: form.behavior.rules,
       },
-      knowledge_blocks: form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim()) || null
+      knowledge_blocks: form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim()) || null,
+      channels: form.channels
     }
 
     if (process.env.NODE_ENV === 'development') {

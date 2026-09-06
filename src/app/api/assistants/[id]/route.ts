@@ -22,7 +22,8 @@ export async function GET(
       .select(`
         *, 
         assistant_test_messages(*),
-        assistant_domains ( verification_status )
+        assistant_domains ( verification_status ),
+        assistant_channels ( channel, is_enabled )
       `)
       .eq('id', id)
       .eq('user_id', user.id)
@@ -101,16 +102,16 @@ export async function PATCH(
 
     const body = await request.json()
 
-    // Whitelist allowed fields
     const allowedFields = [
       'assistant_name', 'name', 'business_name', 'business_type',
-      'instructions', 'behavior', 'channel', 'tone',
-      'objective', 'main_goal', 'fallback_message', 'welcome_message',
+      'instructions', 'behavior', 'tone',
+      'objective', 'main_goal', 'fallback_message',
       'status', 'knowledge_blocks', 'faqs', 'services', 'schedule', 'language',
       'widget_config'
     ]
 
-    const updates: Record<string, any> = { updated_at: new Date().toISOString() }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const updates: Record<string, any> = {}
 
     for (const key of allowedFields) {
       if (key in body && body[key] !== undefined) {
@@ -194,7 +195,7 @@ export async function PATCH(
       }
     }
 
-    if (Object.keys(updates).length === 1) { // only updated_at
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No hay campos válidos para actualizar.' }, { status: 400 })
     }
 
@@ -211,6 +212,7 @@ export async function PATCH(
         const finalInstructions = updates.instructions !== undefined ? updates.instructions : (currentAssistant.instructions || '');
         const finalBlocks = updates.knowledge_blocks !== undefined ? updates.knowledge_blocks : (currentAssistant.knowledge_blocks || []);
         const instLen = (finalInstructions || '').trim().length;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const hasValidBlock = (finalBlocks || []).some((b: any) => b.is_active && (b.content || '').trim().length >= 80);
         
         // Si updates.knowledge_blocks es explícitamente vacío y la base de datos tenía, respetamos la decisión del usuario solo si es válido
@@ -220,13 +222,18 @@ export async function PATCH(
       }
     }
 
-    const { data, error } = await supabase
-      .from('assistants')
-      .update(updates)
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .select()
-      .single()
+    if (body.channels) {
+      if (typeof body.channels !== 'object' || Array.isArray(body.channels)) {
+        return NextResponse.json({ error: 'Formato inválido en channels.' }, { status: 400 })
+      }
+      updates.channels = body.channels;
+    }
+
+    const { data, error } = await supabaseAdmin.rpc('update_assistant_with_channels', {
+      p_id: id,
+      p_user_id: user.id,
+      p_updates: updates
+    });
 
     if (error || !data) {
       if (error?.code === '23514' && error?.message?.includes('assistants_tone_check')) {
