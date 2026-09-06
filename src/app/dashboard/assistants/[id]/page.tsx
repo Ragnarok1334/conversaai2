@@ -53,7 +53,7 @@ export default async function AssistantDetailPage({
       *, 
       assistant_test_messages(id, user_message, assistant_reply, created_at),
       assistant_domains(id, domain, is_verified, verification_status, last_seen_at),
-      assistant_channels(channel, is_enabled)
+      assistant_channels:assistant_channels!assistant_channels_assistant_user_fkey(channel, is_enabled)
     `)
     .eq('id', id)
     .eq('user_id', user.id)

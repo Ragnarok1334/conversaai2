@@ -4,6 +4,7 @@ import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { logAuditEvent } from '@/lib/audit'
+import { sanitizeAssistantChannels } from '@/lib/assistant/channels'
 import { revalidatePath } from 'next/cache'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +24,7 @@ export async function GET() {
       .select(`
         *,
         assistant_domains ( verification_status ),
-        assistant_channels ( channel, is_enabled )
+        assistant_channels:assistant_channels!assistant_channels_assistant_user_fkey ( channel, is_enabled )
       `)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
@@ -139,7 +140,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Canales del nuevo objeto channels
-    const channels = body.channels ?? {}
+    let channels
+    try {
+      channels = sanitizeAssistantChannels(body.channels)
+    } catch (error) {
+      return NextResponse.json(
+        { success: false, error: error instanceof Error ? error.message : 'Formato inválido en channels.' },
+        { status: 400 }
+      )
+    }
 
     const validTones = ['amigable', 'profesional', 'vendedor', 'cercano', 'directo']
     if (!validTones.includes(tone)) {

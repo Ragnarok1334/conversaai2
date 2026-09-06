@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
+import { sanitizeAssistantChannels } from '@/lib/assistant/channels'
 import { revalidatePath } from 'next/cache'
 
 // GET /api/assistants/[id]
@@ -23,7 +24,7 @@ export async function GET(
         *, 
         assistant_test_messages(*),
         assistant_domains ( verification_status ),
-        assistant_channels ( channel, is_enabled )
+        assistant_channels:assistant_channels!assistant_channels_assistant_user_fkey ( channel, is_enabled )
       `)
       .eq('id', id)
       .eq('user_id', user.id)
@@ -223,10 +224,14 @@ export async function PATCH(
     }
 
     if (body.channels) {
-      if (typeof body.channels !== 'object' || Array.isArray(body.channels)) {
-        return NextResponse.json({ error: 'Formato inválido en channels.' }, { status: 400 })
+      try {
+        updates.channels = sanitizeAssistantChannels(body.channels)
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Formato inválido en channels.' },
+          { status: 400 }
+        )
       }
-      updates.channels = body.channels;
     }
 
     const { data, error } = await supabaseAdmin.rpc('update_assistant_with_channels', {
