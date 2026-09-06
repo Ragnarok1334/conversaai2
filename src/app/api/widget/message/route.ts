@@ -6,11 +6,12 @@ import { checkRateLimit, consumeMessageCredit, refundMessageCredit, validateWidg
 import { logSecurityEvent } from '@/lib/audit'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
+import { verifyWidgetSession } from '@/lib/widget-session'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-ConversaAI-Widget-Session',
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -100,6 +101,21 @@ export async function POST(request: NextRequest) {
         req: request,
       })
       return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
+    }
+
+    const domain = domainValidation.normalizedDomain
+    const session = domain
+      ? verifyWidgetSession(request.headers.get('x-conversaai-widget-session'), assistantId, domain)
+      : null
+    if (!session || session.visitorId !== visitorId) {
+      await logSecurityEvent({
+        userId: ownerId,
+        eventType: 'widget_session_invalid',
+        severity: 'warning',
+        message: `Invalid widget session for assistant ${assistantId}`,
+        req: request,
+      })
+      return NextResponse.json({ error: 'La sesión del chat no es válida.' }, { status: 401, headers: corsHeaders })
     }
 
     // 3. Rate Limit Checks

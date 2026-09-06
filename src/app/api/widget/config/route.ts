@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
+import { createWidgetSession, verifyWidgetSession } from '@/lib/widget-session'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-ConversaAI-Widget-Session',
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
   'Pragma': 'no-cache',
   'Expires': '0'
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
 
     const { data: assistant, error } = await supabaseAdmin
       .from('assistants')
-      .select('*')
+      .select('id, user_id, status, assistant_name, business_name, welcome_message, widget_config')
       .eq('id', assistantId)
       .single()
 
@@ -41,7 +42,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'El asistente no está activo' }, { status: 403, headers: corsHeaders })
     }
 
-    const { data: sub } = await supabaseAdmin.from('subscriptions').select('*').eq('user_id', assistant.user_id).single()
+    const { data: sub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end')
+      .eq('user_id', assistant.user_id)
+      .single()
     const { data: profile } = await supabaseAdmin.from('profiles').select('trial_ends_at').eq('id', assistant.user_id).single()
     
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
@@ -62,6 +67,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
     }
 
+    const domain = domainValidation.normalizedDomain
+    if (!domain) {
+      return NextResponse.json({ error: 'No se pudo validar el dominio.' }, { status: 403, headers: corsHeaders })
+    }
+
+    const existingToken = request.headers.get('x-conversaai-widget-session')
+    const existingSession = verifyWidgetSession(existingToken, assistantId, domain)
+    const widgetSession = existingSession
+      ? { token: existingToken, visitorId: existingSession.visitorId, expiresAt: existingSession.exp }
+      : createWidgetSession(assistantId, domain)
+
     const { sanitizeWidgetConfigForPlan } = await import('@/lib/widget-config')
     const safeWidgetConfig = sanitizeWidgetConfigForPlan(assistant.widget_config || {}, currentPlan)
 
@@ -71,7 +87,8 @@ export async function GET(request: NextRequest) {
       businessName: assistant.business_name || '',
       welcomeMessage: assistant.welcome_message || '',
       status: 'online',
-      widgetConfig: safeWidgetConfig
+      widgetConfig: safeWidgetConfig,
+      widgetSession,
     }, { headers: corsHeaders })
 
   } catch (error) {

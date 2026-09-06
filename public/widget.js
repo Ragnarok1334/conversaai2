@@ -26,15 +26,11 @@
   let config = null;
   let isOpen = false;
   let conversationId = localStorage.getItem(`conversaai_conversation_${assistantId}`) || null;
-  let visitorId = localStorage.getItem('conversaai_visitor_id');
+  let visitorId = localStorage.getItem(`conversaai_visitor_${assistantId}`);
+  let sessionToken = localStorage.getItem(`conversaai_session_${assistantId}`);
   let isChatBlocked = false;
   let quickQuestionsUsed = false;
   
-  if (!visitorId) {
-    visitorId = 'vis_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    localStorage.setItem('conversaai_visitor_id', visitorId);
-  }
-
   // Icons
   const closeIconSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
   const chatIconSVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 1.821.487 3.53 1.338 5L2 22l5.001-1.339A9.954 9.954 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18c-1.482 0-2.883-.327-4.135-.911l-.296-.138-3.084.825.834-3.003-.153-.3A7.95 7.95 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>`;
@@ -630,7 +626,10 @@
   async function fetchConfig() {
     try {
       const configUrl = `${baseUrl}/api/widget/config?assistantId=${assistantId}&t=${Date.now()}`;
-      const res = await fetch(configUrl, { cache: 'no-store' });
+      const headers = sessionToken
+        ? { 'X-ConversaAI-Widget-Session': sessionToken }
+        : {};
+      const res = await fetch(configUrl, { cache: 'no-store', headers });
       if (res.status === 403) {
         const errorData = await res.json().catch(() => ({}));
         blockChat(errorData.error || "El chat no está disponible en este momento.");
@@ -639,6 +638,14 @@
       if (!res.ok) throw new Error('Failed to fetch config');
       
       const data = await res.json();
+
+      if (!data.widgetSession || !data.widgetSession.token || !data.widgetSession.visitorId) {
+        throw new Error('Widget session missing');
+      }
+      sessionToken = data.widgetSession.token;
+      visitorId = data.widgetSession.visitorId;
+      localStorage.setItem(`conversaai_session_${assistantId}`, sessionToken);
+      localStorage.setItem(`conversaai_visitor_${assistantId}`, visitorId);
       
       // Robust Defaults
       const wConfig = data.widgetConfig || {};
@@ -815,7 +822,10 @@
     try {
       const res = await fetch(`${baseUrl}/api/widget/message`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-ConversaAI-Widget-Session': sessionToken
+        },
         body: JSON.stringify({
           assistantId: assistantId,
           message: text,
