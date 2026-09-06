@@ -27,6 +27,31 @@ export async function consumeMessageCredit(userId: string, limit: number | null)
 }
 
 /**
+ * Devuelve un crédito reservado cuando la generación o persistencia de una
+ * respuesta falla. La RPC limita el contador a un mínimo de cero y solo está
+ * disponible para service_role.
+ */
+export async function refundMessageCredit(userId: string, amount = 1): Promise<boolean> {
+  try {
+    const supabaseAdmin = createSupabaseAdmin()
+    const { data, error } = await supabaseAdmin.rpc('decrement_message_usage', {
+      p_user_id: userId,
+      p_amount: amount,
+    })
+
+    if (error) {
+      console.error('[refundMessageCredit] RPC Error:', error)
+      return false
+    }
+
+    return !!data
+  } catch (error) {
+    console.error('[refundMessageCredit] Error:', error)
+    return false
+  }
+}
+
+/**
  * Valida un rate limit usando la RPC segura en base de datos.
  */
 export async function checkRateLimit(key: string, route: string, limit: number, windowSeconds: number): Promise<boolean> {
@@ -109,7 +134,7 @@ export function escapeHtml(unsafe: string): string {
  */
 export async function validateWidgetDomain(params: {
   assistantId: string
-  req: Request | any // NextRequest or Request
+  req: Request
   pageUrl?: string
 }): Promise<{ isValid: boolean; normalizedDomain: string | null; dbDomainId?: string; isAllowAll?: boolean; isLocalhost?: boolean; isMissingDomain?: boolean }> {
   const { assistantId, req, pageUrl } = params

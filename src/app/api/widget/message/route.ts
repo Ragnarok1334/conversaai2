@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { normalizePlan, getPlanConfig } from '@/lib/plans'
-import { checkRateLimit, consumeMessageCredit, validateWidgetDomain } from '@/lib/security'
+import { checkRateLimit, consumeMessageCredit, refundMessageCredit, validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
@@ -30,6 +30,9 @@ export async function OPTIONS() {
 }
 
 export async function POST(request: NextRequest) {
+  let creditOwnerId: string | null = null
+  let creditConsumed = false
+
   try {
     const contentLength = request.headers.get('content-length')
     if (contentLength) {
@@ -147,6 +150,8 @@ export async function POST(request: NextRequest) {
       await logSecurityEvent({ userId: ownerId, eventType: 'message_limit_reached', severity: 'info', message: `Límite de mensajes alcanzado para asistente ${assistantId}`, req: request })
       return NextResponse.json({ error: 'El asistente alcanzó el límite mensual de mensajes.', code: 'MESSAGE_LIMIT_REACHED' }, { status: 403, headers: corsHeaders })
     }
+    creditOwnerId = ownerId
+    creditConsumed = true
 
     // 6. Conversation handling.
     // A browser-controlled conversationId is never sufficient by itself:
@@ -193,7 +198,7 @@ export async function POST(request: NextRequest) {
 
       if (convError || !conv) {
         console.error('[POST /api/widget/message] Error creating conversation')
-        return NextResponse.json({ error: 'Error interno guardando conversación.' }, { status: 500, headers: corsHeaders })
+        throw new Error('conversation_create_failed')
       }
       currentConversationId = conv.id
     }
@@ -210,7 +215,7 @@ export async function POST(request: NextRequest) {
 
     if (userMessageError) {
       console.error('[POST /api/widget/message] Error saving user message')
-      return NextResponse.json({ error: 'Error interno guardando mensaje.' }, { status: 500, headers: corsHeaders })
+      throw new Error('user_message_save_failed')
     }
 
     // 7. Generate AI Reply
@@ -245,7 +250,7 @@ export async function POST(request: NextRequest) {
 
     if (assistantMessageError) {
       console.error('[POST /api/widget/message] Error saving assistant message')
-      return NextResponse.json({ error: 'Error interno guardando respuesta.' }, { status: 500, headers: corsHeaders })
+      throw new Error('assistant_message_save_failed')
     }
 
     // 8. Detección Automática de Leads
@@ -301,9 +306,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    creditConsumed = false
     return NextResponse.json({ reply, conversationId: currentConversationId }, { headers: corsHeaders })
-  } catch {
-    console.error('[POST /api/widget/message] Error inesperado')
+  } catch (error: unknown) {
+    if (creditConsumed && creditOwnerId) {
+      const refunded = await refundMessageCredit(creditOwnerId)
+      if (!refunded) {
+        console.error('[POST /api/widget/message] Failed to refund consumed credit')
+      }
+    }
+    console.error('[POST /api/widget/message] Error:', error instanceof Error ? error.message : 'Unknown error')
     return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500, headers: corsHeaders })
   }
 }
