@@ -534,6 +534,10 @@ body::before {
    las conectan al tema claro sin modificar sus flujos ni formularios. */
 .dashboard-root[data-theme="light"] .text-white,
 .dashboard-root[data-theme="light"] [class*="text-white/"] { color: #211c35; }
+.dashboard-root[data-theme="light"] .text-text-main { color: #211c35; }
+.dashboard-root[data-theme="light"] .text-text-secondary { color: #494253; }
+.dashboard-root[data-theme="light"] .text-text-soft,
+.dashboard-root[data-theme="light"] [class*="text-text-soft/"] { color: #625a6d; }
 .dashboard-root[data-theme="light"] .text-slate-200,
 .dashboard-root[data-theme="light"] .text-slate-300 { color: #3f394d; }
 .dashboard-root[data-theme="light"] .text-slate-400 { color: #514a60; }
@@ -547,6 +551,7 @@ body::before {
 .dashboard-root[data-theme="light"] .text-brand-success { color: #15803d; }
 .dashboard-root[data-theme="light"] .text-amber-500 { color: #9a5700; }
 .dashboard-root[data-theme="light"] [class*="bg-white/"] { background-color: rgba(104,66,232,.045); }
+.dashboard-root[data-theme="light"] [class*="bg-card-bg"] { background-color: #ffffff; }
 .dashboard-root[data-theme="light"] [class*="bg-black/"] { background-color: rgba(35,28,56,.035); }
 .dashboard-root[data-theme="light"] [class*="border-white"] { border-color: #e5e1ed; }
 .dashboard-root[data-theme="light"] [class*="bg-[#050816]"],
@@ -564,6 +569,22 @@ body::before {
 .dashboard-root[data-theme="light"] [class*="bg-brand-violet"]:not([class*="/10"]):not([class*="/20"]),
 .dashboard-root[data-theme="light"] [class*="bg-brand-violet"]:not([class*="/10"]):not([class*="/20"]) [class*="text-white"] { color: #ffffff; }
 .dashboard-root[data-theme="light"] [class*="bg-brand-cyan"]:not([class*="/10"]):not([class*="/20"]) { color: #102033; }
+.dashboard-root[data-theme="light"] .dashboard-user-chip {
+  color: #211c35;
+  background: #ffffff;
+  border-color: #dcd7e6;
+}
+.dashboard-root[data-theme="light"] .dashboard-user-name { color: #211c35; }
+.dashboard-root[data-theme="light"] .dashboard-executive-card {
+  color: #211c35;
+  background: #ffffff;
+  border-color: #d9d4e3;
+  box-shadow: 0 12px 32px rgba(42,31,73,.08);
+}
+.dashboard-root[data-theme="light"] .dashboard-executive-card > [class*="absolute"] { opacity: .12; }
+.dashboard-root[data-theme="light"] .dashboard-executive-card [class*="bg-white/"] {
+  background-color: #f5f3f8;
+}
 .dashboard-root[data-theme="light"] :disabled { opacity: .72; }
 .dashboard-root[data-theme="light"] .shadow-2xl,
 .dashboard-root[data-theme="light"] [class*="shadow-"] { --tw-shadow-color: rgba(42,31,73,.08); }
@@ -571,6 +592,54 @@ body::before {
 @media (prefers-reduced-motion: reduce) {
   .dashboard-root, .dashboard-root * { scroll-behavior: auto !important; }
 }
+
+/* ─── AUTH: CLEAR LIGHT SURFACE ────────────────────────────────────────── */
+.auth-page {
+  min-height: 100vh;
+  color: #211c35;
+  background: #f5f6fb;
+}
+.auth-main {
+  color: #211c35;
+  background:
+    radial-gradient(circle at 85% 10%, rgba(104,66,232,.06), transparent 28rem),
+    #f8f8fc;
+}
+.auth-main .auth-card {
+  background: #ffffff;
+  border-color: #ddd9e6;
+  box-shadow: 0 16px 45px rgba(42,31,73,.09);
+}
+.auth-main .text-white { color: #211c35; }
+.auth-main .text-slate-200,
+.auth-main .text-slate-300 { color: #373041; }
+.auth-main .text-slate-400 { color: #51495c; }
+.auth-main .text-slate-500,
+.auth-main .text-slate-600 { color: #62596d; }
+.auth-main .text-brand-cyan { color: #08788d; }
+.auth-main .text-brand-violet { color: #6332cc; }
+.auth-main .text-brand-success { color: #15803d; }
+.auth-main [class*="bg-[#0a0f1e]"] {
+  color: #211c35;
+  background: #ffffff;
+}
+.auth-main [class*="bg-[#0d1326]"] {
+  color: #211c35;
+  background: rgba(255,255,255,.98);
+}
+.auth-main input {
+  color: #211c35;
+  background-color: #ffffff;
+  border-color: #cfc9da;
+}
+.auth-main input::placeholder { color: #71697b; opacity: 1; }
+.auth-main label { color: #373041; }
+.auth-main [class*="bg-white/"] { background-color: #f6f4f9; }
+.auth-main [class*="border-white"] { border-color: #d8d3e1; }
+.auth-main .gradient-btn,
+.auth-main .gradient-btn * { color: #ffffff; }
+.auth-main button:hover [class*="group-hover:text-white"] { color: #211c35; }
+.auth-main :disabled { opacity: .65; }
 
 .conversa-scrollbar::-webkit-scrollbar {
   width: 4px;

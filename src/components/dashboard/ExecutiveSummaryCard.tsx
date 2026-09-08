@@ -73,7 +73,7 @@ export function ExecutiveSummaryCard({ summary }: Props) {
   const config = getStatusConfig()
 
   return (
-    <div className={`relative overflow-hidden rounded-[2rem] border ${config.borderColor} bg-card-bg/80 backdrop-blur-2xl p-6 md:p-8 flex flex-col h-full shadow-[0_20px_80px_rgba(0,0,0,0.35)]`}>
+    <div className={`dashboard-executive-card relative overflow-hidden rounded-[2rem] border ${config.borderColor} bg-card-bg/80 backdrop-blur-2xl p-6 md:p-8 flex flex-col h-full shadow-[0_20px_80px_rgba(0,0,0,0.35)]`}>
       {/* Background glow */}
       <div className={`absolute top-0 left-0 w-full h-32 bg-gradient-to-br ${config.gradient} opacity-50 pointer-events-none`} />
       <div className={`absolute -top-10 -right-10 w-40 h-40 rounded-full ${config.glowColor} blur-[60px] pointer-events-none`} />
