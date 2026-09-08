@@ -95,6 +95,26 @@ export function isVisitorId(value: unknown): value is string {
   return typeof value === 'string' && VISITOR_ID_RE.test(value)
 }
 
+export function parseBoundedInteger(
+  value: string | null,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  if (!value || !/^\d+$/.test(value)) return fallback
+  const parsed = Number(value)
+  return Number.isSafeInteger(parsed) ? Math.min(max, Math.max(min, parsed)) : fallback
+}
+
+export function normalizeSearchTerm(value: string | null, maxLength = 100): string {
+  if (!value) return ''
+  return value
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}@+._\- ]/gu, '')
+    .trim()
+    .slice(0, maxLength)
+}
+
 export function getClientIp(request: Request): string {
   const raw = request.headers.get('x-forwarded-for')?.split(',')[0]
     || request.headers.get('x-real-ip')
