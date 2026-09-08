@@ -7,8 +7,8 @@ interface Props {
 function getStrength(pwd: string): { level: 0 | 1 | 2 | 3; label: string; color: string } {
   if (!pwd) return { level: 0, label: '', color: '' }
   let score = 0
-  if (pwd.length >= 8) score++
-  if (/[a-zA-Z]/.test(pwd)) score++
+  if (pwd.length >= 10) score++
+  if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++
   if (/[0-9]/.test(pwd)) score++
   if (/[^a-zA-Z0-9]/.test(pwd)) score++
 

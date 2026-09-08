@@ -162,7 +162,8 @@ export default function RegisterPage() {
     const errs: Record<string, string> = {}
     if (!name.trim() || name.trim().length < 2) errs.name = 'Ingresa tu nombre completo.'
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errs.email = 'Ingresa un correo válido.'
-    if (password.length < 8) errs.password = 'Mínimo 8 caracteres.'
+    if (password.length < 10) errs.password = 'Mínimo 10 caracteres.'
+    else if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) errs.password = 'Usa mayúsculas, minúsculas y al menos un número.'
     if (password !== confirmPassword) errs.confirmPassword = 'Las contraseñas no coinciden.'
     setStep1Errors(errs)
     return Object.keys(errs).length === 0
@@ -386,7 +387,7 @@ export default function RegisterPage() {
                       name="password"
                       type="password"
                       label="Contraseña"
-                      placeholder="Mínimo 8 caracteres"
+                      placeholder="Mínimo 10 caracteres"
                       required
                       icon={<Lock className="w-4 h-4" />}
                       value={password}

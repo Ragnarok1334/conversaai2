@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getClientIp } from '@/lib/http-security'
+import { checkRateLimit } from '@/lib/security'
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,6 +9,12 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const ip = getClientIp(req)
+    const allowed = await checkRateLimit(`authenticated-reset-${user.id}-${ip}`, 'authenticated-reset-password', 3, 900)
+    if (!allowed) {
+      return NextResponse.json({ error: 'Demasiadas solicitudes. Intenta nuevamente en 15 minutos.' }, { status: 429 })
     }
 
     const siteUrl =
@@ -18,9 +26,7 @@ export async function POST(req: NextRequest) {
       redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
     })
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
+    if (error) return NextResponse.json({ error: 'No pudimos enviar el enlace. Intenta nuevamente.' }, { status: 400 })
 
     return NextResponse.json({
       success: true,
