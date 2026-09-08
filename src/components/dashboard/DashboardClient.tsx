@@ -219,6 +219,9 @@ export function DashboardClient({ initialData, userId }: Props) {
   if (!data) return null
 
   const firstAssistantId = data.recentAssistants[0]?.id
+  // Installation actions must target the assistant that owns the configured
+  // webchat domain, not simply the most recently created assistant.
+  const installationAssistantId = data.webchat.assistantId || firstAssistantId
 
   const formatUpdateTime = (isoStr?: string) => {
     if (!isoStr) return ''
@@ -323,7 +326,7 @@ export function DashboardClient({ initialData, userId }: Props) {
         <DashboardChannels
           channels={data.channels}
           planKey={data.plan.key}
-          firstAssistantId={firstAssistantId}
+          firstAssistantId={installationAssistantId}
         />
         <DashboardActivity activity={data.activity} />
       </div>
