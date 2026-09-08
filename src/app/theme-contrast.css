@@ -1,0 +1,125 @@
+/* Dedicated post-Tailwind overrides. Kept separate to force an immutable CSS
+   asset refresh on deployments and prevent stale theme rules. */
+
+.dashboard-root[data-theme="light"] {
+  --dashboard-bg: #f4f5f8;
+  --dashboard-surface: #ffffff;
+  --dashboard-ink: #191525;
+  --dashboard-muted: #514a5b;
+  color: #191525 !important;
+  background: #f4f5f8 !important;
+}
+
+.dashboard-root[data-theme="light"] .dashboard-main {
+  color: #191525 !important;
+  background: #f4f5f8 !important;
+}
+
+.dashboard-root[data-theme="light"] .text-white,
+.dashboard-root[data-theme="light"] [class*="text-white/"],
+.dashboard-root[data-theme="light"] .text-text-main {
+  color: #191525 !important;
+}
+
+.dashboard-root[data-theme="light"] .text-text-secondary,
+.dashboard-root[data-theme="light"] .text-slate-300,
+.dashboard-root[data-theme="light"] .text-slate-400 {
+  color: #403949 !important;
+}
+
+.dashboard-root[data-theme="light"] .text-text-soft,
+.dashboard-root[data-theme="light"] [class*="text-text-soft/"],
+.dashboard-root[data-theme="light"] .text-slate-500,
+.dashboard-root[data-theme="light"] .text-slate-600,
+.dashboard-root[data-theme="light"] .dashboard-muted {
+  color: #5b5363 !important;
+}
+
+.dashboard-root[data-theme="light"] .text-brand-cyan { color: #087488 !important; }
+.dashboard-root[data-theme="light"] .text-brand-violet { color: #5d2cc7 !important; }
+.dashboard-root[data-theme="light"] .text-brand-blue { color: #1d4ed8 !important; }
+.dashboard-root[data-theme="light"] .text-brand-success { color: #147a39 !important; }
+.dashboard-root[data-theme="light"] .text-amber-300,
+.dashboard-root[data-theme="light"] .text-amber-400,
+.dashboard-root[data-theme="light"] .text-amber-500 { color: #8a4d00 !important; }
+
+.dashboard-root[data-theme="light"] [class*="bg-card-bg"],
+.dashboard-root[data-theme="light"] .dashboard-executive-card,
+.dashboard-root[data-theme="light"] .dashboard-plan-card {
+  background: #ffffff !important;
+  border-color: #d9d5e0 !important;
+  box-shadow: 0 10px 28px rgba(35, 28, 56, .07) !important;
+}
+
+.dashboard-root[data-theme="light"] .dashboard-executive-card > div[class*="absolute"],
+.dashboard-root[data-theme="light"] .dashboard-plan-card > div[class*="absolute"] {
+  display: none !important;
+}
+
+.dashboard-root[data-theme="light"] [class*="bg-white/"] {
+  background-color: #f3f1f6 !important;
+}
+
+.dashboard-root[data-theme="light"] [class*="border-white"] {
+  border-color: #d9d5e0 !important;
+}
+
+.dashboard-root[data-theme="light"] .dashboard-user-chip {
+  color: #191525 !important;
+  background: #ffffff !important;
+  border-color: #d4cfdd !important;
+}
+
+.dashboard-root[data-theme="light"] .dashboard-user-name,
+.dashboard-root[data-theme="light"] label,
+.dashboard-root[data-theme="light"] input,
+.dashboard-root[data-theme="light"] textarea,
+.dashboard-root[data-theme="light"] select {
+  color: #191525 !important;
+}
+
+.dashboard-root[data-theme="light"] input::placeholder,
+.dashboard-root[data-theme="light"] textarea::placeholder {
+  color: #68606f !important;
+  opacity: 1 !important;
+}
+
+.dashboard-root[data-theme="light"] .gradient-btn,
+.dashboard-root[data-theme="light"] .gradient-btn *,
+.dashboard-root[data-theme="light"] [class*="from-brand-violet"][class*="to-brand-blue"] {
+  color: #ffffff !important;
+}
+
+/* Login and registration: the form side is deliberately light, while the
+   brand illustration remains dark for visual separation. */
+.auth-page { background: #f4f5f8 !important; }
+.auth-main {
+  color: #191525 !important;
+  background: #f7f7fa !important;
+}
+.auth-main .auth-card {
+  background: #ffffff !important;
+  border-color: #d8d3df !important;
+  box-shadow: 0 14px 38px rgba(35, 28, 56, .09) !important;
+}
+.auth-main .text-white,
+.auth-main .text-slate-200,
+.auth-main .text-slate-300 { color: #292332 !important; }
+.auth-main .text-slate-400 { color: #48414f !important; }
+.auth-main .text-slate-500,
+.auth-main .text-slate-600 { color: #5d5564 !important; }
+.auth-main .text-brand-cyan { color: #087488 !important; }
+.auth-main .text-brand-violet { color: #5d2cc7 !important; }
+.auth-main label { color: #302a38 !important; }
+.auth-main input,
+.auth-main [class*="bg-[#0a0f1e]"],
+.auth-main [class*="bg-[#0d1326]"] {
+  color: #191525 !important;
+  background: #ffffff !important;
+  border-color: #c9c3d1 !important;
+}
+.auth-main input::placeholder { color: #696170 !important; opacity: 1 !important; }
+.auth-main [class*="bg-white/"] { background-color: #f3f1f6 !important; }
+.auth-main [class*="border-white"] { border-color: #d4cfda !important; }
+.auth-main .gradient-btn,
+.auth-main .gradient-btn * { color: #ffffff !important; }
