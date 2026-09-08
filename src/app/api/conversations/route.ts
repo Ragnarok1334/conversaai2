@@ -39,9 +39,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Plan inválido para ver conversaciones' }, { status: 403 })
     }
 
-    let query = supabase
+    // Use the server-only client after authenticating the request. Keeping the
+    // joins separate prevents an optional PostgREST relationship/grant from
+    // taking down the complete conversations endpoint.
+    let query = supabaseAdmin
       .from('conversations')
-      .select('*, assistant:assistants(assistant_name, business_name), lead:leads(id)', { count: 'exact' })
+      .select('*', { count: 'exact' })
       .eq('user_id', user.id)
       .order('last_message_at', { ascending: false })
       .range(offset, offset + limit - 1)
@@ -53,12 +56,47 @@ export async function GET(request: Request) {
       query = query.or(`visitor_name.ilike.%${search}%,visitor_email.ilike.%${search}%,visitor_phone.ilike.%${search}%,last_message.ilike.%${search}%`)
     }
 
-    const { data, count, error } = await query
+    const { data: conversationRows, count, error } = await query
 
     if (error) throw error
 
+    const assistantIds = [...new Set((conversationRows ?? []).map((row) => row.assistant_id).filter(Boolean))]
+    const conversationIds = (conversationRows ?? []).map((row) => row.id)
+
+    const [assistantsResult, leadsResult] = await Promise.all([
+      assistantIds.length
+        ? supabaseAdmin.from('assistants').select('id, assistant_name, business_name').eq('user_id', user.id).in('id', assistantIds)
+        : Promise.resolve({ data: [], error: null }),
+      conversationIds.length
+        ? supabaseAdmin.from('leads').select('id, conversation_id').eq('user_id', user.id).in('conversation_id', conversationIds)
+        : Promise.resolve({ data: [], error: null }),
+    ])
+
+    if (assistantsResult.error) console.error('[GET /api/conversations] assistants:', assistantsResult.error)
+    if (leadsResult.error) console.error('[GET /api/conversations] leads:', leadsResult.error)
+
+    const assistantsById = new Map((assistantsResult.data ?? []).map((assistant) => [assistant.id, assistant]))
+    const leadsByConversation = new Map<string, Array<{ id: string }>>()
+    for (const lead of leadsResult.data ?? []) {
+      if (!lead.conversation_id) continue
+      const existing = leadsByConversation.get(lead.conversation_id) ?? []
+      existing.push({ id: lead.id })
+      leadsByConversation.set(lead.conversation_id, existing)
+    }
+
+    const data = (conversationRows ?? []).map((conversation) => ({
+      ...conversation,
+      assistant: conversation.assistant_id ? assistantsById.get(conversation.assistant_id) ?? null : null,
+      lead: leadsByConversation.get(conversation.id) ?? [],
+    }))
+
     // Fetch stats
-    const { data: allConvs } = await supabase.from('conversations').select('status, channel').eq('user_id', user.id)
+    const { data: allConvs, error: statsError } = await supabaseAdmin
+      .from('conversations')
+      .select('status, channel')
+      .eq('user_id', user.id)
+
+    if (statsError) throw statsError
     
     const stats = {
       total: allConvs?.length || 0,
