@@ -1,6 +1,6 @@
 'use client'
 
-import { Menu, LogOut } from 'lucide-react'
+import { Menu, LogOut, Moon, Sun } from 'lucide-react'
 import { NotificationsBell } from '@/components/dashboard/NotificationsBell'
 import { signOut } from '@/app/auth/actions'
 import { useProfile } from '@/providers/ProfileProvider'
@@ -8,6 +8,8 @@ import { usePathname } from 'next/navigation'
 
 interface TopbarProps {
   onMenuClick?: () => void;
+  theme: 'light' | 'dark';
+  onThemeToggle: () => void;
 }
 
 const routeMap: Record<string, string> = {
@@ -21,7 +23,7 @@ const routeMap: Record<string, string> = {
   '/dashboard/create-assistant': 'Crear Asistente',
 }
 
-export function Topbar({ onMenuClick }: TopbarProps) {
+export function Topbar({ onMenuClick, theme, onThemeToggle }: TopbarProps) {
   const { profile } = useProfile()
   const pathname = usePathname()
 
@@ -31,7 +33,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
   const currentSection = routeMap[pathname] || 'Dashboard'
 
   return (
-    <header className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#050816]/70 backdrop-blur-xl">
+    <header className="dashboard-topbar sticky top-0 z-10 backdrop-blur-xl">
       <div className="flex items-center justify-between px-4 md:px-8 h-16">
         {/* Mobile menu */}
         <button onClick={onMenuClick} className="lg:hidden text-text-soft hover:text-white transition-colors p-2 -ml-2 rounded-lg hover:bg-white/5">
@@ -40,13 +42,23 @@ export function Topbar({ onMenuClick }: TopbarProps) {
 
         {/* Breadcrumb Desktop */}
         <div className="hidden lg:flex items-center gap-2 text-sm">
-          <span className="text-slate-500">Dashboard</span>
-          <span className="text-slate-600">/</span>
-          <span className="text-white font-medium">{currentSection}</span>
+          <span className="dashboard-muted">Dashboard</span>
+          <span className="dashboard-muted">/</span>
+          <span className="dashboard-strong font-medium">{currentSection}</span>
         </div>
 
         <div className="flex items-center gap-3 sm:gap-4">
           <NotificationsBell />
+
+          <button
+            type="button"
+            onClick={onThemeToggle}
+            className="dashboard-icon-button flex items-center justify-center w-10 h-10 rounded-xl transition-all"
+            title={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
+            aria-label={theme === 'light' ? 'Activar modo oscuro' : 'Activar modo claro'}
+          >
+            {theme === 'light' ? <Moon className="w-[18px] h-[18px]" /> : <Sun className="w-[18px] h-[18px]" />}
+          </button>
 
           <div className="h-8 w-[1px] bg-white/[0.08] hidden sm:block" />
 
@@ -63,7 +75,7 @@ export function Topbar({ onMenuClick }: TopbarProps) {
             <form action={signOut}>
               <button
                 type="submit"
-                className="flex items-center justify-center w-10 h-10 rounded-xl bg-card-bg border border-card-border text-text-soft hover:text-text-main hover:bg-white/[0.08] hover:border-white/20 hover:shadow-lg transition-all group"
+                className="dashboard-icon-button flex items-center justify-center w-10 h-10 rounded-xl hover:shadow-lg transition-all group"
                 title="Cerrar sesión"
               >
                 <LogOut className="w-[18px] h-[18px] group-hover:-translate-x-0.5 transition-transform" />

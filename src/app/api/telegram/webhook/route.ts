@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBotWebhookHandler } from "@/lib/telegram/bot";
+import { secretsMatch } from "@/lib/http-security";
 
 export const runtime = "nodejs";
 
@@ -16,13 +17,16 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   // Step 1: Validate webhook secret before doing any work
   const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (webhookSecret) {
-    const incomingSecret = req.headers.get("x-telegram-bot-api-secret-token");
-    if (incomingSecret !== webhookSecret) {
-      // Return 200 even on auth failure — returning 4xx makes Telegram retry the update forever
-      console.warn("[Webhook] Received request with invalid secret token.");
-      return new NextResponse("OK", { status: 200 });
-    }
+  if (!webhookSecret) {
+    console.error("[Webhook] TELEGRAM_WEBHOOK_SECRET is not configured.");
+    return new NextResponse("Webhook unavailable", { status: 503 });
+  }
+
+  const incomingSecret = req.headers.get("x-telegram-bot-api-secret-token");
+  if (!secretsMatch(incomingSecret, webhookSecret)) {
+    // Return 200 so Telegram does not retry attacker-generated payloads.
+    console.warn("[Webhook] Received request with invalid secret token.");
+    return new NextResponse("OK", { status: 200 });
   }
 
   try {

@@ -18,27 +18,32 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { data: assistants, error } = await supabase
+    // La sesión se valida con el cliente del usuario, pero la lectura se realiza
+    // en el servidor y siempre se limita al user_id autenticado. Así el listado
+    // no desaparece por una política RLS desactualizada o por una relación
+    // opcional que todavía no exista en la base.
+    const assistantsClient = process.env.SUPABASE_SERVICE_ROLE_KEY
+      ? createSupabaseAdmin()
+      : supabase
+    const { data: assistants, error } = await assistantsClient
       .from('assistants')
-      .select(`
-        *,
-        assistant_domains ( verification_status )
-      `)
+      .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
     if (error) throw error
 
-    // Fetch counts for conversations and leads, keeping it optimized
-    const { data: convData } = await supabase
-      .from('conversations')
-      .select('assistant_id, created_at')
-      .eq('user_id', user.id)
+    const [conversationsResult, leadsResult, domainsResult] = await Promise.all([
+      assistantsClient.from('conversations').select('assistant_id, created_at').eq('user_id', user.id),
+      assistantsClient.from('leads').select('assistant_id, created_at').eq('user_id', user.id),
+      assistantsClient.from('assistant_domains').select('*').eq('user_id', user.id),
+    ])
 
-    const { data: leadsData } = await supabase
-      .from('leads')
-      .select('assistant_id, created_at')
-      .eq('user_id', user.id)
+    // Estas tablas enriquecen las tarjetas, pero nunca deben ocultar los
+    // asistentes si todavía no existen o tienen una migración pendiente.
+    const convData = conversationsResult.error ? [] : (conversationsResult.data ?? [])
+    const leadsData = leadsResult.error ? [] : (leadsResult.data ?? [])
+    const domainsData = domainsResult.error ? [] : (domainsResult.data ?? [])
 
     const { calculateAssistantHealth } = await import('@/lib/assistant/assistant-health')
 
@@ -46,6 +51,7 @@ export async function GET() {
     const enrichedAssistants = assistants?.map(assistant => {
       const convs = convData?.filter(c => c.assistant_id === assistant.id) || []
       const leads = leadsData?.filter(l => l.assistant_id === assistant.id) || []
+      const domains = domainsData.filter(domain => domain.assistant_id === assistant.id)
       
       const conversationsCount = convs.length
       const leadsCount = leads.length
@@ -56,7 +62,7 @@ export async function GET() {
 
       const health = calculateAssistantHealth(
         assistant,
-        assistant.assistant_domains || [],
+        domains,
         { conversations: conversationsCount, leads: leadsCount }
       )
 
@@ -65,6 +71,7 @@ export async function GET() {
         conversationsCount,
         leadsCount,
         lastActivityAt: new Date(lastActivityAt).toISOString(),
+        assistant_domains: domains,
         health
       }
     })

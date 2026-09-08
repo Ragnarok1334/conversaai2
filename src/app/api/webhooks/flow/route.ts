@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit';
+import { HttpInputError, readUrlEncodedBody } from '@/lib/http-security';
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
+    const formData = await readUrlEncodedBody(req, 4_096);
     const token = formData.get('token');
 
     if (!token || typeof token !== 'string' || token.length > 512) {
@@ -101,6 +102,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof HttpInputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Flow Webhook Error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'Error procesando webhook.' }, { status: 500 });
   }

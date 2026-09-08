@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     url: "https://conversaai.store",
     siteName: "ConversaAI",
     images: [{ url: "/logo.png" }],
-    locale: "es_MX",
+    locale: "es_CL",
     type: "website",
   },
 };

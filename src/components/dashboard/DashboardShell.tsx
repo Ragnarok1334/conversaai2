@@ -1,18 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { AnimatePresence, motion } from "framer-motion";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const savedTheme = window.localStorage.getItem("conversaai-dashboard-theme");
+      if (savedTheme === "dark" || savedTheme === "light") setTheme(savedTheme);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("conversaai-dashboard-theme", theme);
+  }, [theme]);
 
   const toggleMobileMenu = () => setIsMobileMenuOpen((prev) => !prev);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
   return (
-    <div className="min-h-screen bg-dark-bg text-text-main flex relative">
+    <div className="dashboard-root min-h-screen flex relative" data-theme={theme}>
       {/* Desktop Sidebar */}
       <div className="hidden lg:block z-20">
         <Sidebar />
@@ -34,7 +47,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", bounce: 0, duration: 0.3 }}
-              className="fixed inset-y-0 left-0 w-72 bg-[#050816] border-r border-white/10 z-50 shadow-2xl lg:hidden flex flex-col"
+              className="dashboard-mobile-drawer fixed inset-y-0 left-0 w-72 z-50 shadow-2xl lg:hidden flex flex-col"
             >
               <Sidebar onNavClick={closeMobileMenu} />
             </motion.div>
@@ -45,10 +58,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         {/* Top bar */}
-        <Topbar onMenuClick={toggleMobileMenu} />
+        <Topbar
+          onMenuClick={toggleMobileMenu}
+          theme={theme}
+          onThemeToggle={() => setTheme((current) => current === "light" ? "dark" : "light")}
+        />
 
         {/* Page content */}
-        <main className="flex-1 p-4 md:p-8 relative overflow-y-auto">
+        <main className="dashboard-main flex-1 p-4 md:p-8 relative overflow-y-auto">
           {/* Background glows */}
           <div className="pointer-events-none absolute top-0 right-0 w-[600px] h-[600px] bg-brand-violet/5 rounded-full blur-[120px]" />
           <div className="pointer-events-none absolute bottom-0 left-0 w-[400px] h-[400px] bg-brand-cyan/5 rounded-full blur-[100px]" />

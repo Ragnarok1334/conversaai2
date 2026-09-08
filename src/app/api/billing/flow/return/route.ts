@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { HttpInputError, readUrlEncodedBody } from '@/lib/http-security';
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
+    const formData = await readUrlEncodedBody(request, 4_096);
     const token = formData.get("token");
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://conversaai.store';
@@ -16,6 +17,9 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Flow Return Route Error:', error);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://conversaai.store';
+    if (error instanceof HttpInputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     return NextResponse.redirect(new URL("/flow/return", appUrl), { status: 303 });
   }
 }

@@ -1,10 +1,21 @@
 import { NextResponse } from 'next/server'
 import { escapeHtml, checkRateLimit } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
+import { getClientIp, HttpInputError, readJsonBody } from '@/lib/http-security'
+
+interface ContactBody {
+  name?: unknown
+  email?: unknown
+  company?: unknown
+  phone?: unknown
+  subject?: unknown
+  message?: unknown
+  website?: unknown
+}
 
 export async function POST(req: Request) {
   try {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'unknown'
+    const ip = getClientIp(req)
     
     // Rate limit: 5 envíos por 10 minutos
     const rlKey = `contact-${ip}`
@@ -14,7 +25,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }, { status: 429 })
     }
 
-    const body = await req.json()
+    const body = await readJsonBody<ContactBody>(req, 8_192)
     const { name, email, company, phone, subject, message, website } = body
 
     // Honeypot check (hidden field in frontend)
@@ -24,7 +35,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, message: "Mensaje enviado correctamente." })
     }
 
-    if (!name || !email || !subject || !message) {
+    if (
+      typeof name !== 'string' || typeof email !== 'string'
+      || typeof subject !== 'string' || typeof message !== 'string'
+    ) {
       return NextResponse.json(
         { error: 'Faltan campos obligatorios' },
         { status: 400 }
@@ -56,8 +70,8 @@ export async function POST(req: Request) {
     // Escape inputs
     const safeName = escapeHtml(name)
     const safeEmail = escapeHtml(email)
-    const safeCompany = escapeHtml(company?.substring(0, 120) || '')
-    const safePhone = escapeHtml(phone?.substring(0, 40) || '')
+    const safeCompany = escapeHtml(typeof company === 'string' ? company.substring(0, 120) : '')
+    const safePhone = escapeHtml(typeof phone === 'string' ? phone.substring(0, 40) : '')
     const safeSubject = escapeHtml(subject)
     const safeMessage = escapeHtml(message)
 
@@ -66,8 +80,8 @@ export async function POST(req: Request) {
     const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'ConversaAI <noreply@conversaai.store>';
 
     if (!RESEND_API_KEY) {
-      console.warn("RESEND_API_KEY no está configurado. Simulando envío de correo.");
-      return NextResponse.json({ success: true, message: "Mensaje enviado (Simulado)." })
+      console.error("RESEND_API_KEY no está configurado.");
+      return NextResponse.json({ error: 'El servicio de contacto no está disponible.' }, { status: 503 })
     }
 
     const htmlContent = `
@@ -117,6 +131,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, message: "Mensaje enviado correctamente." })
 
   } catch (err) {
+    if (err instanceof HttpInputError) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
     console.error('API Contact Error:', err)
     return NextResponse.json(
       { error: 'Error interno del servidor' },

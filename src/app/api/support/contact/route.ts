@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { escapeHtml, checkRateLimit } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
+import { getClientIp, HttpInputError, readJsonBody } from '@/lib/http-security'
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || req.headers.get('x-real-ip') || 'unknown'
+    const ip = getClientIp(req)
     
     // Rate limit: 5 envíos por 10 minutos
     const rlKey = `support-${user.id}-${ip}`
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Demasiados intentos. Intenta nuevamente en unos minutos.' }, { status: 429 })
     }
 
-    const body = await req.json()
+    const body = await readJsonBody<Record<string, unknown>>(req, 12_288)
     const { motivo, prioridad, mensaje, contexto_tecnico, website } = body
 
     // Honeypot check
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: "Mensaje enviado correctamente." })
     }
 
-    if (!motivo || !prioridad || !mensaje) {
+    if (typeof motivo !== 'string' || typeof prioridad !== 'string' || typeof mensaje !== 'string') {
       return NextResponse.json({ error: 'Faltan campos obligatorios' }, { status: 400 })
     }
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     const safeMotivo = escapeHtml(motivo)
     const safePrioridad = escapeHtml(prioridad)
     const safeMensaje = escapeHtml(mensaje)
-    const safeFrontendContexto = escapeHtml(contexto_tecnico || 'Sin contexto técnico')
+    const safeFrontendContexto = escapeHtml(typeof contexto_tecnico === 'string' ? contexto_tecnico.slice(0, 8_000) : 'Sin contexto técnico')
 
     // Fetch secure context from DB
     const { data: subData } = await supabase
@@ -73,8 +74,8 @@ ${safeFrontendContexto}
     const CONTACT_FROM_EMAIL = process.env.CONTACT_FROM_EMAIL || 'ConversaAI Support <noreply@conversaai.store>'
 
     if (!RESEND_API_KEY) {
-      console.warn("RESEND_API_KEY no está configurado. Simulando envío de correo de soporte.");
-      return NextResponse.json({ success: true, message: "Mensaje enviado (Simulado)." })
+      console.error("RESEND_API_KEY no está configurado.");
+      return NextResponse.json({ error: "El servicio de soporte no está disponible temporalmente." }, { status: 503 })
     }
 
     const htmlContent = `
@@ -125,6 +126,9 @@ ${safeFrontendContexto}
     return NextResponse.json({ success: true, message: "Mensaje de soporte enviado correctamente." })
 
   } catch (err) {
+    if (err instanceof HttpInputError) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
     console.error('[POST /api/support/contact] Error:', err)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }

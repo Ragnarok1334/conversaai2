@@ -2,43 +2,37 @@ import { NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { validateWidgetDomain, checkRateLimit } from '@/lib/security'
 import { logSecurityEvent, logAuditEvent } from '@/lib/audit'
+import { getClientIp, HttpInputError, isUuid, isVisitorId, readJsonBody, widgetCorsHeaders } from '@/lib/http-security'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-}
-
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders })
+export async function OPTIONS(req: Request) {
+  return new NextResponse(null, { status: 204, headers: widgetCorsHeaders(req, true) })
 }
 
 export async function POST(req: Request) {
   const isDev = process.env.NODE_ENV === 'development'
 
   try {
-    let body: { assistantId?: string; pageUrl?: string; visitorId?: string }
-    try {
-      body = await req.json()
-    } catch {
-      return NextResponse.json(
-        { error: 'Body no válido' },
-        { status: 400, headers: corsHeaders }
-      )
-    }
+    const body = await readJsonBody<{ assistantId?: unknown; pageUrl?: unknown; visitorId?: unknown }>(req, 8_192)
 
     const { assistantId, pageUrl, visitorId } = body
 
-    if (!assistantId) {
+    if (!isUuid(assistantId)) {
       return NextResponse.json(
-        { error: 'Falta assistantId' },
-        { status: 400, headers: corsHeaders }
+        { error: 'assistantId no válido' },
+        { status: 400, headers: widgetCorsHeaders(req, false) }
       )
     }
 
+    if (typeof pageUrl !== 'string' || pageUrl.length > 2_048) {
+      return NextResponse.json({ error: 'pageUrl no válida' }, { status: 400, headers: widgetCorsHeaders(req, false) })
+    }
+
+    if (visitorId !== undefined && !isVisitorId(visitorId)) {
+      return NextResponse.json({ error: 'visitorId no válido' }, { status: 400, headers: widgetCorsHeaders(req, false) })
+    }
+
     // --- Rate Limit ---
-    const forwardedFor = req.headers.get('x-forwarded-for')
-    const ip = forwardedFor ? forwardedFor.split(',')[0].trim() : 'unknown'
+    const ip = getClientIp(req)
     const rlKey = `widget_ping:${assistantId}:${ip}`
 
     const isAllowed = await checkRateLimit(rlKey, 'widget_ping', 30, 60)
@@ -51,7 +45,7 @@ export async function POST(req: Request) {
       })
       return NextResponse.json(
         { error: 'Demasiados intentos' },
-        { status: 429, headers: corsHeaders }
+        { status: 429, headers: widgetCorsHeaders(req, true) }
       )
     }
 
@@ -69,7 +63,7 @@ export async function POST(req: Request) {
       })
       return NextResponse.json(
         { error: 'Este dominio no está autorizado para usar este asistente.' },
-        { status: 403, headers: corsHeaders }
+        { status: 403, headers: widgetCorsHeaders(req, false) }
       )
     }
 
@@ -86,13 +80,13 @@ export async function POST(req: Request) {
             normalizedDomain,
             warning: 'El dominio no tiene fila en assistant_domains. Agrega localhost para actualizar la verificación.',
           },
-          { headers: corsHeaders }
+          { headers: widgetCorsHeaders(req, true) }
         )
       }
       // En producción esto no debería ocurrir (el dominio fue validado pero no tiene fila)
       return NextResponse.json(
         { error: 'No se encontró el registro de dominio.' },
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: widgetCorsHeaders(req, false) }
       )
     }
 
@@ -111,7 +105,7 @@ export async function POST(req: Request) {
       console.error('[ping] Error leyendo fila actual:', selectError)
       return NextResponse.json(
         { error: 'Error interno al leer el dominio' },
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: widgetCorsHeaders(req, false) }
       )
     }
 
@@ -139,7 +133,7 @@ export async function POST(req: Request) {
       console.error('[ping] Error actualizando assistant_domains:', updateError)
       return NextResponse.json(
         { error: 'Error interno al actualizar el dominio', detail: isDev ? updateError.message : undefined },
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: widgetCorsHeaders(req, false) }
       )
     }
 
@@ -153,12 +147,12 @@ export async function POST(req: Request) {
             assistantId,
             normalizedDomain,
           },
-          { status: 500, headers: corsHeaders }
+          { status: 500, headers: widgetCorsHeaders(req, false) }
         )
       }
       return NextResponse.json(
         { error: 'No se pudo verificar el dominio' },
-        { status: 500, headers: corsHeaders }
+        { status: 500, headers: widgetCorsHeaders(req, false) }
       )
     }
 
@@ -187,19 +181,22 @@ export async function POST(req: Request) {
           updatedDomainId: updatedRow.id,
           updatedRow,
         },
-        { headers: corsHeaders }
+        { headers: widgetCorsHeaders(req, true) }
       )
     }
 
     return NextResponse.json(
       { success: true, status: 'verified' },
-      { headers: corsHeaders }
+      { headers: widgetCorsHeaders(req, true) }
     )
   } catch (error) {
+    if (error instanceof HttpInputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status, headers: widgetCorsHeaders(req, false) })
+    }
     console.error('[POST /api/widget/ping] Error inesperado:', error)
     return NextResponse.json(
       { error: 'Error interno del servidor' },
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: widgetCorsHeaders(req, false) }
     )
   }
 }
