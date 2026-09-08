@@ -144,6 +144,11 @@ export async function GET() {
     const hasVerifiedWidget = webchatObj.status === 'installed'
     const hasConversations = (conversationsResult.count ?? 0) > 0
     const hasLeads = (leadsResult.count ?? 0) > 0
+    const fallbackAssistantId = recentAssistantsResult.data?.[0]?.id
+    const installationAssistantId = webchatObj.assistantId || fallbackAssistantId
+    const installationHref = installationAssistantId
+      ? `/dashboard/assistants/${installationAssistantId}?tab=install&channel=webchat`
+      : '/dashboard/assistants'
 
     let score = 0
     if (hasAssistant) score += 20
@@ -191,17 +196,17 @@ export async function GET() {
         execStatus = "setup"
         execTitle = "Hay pasos pendientes para activar tu asistente"
         execMessage = "Completa la configuración recomendada para que ConversaAI pueda atender visitantes y capturar leads."
-        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Agregar dominio", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install` }
+        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Agregar dominio", href: installationHref }
       } else if (!hasVerifiedWidget) {
         execStatus = "setup"
         execTitle = "Hay pasos pendientes para activar tu asistente"
         execMessage = "Completa la configuración recomendada para que ConversaAI pueda atender visitantes y capturar leads."
-        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Instalar Web Chat", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=install` }
+        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Instalar Web Chat", href: installationHref }
       } else if (!hasConversations) {
         execStatus = "ready"
         execTitle = "Hay pasos pendientes para activar tu asistente"
         execMessage = "Completa la configuración recomendada para que ConversaAI pueda atender visitantes y capturar leads."
-        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Probar asistente", href: `/dashboard/assistants/${recentAssistantsResult.data?.[0]?.id || ''}?tab=playground` }
+        execNextStep = { title: "Siguiente acción recomendada", description: "Prueba el Web Chat o instala el asistente en tu sitio para empezar a recibir conversaciones.", cta: "Probar asistente", href: installationAssistantId ? `/dashboard/assistants/${installationAssistantId}?tab=test` : '/dashboard/assistants' }
       } else if (!hasLeads) {
         execStatus = "active"
         execTitle = "Tu sistema ya está captando oportunidades"
