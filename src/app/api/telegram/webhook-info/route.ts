@@ -25,13 +25,14 @@ export async function GET(req: NextRequest) {
   }
 
   const res = await fetch(
-    `https://api.telegram.org/bot${token}/getWebhookInfo`
+    `https://api.telegram.org/bot${token}/getWebhookInfo`,
+    { signal: AbortSignal.timeout(10_000), cache: 'no-store' }
   );
 
   const data = await res.json();
 
   return NextResponse.json({
     ok: data.ok,
-    webhookInfo: data.result,
+    webhookInfo: data.ok ? data.result : null,
   });
 }

@@ -19,9 +19,9 @@ export async function POST(req: NextRequest) {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
   const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
-  if (!token) {
+  if (!token || !webhookSecret) {
     return NextResponse.json(
-      { error: "TELEGRAM_BOT_TOKEN not configured." },
+      { error: "Telegram webhook configuration is incomplete." },
       { status: 500 }
     );
   }
@@ -33,19 +33,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const webhookUrl = `${siteUrl}/api/telegram/webhook`;
+  let webhookUrl: string;
+  try {
+    const parsedSiteUrl = new URL(siteUrl);
+    if (process.env.NODE_ENV === 'production' && parsedSiteUrl.protocol !== 'https:') throw new Error('HTTPS required');
+    webhookUrl = new URL('/api/telegram/webhook', parsedSiteUrl).toString();
+  } catch {
+    return NextResponse.json({ error: 'NEXT_PUBLIC_SITE_URL is invalid.' }, { status: 500 });
+  }
 
   const telegramApiUrl = `https://api.telegram.org/bot${token}/setWebhook`;
 
-  const body: Record<string, string> = { url: webhookUrl };
-  if (webhookSecret) {
-    body.secret_token = webhookSecret;
-  }
+  const body: Record<string, string> = { url: webhookUrl, secret_token: webhookSecret };
 
   const res = await fetch(telegramApiUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
+    cache: 'no-store',
   });
 
   const data = await res.json();
@@ -53,6 +59,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: data.ok,
     webhookUrl,
-    telegramResponse: data,
+    telegramConfigured: Boolean(data.ok),
   });
 }

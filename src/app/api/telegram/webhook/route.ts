@@ -29,6 +29,12 @@ export async function POST(req: NextRequest) {
     return new NextResponse("OK", { status: 200 });
   }
 
+  const contentType = req.headers.get('content-type')?.toLowerCase() || '';
+  const contentLength = Number(req.headers.get('content-length') || 0);
+  if (!contentType.startsWith('application/json') || (Number.isFinite(contentLength) && contentLength > 256_000)) {
+    return new NextResponse("OK", { status: 200 });
+  }
+
   try {
     const handler = createBotWebhookHandler();
 
@@ -41,17 +47,15 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handlerPromise = handler(req).catch((err: any) => {
+    const handlerPromise = handler(req).catch((err: unknown) => {
       // Handle errors from grammY or our bot handlers — never expose internals
-      console.error("[Webhook] Handler error:", err?.message ?? "Unknown error");
+      console.error("[Webhook] Handler error:", err instanceof Error ? err.message : "Unknown error");
       return new NextResponse("OK", { status: 200 });
     });
 
     return await Promise.race([handlerPromise, timeoutPromise]);
   } catch (error) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const errMessage = (error as any)?.message || String(error);
+    const errMessage = error instanceof Error ? error.message : String(error);
     console.error("[Webhook] Unexpected error:", errMessage);
     // Always return 200 so Telegram doesn't retry and disable the webhook
     return new NextResponse("OK", { status: 200 });

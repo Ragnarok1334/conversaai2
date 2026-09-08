@@ -16,6 +16,7 @@ import {
   commandsKeyboard,
 } from "@/lib/telegram/keyboards";
 import { generateConversaBotReply } from "@/lib/telegram/openai-bot";
+import { checkRateLimit } from "@/lib/security";
 
 // ─── Lead Saving (best-effort, non-blocking) ──────────────────────────────────
 async function saveTelegramLead(
@@ -26,19 +27,18 @@ async function saveTelegramLead(
   message: string
 ) {
   try {
-    const { createClient } = await import("@/lib/supabase/server");
-    const supabase = await createClient();
+    const { createSupabaseAdmin } = await import("@/lib/supabase/admin");
+    const supabase = createSupabaseAdmin();
     await supabase.from("telegram_bot_leads").insert({
-      telegram_user_id: telegramUserId,
-      username: username ?? null,
-      first_name: firstName ?? null,
-      last_name: lastName ?? null,
-      message,
+      telegram_user_id: telegramUserId.slice(0, 32),
+      username: username?.slice(0, 64) ?? null,
+      first_name: firstName?.slice(0, 100) ?? null,
+      last_name: lastName?.slice(0, 100) ?? null,
+      message: message.slice(0, 2_000),
       source: "telegram_official_bot",
     });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (err: any) {
-    console.warn("[ConversaBot] Could not save lead:", err?.message ?? err);
+  } catch (err: unknown) {
+    console.warn("[ConversaBot] Could not save lead:", err instanceof Error ? err.message : "Unknown error");
   }
 }
 
@@ -144,6 +144,17 @@ export function createConversaBot(): Bot {
     const user = ctx.from;
     const userMessage = ctx.message.text;
 
+    if (!user || userMessage.length > 2_000) {
+      await ctx.reply("El mensaje es demasiado largo. Envíalo resumido en menos de 2.000 caracteres.");
+      return;
+    }
+
+    const allowed = await checkRateLimit(`telegram-${user.id}`, 'telegram-message', 20, 300);
+    if (!allowed) {
+      await ctx.reply("Has enviado muchos mensajes. Espera unos minutos antes de continuar.");
+      return;
+    }
+
     if (user) {
       saveTelegramLead(
         String(user.id),
@@ -161,9 +172,8 @@ export function createConversaBot(): Bot {
       await ctx.reply(reply, {
         reply_markup: mainMenuKeyboard(),
       });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } catch (err: any) {
-      console.error("[ConversaBot] Reply error:", err?.message ?? err);
+    } catch (err: unknown) {
+      console.error("[ConversaBot] Reply error:", err instanceof Error ? err.message : "Unknown error");
       await ctx.reply(fallbackMessage, {
         reply_markup: contactKeyboard(),
       });

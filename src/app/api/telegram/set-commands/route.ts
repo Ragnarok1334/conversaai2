@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ commands: BOT_COMMANDS }),
+      signal: AbortSignal.timeout(10_000),
+      cache: 'no-store',
     }
   );
 
@@ -46,6 +48,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: data.ok,
     commands: BOT_COMMANDS,
-    telegramResponse: data,
+    telegramConfigured: Boolean(data.ok),
   });
 }
