@@ -2,27 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
+import { isUuid, widgetCorsHeaders } from '@/lib/http-security'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-  'Pragma': 'no-cache',
-  'Expires': '0'
-}
-
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders })
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: widgetCorsHeaders(request, true) })
 }
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const assistantId = searchParams.get('assistantId') || searchParams.get('id')
+    const privateCorsHeaders = widgetCorsHeaders(request, false)
 
-    if (!assistantId) {
-      return NextResponse.json({ error: 'Missing assistantId' }, { status: 400, headers: corsHeaders })
+    if (!isUuid(assistantId)) {
+      return NextResponse.json({ error: 'Identificador de asistente inválido.' }, { status: 400, headers: privateCorsHeaders })
     }
 
     const supabaseAdmin = createSupabaseAdmin()
@@ -34,11 +27,11 @@ export async function GET(request: NextRequest) {
       .single()
 
     if (error || !assistant) {
-      return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404, headers: corsHeaders })
+      return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404, headers: privateCorsHeaders })
     }
 
     if (assistant.status !== 'active') {
-      return NextResponse.json({ error: 'El asistente no está activo' }, { status: 403, headers: corsHeaders })
+      return NextResponse.json({ error: 'El asistente no está activo' }, { status: 403, headers: privateCorsHeaders })
     }
 
     const { data: sub } = await supabaseAdmin.from('subscriptions').select('*').eq('user_id', assistant.user_id).single()
@@ -48,7 +41,7 @@ export async function GET(request: NextRequest) {
     const effectiveStatus = getEffectiveSubscriptionStatus(sub, profile)
     
     if (['free', 'expired', 'cancelled'].includes(effectiveStatus)) {
-      return NextResponse.json({ error: 'El chat no está disponible en este momento.' }, { status: 403, headers: corsHeaders })
+      return NextResponse.json({ error: 'El chat no está disponible en este momento.' }, { status: 403, headers: privateCorsHeaders })
     }
 
     const { normalizePlan } = await import('@/lib/plans')
@@ -59,7 +52,7 @@ export async function GET(request: NextRequest) {
     
     if (!domainValidation.isValid) {
       await logSecurityEvent({ userId: assistant.user_id, eventType: 'widget_config_domain_blocked', severity: 'warning', message: `Widget config domain block (${domainValidation.normalizedDomain || 'no-origin'}) for assistant ${assistantId}`, req: request })
-      return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
+      return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: privateCorsHeaders })
     }
 
     const { sanitizeWidgetConfigForPlan } = await import('@/lib/widget-config')
@@ -72,10 +65,10 @@ export async function GET(request: NextRequest) {
       welcomeMessage: assistant.welcome_message || '',
       status: 'online',
       widgetConfig: safeWidgetConfig
-    }, { headers: corsHeaders })
+    }, { headers: widgetCorsHeaders(request, true) })
 
   } catch (error) {
     console.error('[GET /api/widget/config]', error)
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: corsHeaders })
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500, headers: widgetCorsHeaders(request, false) })
   }
 }

@@ -34,6 +34,27 @@ export interface FlowPaymentStatus {
   [key: string]: unknown;
 }
 
+const FLOW_TIMEOUT_MS = 10_000;
+const FLOW_MAX_RESPONSE_BYTES = 64 * 1024;
+
+type FlowApiPayload = Record<string, unknown>;
+
+function apiErrorMessage(data: FlowApiPayload, fallback: string): string {
+  return typeof data.message === 'string' ? data.message : typeof data.error === 'string' ? data.error : fallback;
+}
+
+async function readFlowResponse(response: Response): Promise<string> {
+  const declaredLength = Number(response.headers.get('content-length') || 0);
+  if (Number.isFinite(declaredLength) && declaredLength > FLOW_MAX_RESPONSE_BYTES) {
+    throw new Error('Flow devolvió una respuesta demasiado grande.');
+  }
+  const text = await response.text();
+  if (new TextEncoder().encode(text).byteLength > FLOW_MAX_RESPONSE_BYTES) {
+    throw new Error('Flow devolvió una respuesta demasiado grande.');
+  }
+  return text;
+}
+
 export function createFlowSignature(params: Record<string, string>): string {
   const secretKey = getEnvVar('FLOW_SECRET_KEY');
   
@@ -88,12 +109,14 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
     },
-    body: bodyParams.toString()
+    body: bodyParams.toString(),
+    signal: AbortSignal.timeout(FLOW_TIMEOUT_MS),
+    cache: 'no-store',
   });
   
   const contentType = response.headers.get("content-type") || "";
-  const rawText = await response.text();
-  let data: any = null;
+  const rawText = await readFlowResponse(response);
+  let data: FlowApiPayload;
 
   try {
     data = JSON.parse(rawText);
@@ -109,8 +132,6 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
     
     console.error("[Flow checkout debug]", debugInfo);
 
-    // Throwing an object so the route handler can catch it and return it in dev
-    // eslint-disable-next-line no-throw-literal
     throw {
       isFlowParseError: true,
       message: 'Flow devolvió una respuesta no válida.',
@@ -124,7 +145,11 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
   
   if (!response.ok || data.code) {
     console.error('Flow API Error (createPayment):', data);
-    throw new Error(data.message || data.error || 'Flow rechazó la creación del pago.');
+    throw new Error(apiErrorMessage(data, 'Flow rechazó la creación del pago.'));
+  }
+
+  if (typeof data.url !== 'string' || typeof data.token !== 'string' || typeof data.flowOrder !== 'number') {
+    throw new Error('Flow devolvió datos de pago incompletos.');
   }
   
   return {
@@ -135,6 +160,9 @@ export async function createFlowPayment(params: FlowPaymentParams): Promise<Flow
 }
 
 export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentStatus> {
+  if (!token || token.length > 512 || /[\u0000-\u001f\u007f]/.test(token)) {
+    throw new Error('Token de Flow inválido.');
+  }
   const apiKey = getEnvVar('FLOW_API_KEY');
   let baseUrl = getEnvVar('FLOW_BASE_URL');
 
@@ -158,10 +186,13 @@ export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentSt
     s
   });
   
-  const response = await fetch(`${baseUrl}/payment/getStatus?${queryParams.toString()}`);
+  const response = await fetch(`${baseUrl}/payment/getStatus?${queryParams.toString()}`, {
+    signal: AbortSignal.timeout(FLOW_TIMEOUT_MS),
+    cache: 'no-store',
+  });
   const contentType = response.headers.get("content-type") || "";
-  const rawText = await response.text();
-  let data: any = null;
+  const rawText = await readFlowResponse(response);
+  let data: FlowApiPayload;
 
   try {
     data = JSON.parse(rawText);
@@ -176,8 +207,12 @@ export async function getFlowPaymentStatus(token: string): Promise<FlowPaymentSt
   
   if (!response.ok || data.code) {
     console.error('Flow API Error (getStatus):', data);
-    throw new Error(data.message || data.error || 'Error al obtener el estado del pago en Flow');
+    throw new Error(apiErrorMessage(data, 'Error al obtener el estado del pago en Flow'));
   }
-  
-  return data;
+
+  if (typeof data.status !== 'number' || typeof data.commerceOrder !== 'string' || typeof data.amount !== 'number' || typeof data.currency !== 'string' || typeof data.subject !== 'string') {
+    throw new Error('Flow devolvió un estado de pago incompleto.');
+  }
+
+  return data as FlowPaymentStatus;
 }

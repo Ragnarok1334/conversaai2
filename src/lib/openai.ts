@@ -1,11 +1,21 @@
 import OpenAI from 'openai'
+import 'server-only'
 
 export const DEFAULT_OPENAI_MODEL = 'gpt-4.1-mini'
 
-// Server-only client — never import this in client components
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+let openaiClient: OpenAI | null = null
+
+// Se crea bajo demanda: Vercel puede importar esta ruta durante el build,
+// cuando los secretos de runtime todavía no están disponibles.
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY?.trim()
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY no está configurada en el servidor.')
+  }
+
+  openaiClient ??= new OpenAI({ apiKey })
+  return openaiClient
+}
 
 import { buildAssistantSystemPrompt, type Assistant } from './assistant/buildPrompt'
 
@@ -52,7 +62,7 @@ export async function generateAssistantReply(
     }
   })
 
-  const response = await openai.responses.create({
+  const response = await getOpenAIClient().responses.create({
     model: model,
     instructions: systemPrompt,
     input: userMessage,

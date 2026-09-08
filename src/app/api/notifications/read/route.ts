@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 
 export async function PATCH(req: NextRequest) {
   try {
@@ -10,16 +11,14 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let body: { id?: string; all?: boolean } = {}
-    try {
-      body = await req.json()
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
-    }
+    const body = await readJsonBody<{ id?: unknown; all?: unknown }>(req, 2_048)
 
     const supabaseAdmin = createSupabaseAdmin()
 
     // Marcar una específica
+    if (body.id !== undefined && !isUuid(body.id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+    if (body.all !== undefined && typeof body.all !== 'boolean') return NextResponse.json({ error: 'Parámetro all inválido' }, { status: 400 })
+
     if (body.id) {
       const { error } = await supabaseAdmin
         .from('notifications')
@@ -51,6 +50,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ error: 'Missing id or all param' }, { status: 400 })
   } catch (err) {
+    if (err instanceof HttpInputError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('[PATCH /api/notifications/read] exception:', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

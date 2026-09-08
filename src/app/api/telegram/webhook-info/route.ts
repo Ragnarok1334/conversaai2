@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
+import { secretsMatch } from "@/lib/http-security";
 
 export const runtime = "nodejs";
 
 // ─── GET ─ check current webhook status ──────────────────────────────────────
 export async function GET(req: NextRequest) {
   const setupSecret = process.env.SETUP_SECRET;
-  const { searchParams } = new URL(req.url);
-  const incomingSecret = searchParams.get("secret");
+  const incomingSecret = req.headers.get("x-setup-secret");
 
-  if (!setupSecret || incomingSecret !== setupSecret) {
+  if (!secretsMatch(incomingSecret, setupSecret)) {
     return NextResponse.json(
-      { error: "Forbidden. Provide ?secret=YOUR_SETUP_SECRET in the URL." },
+      { error: "Forbidden." },
       { status: 403 }
     );
   }
@@ -25,13 +25,14 @@ export async function GET(req: NextRequest) {
   }
 
   const res = await fetch(
-    `https://api.telegram.org/bot${token}/getWebhookInfo`
+    `https://api.telegram.org/bot${token}/getWebhookInfo`,
+    { signal: AbortSignal.timeout(10_000), cache: 'no-store' }
   );
 
   const data = await res.json();
 
   return NextResponse.json({
     ok: data.ok,
-    webhookInfo: data.result,
+    webhookInfo: data.ok ? data.result : null,
   });
 }

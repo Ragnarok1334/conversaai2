@@ -14,9 +14,22 @@ async function getIpFromHeaders(): Promise<string> {
          'unknown-ip'
 }
 
+function normalizeEmail(value: FormDataEntryValue | null): string {
+  return typeof value === 'string' ? value.trim().toLowerCase().slice(0, 254) : ''
+}
+
+function passwordValidationError(password: string): string | null {
+  if (password.length < 10) return 'La contraseña debe tener al menos 10 caracteres.'
+  if (password.length > 128) return 'La contraseña es demasiado larga.'
+  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+    return 'Usa mayúsculas, minúsculas y al menos un número.'
+  }
+  return null
+}
+
 export async function login(formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
+  const email = normalizeEmail(formData.get('email'))
+  const password = String(formData.get('password') || '')
   const captchaToken = formData.get('captchaToken') as string
   
   if (!email || !password) {
@@ -55,9 +68,9 @@ export async function login(formData: FormData) {
 }
 
 export async function signup(formData: FormData) {
-  const email = formData.get('email') as string
-  const password = formData.get('password') as string
-  const confirmPassword = formData.get('confirmPassword') as string
+  const email = normalizeEmail(formData.get('email'))
+  const password = String(formData.get('password') || '')
+  const confirmPassword = String(formData.get('confirmPassword') || '')
   const name = (formData.get('name') as string)?.trim()
   const captchaToken = formData.get('captchaToken') as string
 
@@ -110,9 +123,8 @@ export async function signup(formData: FormData) {
     return { error: 'Las contraseñas no coinciden.' }
   }
 
-  if (password.length < 8) {
-    return { error: 'La contraseña debe tener al menos 8 caracteres.' }
-  }
+  const passwordError = passwordValidationError(password)
+  if (passwordError) return { error: passwordError }
 
   const supabase = await createClient()
 
@@ -191,7 +203,7 @@ export async function signup(formData: FormData) {
 }
 
 export async function resetPassword(formData: FormData) {
-  const email = formData.get('email') as string
+  const email = normalizeEmail(formData.get('email'))
 
   if (!email) {
     return { error: 'Por favor ingresa tu correo' }
@@ -226,8 +238,8 @@ export async function resetPassword(formData: FormData) {
 }
 
 export async function updatePassword(formData: FormData) {
-  const password = formData.get('password') as string
-  const confirmPassword = formData.get('confirmPassword') as string
+  const password = String(formData.get('password') || '')
+  const confirmPassword = String(formData.get('confirmPassword') || '')
 
   if (!password || !confirmPassword) {
     return { error: 'Por favor completa todos los campos' }
@@ -237,15 +249,16 @@ export async function updatePassword(formData: FormData) {
     return { error: 'Las contraseñas no coinciden' }
   }
 
+  const passwordError = passwordValidationError(password)
+  if (passwordError) return { error: passwordError }
+
   const supabase = await createClient()
 
   const { data, error } = await supabase.auth.updateUser({
     password: password
   })
 
-  if (error) {
-    return { error: error.message }
-  }
+  if (error) return { error: 'No pudimos actualizar la contraseña. Solicita un enlace nuevo e inténtalo otra vez.' }
 
   const ip = await getIpFromHeaders()
   await logAuditEvent({ userId: data.user?.id, action: 'password_updated', description: 'Contraseña actualizada exitosamente', ip_address: ip })

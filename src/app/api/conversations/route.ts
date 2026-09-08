@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isUuid, normalizeSearchTerm, parseBoundedInteger } from '@/lib/http-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,15 +14,15 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '25', 10)
-    const page = parseInt(searchParams.get('page') || '1', 10)
+    const limit = parseBoundedInteger(searchParams.get('limit'), 25, 1, 100)
+    const page = parseBoundedInteger(searchParams.get('page'), 1, 1, 10_000)
     const offset = (page - 1) * limit
     
     // Filtros opcionales
     const status = searchParams.get('status')
     const channel = searchParams.get('channel')
     const assistantId = searchParams.get('assistantId')
-    const search = searchParams.get('search')
+    const search = normalizeSearchTerm(searchParams.get('search'))
 
     const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
     const supabaseAdmin = createSupabaseAdmin()
@@ -45,9 +46,9 @@ export async function GET(request: Request) {
       .order('last_message_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    if (status && status !== 'all') query = query.eq('status', status)
-    if (channel && channel !== 'all') query = query.eq('channel', channel)
-    if (assistantId && assistantId !== 'all') query = query.eq('assistant_id', assistantId)
+    if (status && status !== 'all' && ['open', 'pending', 'closed'].includes(status)) query = query.eq('status', status)
+    if (channel && channel !== 'all' && ['webchat', 'telegram', 'whatsapp'].includes(channel)) query = query.eq('channel', channel)
+    if (assistantId && assistantId !== 'all' && isUuid(assistantId)) query = query.eq('assistant_id', assistantId)
     if (search) {
       query = query.or(`visitor_name.ilike.%${search}%,visitor_email.ilike.%${search}%,visitor_phone.ilike.%${search}%,last_message.ilike.%${search}%`)
     }

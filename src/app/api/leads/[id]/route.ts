@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { getClientIp, HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
+    if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -30,17 +32,25 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const body = await request.json()
-    const { status, notes, name, email, phone } = body
-
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    if (status && !['new', 'contacted', 'qualified', 'converted', 'discarded'].includes(status)) {
+    if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+
+    const body = await readJsonBody<Record<string, unknown>>(request, 8_192)
+    const { status, notes, name, email, phone } = body
+
+    const normalizedStatus = status === 'discarded' ? 'lost' : status
+    if (normalizedStatus !== undefined && (typeof normalizedStatus !== 'string' || !['new', 'contacted', 'qualified', 'converted', 'lost'].includes(normalizedStatus))) {
       return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
     }
+
+    if (notes !== undefined && (typeof notes !== 'string' || notes.length > 5_000)) return NextResponse.json({ error: 'Notas inválidas' }, { status: 400 })
+    if (name !== undefined && (typeof name !== 'string' || name.length > 120)) return NextResponse.json({ error: 'Nombre inválido' }, { status: 400 })
+    if (email !== undefined && (typeof email !== 'string' || email.length > 254)) return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
+    if (phone !== undefined && (typeof phone !== 'string' || phone.length > 40)) return NextResponse.json({ error: 'Teléfono inválido' }, { status: 400 })
 
     // Verify ownership via RLS select first
     const { data: verify } = await supabase.from('leads').select('id').eq('id', id).single()
@@ -61,9 +71,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     // Update using admin because frontend cannot UPDATE directly based on our new max security RLS
-    const updates: Record<string, any> = {}
+    const updates: Record<string, string | null> = {}
     
-    if (status !== undefined) updates.status = status
+    if (normalizedStatus !== undefined) updates.status = normalizedStatus
     if (notes !== undefined) updates.notes = notes
     if (name !== undefined) updates.name = name
     if (email !== undefined) updates.email = email
@@ -78,18 +88,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
       if (updateError) throw updateError
       
-      if (status !== undefined) {
+      if (normalizedStatus !== undefined) {
         await supabaseAdmin.from('audit_logs').insert({
           user_id: user.id,
           action: 'lead_status_updated',
-          details: { lead_id: id, new_status: status },
-          ip_address: request.headers.get('x-forwarded-for') || '127.0.0.1'
+          details: { lead_id: id, new_status: normalizedStatus },
+          ip_address: getClientIp(request)
         })
       }
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
+    if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('[PATCH /api/leads/[id]]', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

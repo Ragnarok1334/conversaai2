@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
+import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 
 // GET /api/assistants/[id]
 export async function GET(
@@ -10,6 +11,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params
+    if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -79,6 +81,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
+    if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -99,7 +102,8 @@ export async function PATCH(
     const { normalizePlan } = await import('@/lib/plans')
     const currentPlan = sub ? normalizePlan(sub.plan) : 'free'
 
-    const body = await request.json()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body = await readJsonBody<Record<string, any>>(request, 128_000)
 
     // Whitelist allowed fields
     const allowedFields = [
@@ -255,6 +259,7 @@ export async function PATCH(
 
     return NextResponse.json({ assistant: data })
   } catch (error) {
+    if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('[PATCH /api/assistants/[id]]', error)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
@@ -267,6 +272,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
+    if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 

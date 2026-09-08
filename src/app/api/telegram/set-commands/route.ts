@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { secretsMatch } from "@/lib/http-security";
 
 export const runtime = "nodejs";
 
@@ -11,15 +12,13 @@ const BOT_COMMANDS = [
   { command: "commands", description: "Ver todos los comandos disponibles" },
 ];
 
-// ─── GET ─ register bot commands with Telegram ────────────────────────────────
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   const setupSecret = process.env.SETUP_SECRET;
-  const { searchParams } = new URL(req.url);
-  const incomingSecret = searchParams.get("secret");
+  const incomingSecret = req.headers.get("x-setup-secret");
 
-  if (!setupSecret || incomingSecret !== setupSecret) {
+  if (!secretsMatch(incomingSecret, setupSecret)) {
     return NextResponse.json(
-      { error: "Forbidden. Provide ?secret=YOUR_SETUP_SECRET in the URL." },
+      { error: "Forbidden." },
       { status: 403 }
     );
   }
@@ -39,6 +38,8 @@ export async function GET(req: NextRequest) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ commands: BOT_COMMANDS }),
+      signal: AbortSignal.timeout(10_000),
+      cache: 'no-store',
     }
   );
 
@@ -47,6 +48,6 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: data.ok,
     commands: BOT_COMMANDS,
-    telegramResponse: data,
+    telegramConfigured: Boolean(data.ok),
   });
 }

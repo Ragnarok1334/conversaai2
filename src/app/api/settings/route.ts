@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { logAuditEvent } from '@/lib/audit'
+import { HttpInputError, readJsonBody } from '@/lib/http-security'
 
 export async function GET() {
   try {
@@ -48,7 +49,7 @@ export async function PATCH(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const body = await req.json()
+    const body = await readJsonBody<Record<string, unknown>>(req, 4_096)
 
     if (process.env.NODE_ENV === 'development') {
       console.log(`[PATCH /api/settings] User: ${user.id} | Body:`, body)
@@ -109,6 +110,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json(data)
   } catch (err) {
+    if (err instanceof HttpInputError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('[PATCH /api/settings] unexpected error:', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
+import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
+    if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -40,15 +42,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const body = await request.json()
-    const { status } = body
-
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    if (status && !['open', 'pending', 'closed'].includes(status)) {
+    if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
+
+    const body = await readJsonBody<{ status?: unknown }>(request, 2_048)
+    const { status } = body
+
+    if (typeof status !== 'string' || !['open', 'pending', 'closed'].includes(status)) {
       return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
     }
 
@@ -71,8 +75,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     // Update using admin because frontend cannot UPDATE directly based on our new max security RLS
-    const updates: Record<string, any> = {}
-    if (status) updates.status = status
+    const updates: Record<string, string> = {}
+    updates.status = status
 
     if (Object.keys(updates).length > 0) {
       const { error: updateError } = await supabaseAdmin
@@ -86,6 +90,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     return NextResponse.json({ success: true, status })
   } catch (error) {
+    if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('[PATCH /api/conversations/[id]]', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

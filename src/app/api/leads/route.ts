@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { isUuid, normalizeSearchTerm, parseBoundedInteger } from '@/lib/http-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,15 +14,15 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const limit = parseInt(searchParams.get('limit') || '50', 10)
-    const page = parseInt(searchParams.get('page') || '1', 10)
+    const limit = parseBoundedInteger(searchParams.get('limit'), 50, 1, 100)
+    const page = parseBoundedInteger(searchParams.get('page'), 1, 1, 10_000)
     const offset = (page - 1) * limit
     
     // Filtros opcionales
     const status = searchParams.get('status')
     const source = searchParams.get('source')
     const assistantId = searchParams.get('assistantId')
-    const search = searchParams.get('search')
+    const search = normalizeSearchTerm(searchParams.get('search'))
     const dateFilter = searchParams.get('dateFilter')
 
     const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
@@ -46,9 +47,9 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    if (status && status !== 'all') query = query.eq('status', status)
-    if (source && source !== 'all') query = query.eq('source', source)
-    if (assistantId && assistantId !== 'all') query = query.eq('assistant_id', assistantId)
+    if (status && status !== 'all' && ['new', 'contacted', 'qualified', 'converted', 'lost'].includes(status)) query = query.eq('status', status)
+    if (source && source !== 'all' && ['webchat', 'telegram', 'whatsapp'].includes(source)) query = query.eq('source', source)
+    if (assistantId && assistantId !== 'all' && isUuid(assistantId)) query = query.eq('assistant_id', assistantId)
     if (search) {
       query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
     }
@@ -79,7 +80,7 @@ export async function GET(request: Request) {
       contacted: allLeads?.filter(l => l.status === 'contacted').length || 0,
       qualified: allLeads?.filter(l => l.status === 'qualified').length || 0,
       converted: allLeads?.filter(l => l.status === 'converted').length || 0,
-      discarded: allLeads?.filter(l => l.status === 'discarded').length || 0,
+      lost: allLeads?.filter(l => l.status === 'lost').length || 0,
       webchat: allLeads?.filter(l => l.source === 'webchat').length || 0,
     }
 

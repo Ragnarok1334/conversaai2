@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, Search, Bot, Crown, Sparkles, Briefcase, Building, MessagesSquare, CheckCircle2, RefreshCw, Globe, Users } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { Plus, Search, Bot, Crown, Sparkles, MessagesSquare, CheckCircle2, RefreshCw, Globe, Users, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { AssistantCard } from '@/components/dashboard/AssistantCard'
 import { getPlanLimits, normalizePlan } from '@/lib/plans'
@@ -35,15 +35,6 @@ const STATUS_LABEL: Record<string, string> = {
   atencion: 'Requieren atención',
 }
 
-function PlanIcon({ plan }: { plan: string }) {
-  switch (plan) {
-    case 'pro': return <Crown className="w-4 h-4 text-white" />
-    case 'business': return <Briefcase className="w-4 h-4 text-white" />
-    case 'enterprise': return <Building className="w-4 h-4 text-white" />
-    default: return <Sparkles className="w-4 h-4 text-white" />
-  }
-}
-
 export default function AssistantsPage() {
   const [assistants, setAssistants] = useState<Assistant[]>([])
   const [subData, setSubData] = useState<SubscriptionData | null>(null)
@@ -52,21 +43,25 @@ export default function AssistantsPage() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('todos')
   const [refreshing, setRefreshing] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const fetchData = async () => {
     setRefreshing(true)
     try {
       const [assRes, subRes] = await Promise.all([
-        fetch('/api/assistants'),
-        fetch('/api/subscription')
+        fetch('/api/assistants', { cache: 'no-store' }),
+        fetch('/api/subscription', { cache: 'no-store' })
       ])
       const assData = await assRes.json()
       const sData = await subRes.json()
-      
-      if (assData.assistants) setAssistants(assData.assistants)
+
+      if (!assRes.ok) throw new Error(assData.error || 'No se pudieron cargar tus asistentes.')
+      setAssistants(Array.isArray(assData.assistants) ? assData.assistants : [])
+      setLoadError(null)
       if (!sData.error) setSubData(sData)
     } catch (e) {
       console.error(e)
+      setLoadError(e instanceof Error ? e.message : 'No se pudieron cargar tus asistentes.')
     } finally {
       setLoading(false)
       setSubLoading(false)
@@ -75,7 +70,8 @@ export default function AssistantsPage() {
   }
 
   useEffect(() => {
-    fetchData()
+    const timer = window.setTimeout(() => void fetchData(), 0)
+    return () => window.clearTimeout(timer)
   }, [])
 
   const filtered = assistants.filter(a => {
@@ -102,7 +98,6 @@ export default function AssistantsPage() {
   const plan = normalizePlan(subData?.subscription?.plan ?? 'free')
   const planLimits = getPlanLimits(plan)
   const isUnlimitedAssistants = planLimits.assistants === null
-  const isUnlimitedMessages = planLimits.messagesPerMonth === null
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -208,6 +203,13 @@ export default function AssistantsPage() {
           {[1, 2, 3].map(i => (
             <div key={i} className="h-80 bg-card-bg/50 border border-card-border rounded-3xl animate-pulse" />
           ))}
+        </div>
+      ) : loadError ? (
+        <div className="text-center py-16 px-5 bg-card-bg/80 border border-card-border rounded-3xl">
+          <AlertCircle className="w-11 h-11 text-brand-pink mx-auto mb-4" />
+          <h3 className="text-xl font-bold mb-2">No pudimos cargar tus asistentes</h3>
+          <p className="text-text-soft mb-6">{loadError}</p>
+          <button onClick={fetchData} className="gradient-btn px-6 py-3 rounded-xl text-white font-semibold">Intentar nuevamente</button>
         </div>
       ) : filtered.length === 0 ? (
         search || filterStatus !== 'todos' ? (

@@ -17,7 +17,8 @@ export default function ResetPasswordPage() {
   const [isSuccess, setIsSuccess] = useState(false)
 
   function validate(): string | null {
-    if (password.length < 8) return 'La contraseña debe tener al menos 8 caracteres.'
+    if (password.length < 10) return 'La contraseña debe tener al menos 10 caracteres.'
+    if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) return 'Usa mayúsculas, minúsculas y al menos un número.'
     if (password !== confirmPassword) return 'Las contraseñas no coinciden.'
     return null
   }
@@ -96,7 +97,7 @@ export default function ResetPasswordPage() {
                   name="password"
                   type="password"
                   label="Nueva contraseña"
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder="Mínimo 10 caracteres"
                   required
                   icon={<Lock className="w-4 h-4" />}
                   value={password}

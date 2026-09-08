@@ -51,6 +51,8 @@ const ERROR_FALLBACK =
   "Gracias por escribirnos. Ahora mismo no pude generar una respuesta automática, pero puedes usar /contact para hablar con nosotros.";
 
 export async function generateConversaBotReply(userMessage: string): Promise<string> {
+  const safeMessage = userMessage.trim().slice(0, 2_000);
+  if (!safeMessage) return ERROR_FALLBACK;
   // Race between OpenAI call and a hard timeout
   const timeoutPromise = new Promise<string>((resolve) =>
     setTimeout(() => resolve(TIMEOUT_FALLBACK), OPENAI_TIMEOUT_MS)
@@ -64,7 +66,8 @@ export async function generateConversaBotReply(userMessage: string): Promise<str
       const response = await client.responses.create({
         model: DEFAULT_OPENAI_MODEL,
         instructions: CONVERSA_BOT_SYSTEM_PROMPT,
-        input: userMessage,
+        input: safeMessage,
+        max_output_tokens: 300,
       });
 
       const text = response.output_text?.trim();
@@ -74,10 +77,9 @@ export async function generateConversaBotReply(userMessage: string): Promise<str
       }
 
       return text;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
+  } catch (error: unknown) {
       // Safe logging — never log API keys or full request objects
-      const msg = error?.message ?? "Unknown error";
+      const msg = error instanceof Error ? error.message : "Unknown error";
       if (msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("timed out")) {
         console.warn("[ConversaBot] OpenAI timeout:", msg);
         return TIMEOUT_FALLBACK;

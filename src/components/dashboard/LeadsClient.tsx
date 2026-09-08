@@ -15,7 +15,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   contacted: { label: 'Contactado', color: 'text-brand-blue bg-brand-blue/10 border-brand-blue/20' },
   qualified: { label: 'Calificado', color: 'text-brand-violet bg-brand-violet/10 border-brand-violet/20' },
   converted: { label: 'Convertido', color: 'text-brand-success bg-brand-success/10 border-brand-success/20' },
-  discarded: { label: 'Descartado', color: 'text-brand-pink bg-brand-pink/10 border-brand-pink/20' },
+  lost: { label: 'Descartado', color: 'text-brand-pink bg-brand-pink/10 border-brand-pink/20' },
 }
 
 export default function LeadsClient({ user, assistants, currentPlan, effectiveStatus }: { user: any, assistants: any[], currentPlan: string, effectiveStatus: string }) {
@@ -357,7 +357,7 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                   <option value="contacted">Contactados</option>
                   <option value="qualified">Calificados</option>
                   <option value="converted">Convertidos</option>
-                  <option value="discarded">Descartados</option>
+                  <option value="lost">Descartados</option>
                 </select>
 
                 <select 
@@ -477,7 +477,7 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                       </div>
                       
                       <div className="flex gap-2">
-                        {['new', 'contacted', 'qualified', 'converted', 'discarded'].map(s => {
+                        {['new', 'contacted', 'qualified', 'converted', 'lost'].map(s => {
                           const conf = STATUS_CONFIG[s]
                           const isActive = selectedLead.status === s
                           return (

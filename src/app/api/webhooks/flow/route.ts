@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit';
+import { HttpInputError, readUrlEncodedBody } from '@/lib/http-security';
 
 export async function POST(req: Request) {
   try {
-    const formData = await req.formData();
+    const formData = await readUrlEncodedBody(req, 4_096);
     const token = formData.get('token');
 
     if (!token || typeof token !== 'string' || token.length > 512) {
@@ -13,8 +14,6 @@ export async function POST(req: Request) {
     }
 
     const supabase = createSupabaseAdmin();
-    const flowStatus = await getFlowPaymentStatus(token);
-
     const { data: payment, error: paymentError } = await supabase
       .from('billing_payments')
       .select('id,user_id,plan,status,flow_token')
@@ -31,6 +30,9 @@ export async function POST(req: Request) {
       });
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
+
+    // Consult Flow only for tokens that were issued and stored by this application.
+    const flowStatus = await getFlowPaymentStatus(token);
 
     let newStatus = 'pending';
     if (flowStatus.status === 2) newStatus = 'paid';
@@ -101,6 +103,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
+    if (error instanceof HttpInputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
     console.error('Flow Webhook Error:', error instanceof Error ? error.message : error);
     return NextResponse.json({ error: 'Error procesando webhook.' }, { status: 500 });
   }

@@ -1,33 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
-import { isUnlimited, normalizePlan, getPlanConfig } from '@/lib/plans'
+import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { checkRateLimit, consumeMessageCredit, validateWidgetDomain } from '@/lib/security'
 import { logSecurityEvent } from '@/lib/audit'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
+import { getClientIp, HttpInputError, isUuid, isVisitorId, readJsonBody, widgetCorsHeaders } from '@/lib/http-security'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+interface WidgetMessageBody {
+  assistantId?: unknown
+  message?: unknown
+  conversationId?: unknown
+  visitorId?: unknown
 }
 
-export async function OPTIONS() {
-  return NextResponse.json({}, { headers: corsHeaders })
+export async function OPTIONS(request: NextRequest) {
+  return new NextResponse(null, { status: 204, headers: widgetCorsHeaders(request, true) })
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const body = await readJsonBody<WidgetMessageBody>(request, 8_192)
     const { assistantId, message, conversationId, visitorId } = body
+    const privateCorsHeaders = widgetCorsHeaders(request, false)
 
-    if (!assistantId) {
-      return NextResponse.json({ error: 'Missing assistantId' }, { status: 400, headers: corsHeaders })
+    if (!isUuid(assistantId)) {
+      return NextResponse.json({ error: 'Identificador de asistente inválido.' }, { status: 400, headers: privateCorsHeaders })
     }
 
     if (!message || typeof message !== 'string' || message.trim().length === 0 || message.length > 1000) {
-      return NextResponse.json({ error: 'Mensaje inválido o demasiado largo.' }, { status: 400, headers: corsHeaders })
+      return NextResponse.json({ error: 'Mensaje inválido o demasiado largo.' }, { status: 400, headers: privateCorsHeaders })
+    }
+
+    if (!isVisitorId(visitorId) || (conversationId != null && !isUuid(conversationId))) {
+      return NextResponse.json({ error: 'Sesión de visitante inválida.' }, { status: 400, headers: privateCorsHeaders })
     }
 
     const supabaseAdmin = createSupabaseAdmin()
@@ -40,11 +47,11 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (assistantError || !assistant) {
-      return NextResponse.json({ error: 'Asistente no encontrado.' }, { status: 404, headers: corsHeaders })
+      return NextResponse.json({ error: 'Asistente no encontrado.' }, { status: 404, headers: privateCorsHeaders })
     }
 
     if (assistant.status !== 'active') {
-      return NextResponse.json({ error: 'El asistente no está activo.' }, { status: 403, headers: corsHeaders })
+      return NextResponse.json({ error: 'El asistente no está activo.' }, { status: 403, headers: privateCorsHeaders })
     }
 
     const ownerId = assistant.user_id
@@ -54,11 +61,13 @@ export async function POST(request: NextRequest) {
     
     if (!domainValidation.isValid) {
       await logSecurityEvent({ userId: ownerId, eventType: 'widget_message_domain_blocked', severity: 'warning', message: `Widget message domain block (${domainValidation.normalizedDomain || 'no-origin'}) for assistant ${assistantId}`, req: request })
-      return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: corsHeaders })
+      return NextResponse.json({ error: 'Este dominio no está autorizado para usar este asistente.' }, { status: 403, headers: privateCorsHeaders })
     }
 
+    const corsHeaders = widgetCorsHeaders(request, true)
+
     // 3. Rate Limit Checks
-    const ip = request.headers.get('x-forwarded-for') || 'unknown-ip'
+    const ip = getClientIp(request)
     
     // Max 60 messages per minute per IP per assistant
     const ipRateLimitOk = await checkRateLimit(`widget-ip-${assistantId}-${ip}`, 'widget-message-ip-minute', 60, 60)
@@ -68,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Max 20 messages per minute per VisitorID per assistant
-    const visId = visitorId || ip
+    const visId = visitorId
     const visitorRateLimitOk = await checkRateLimit(`widget-vis-${assistantId}-${visId}`, 'widget-message-vis-minute', 20, 60)
     if (!visitorRateLimitOk) {
       await logSecurityEvent({ userId: ownerId, eventType: 'widget_rate_limited', severity: 'warning', message: `Widget visitor rate limit para asistente ${assistantId}`, req: request })
@@ -126,6 +135,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', currentConversationId)
         .eq('assistant_id', assistantId)
+        .eq('visitor_id', visitorId)
         .select()
         .single()
 
@@ -141,7 +151,7 @@ export async function POST(request: NextRequest) {
           user_id: ownerId,
           assistant_id: assistantId,
           channel: 'webchat',
-          visitor_id: visitorId || null,
+          visitor_id: visitorId,
           status: 'open',
           last_message: message.substring(0, 100),
           last_message_at: new Date().toISOString(),
@@ -243,7 +253,7 @@ export async function POST(request: NextRequest) {
               type: 'lead',
               metadata: { leadId: newLead.id, assistantId, conversationId: currentConversationId }
             })
-          } catch (notifError) {
+          } catch {
             // ignorar error de notificaciones
           }
         }
@@ -254,7 +264,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ reply, conversationId: currentConversationId }, { headers: corsHeaders })
 
   } catch (error) {
+    if (error instanceof HttpInputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status, headers: widgetCorsHeaders(request, false) })
+    }
     console.error('[POST /api/widget/message]', error)
-    return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500, headers: corsHeaders })
+    return NextResponse.json({ error: 'Error interno del servidor.' }, { status: 500, headers: widgetCorsHeaders(request, false) })
   }
 }

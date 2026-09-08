@@ -5,6 +5,7 @@ import { checkRateLimit, consumeMessageCredit } from '@/lib/security'
 import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { canUsePremiumFeatures } from '@/lib/billing/subscription-status'
+import { HttpInputError, readJsonBody } from '@/lib/http-security'
 
 const getOpenAIClient = () => {
   const apiKey = process.env.OPENAI_API_KEY
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Debes iniciar sesión para usar esta función.' }, { status: 401 })
     }
 
-    const body = await request.json()
+    const body = await readJsonBody<Record<string, unknown>>(request, 32_768)
     const { text, blockType, blockTitle, assistantName, businessType, activeTemplate, existingKnowledgeBlocks, instructionsLegacy } = body
 
     if (typeof text !== 'string' || text.length > 5000) {
@@ -33,12 +34,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!blockType) {
+    if (typeof blockType !== 'string' || blockType.length > 40) {
       return NextResponse.json({ error: 'Falta blockType' }, { status: 400 })
     }
 
+    if (typeof blockTitle !== 'string' || blockTitle.length > 120) return NextResponse.json({ error: 'Título inválido' }, { status: 400 })
+    if (assistantName !== undefined && (typeof assistantName !== 'string' || assistantName.length > 120)) return NextResponse.json({ error: 'Nombre inválido' }, { status: 400 })
+    if (businessType !== undefined && (typeof businessType !== 'string' || businessType.length > 100)) return NextResponse.json({ error: 'Tipo de negocio inválido' }, { status: 400 })
+    if (existingKnowledgeBlocks !== undefined && (!Array.isArray(existingKnowledgeBlocks) || existingKnowledgeBlocks.length > 30)) return NextResponse.json({ error: 'Bloques de conocimiento inválidos' }, { status: 400 })
+    if (activeTemplate !== undefined && (typeof activeTemplate !== 'string' || activeTemplate.length > 100)) return NextResponse.json({ error: 'Plantilla inválida' }, { status: 400 })
+    if (instructionsLegacy !== undefined && (typeof instructionsLegacy !== 'string' || instructionsLegacy.length > 5_000)) return NextResponse.json({ error: 'Instrucciones inválidas' }, { status: 400 })
+
+    const knowledgeBlocks: Array<{ type: string; title: string; content: string }> = []
+    if (Array.isArray(existingKnowledgeBlocks)) {
+      for (const block of existingKnowledgeBlocks) {
+        if (!block || typeof block !== 'object') return NextResponse.json({ error: 'Bloque inválido' }, { status: 400 })
+        const candidate = block as Record<string, unknown>
+        if (typeof candidate.type !== 'string' || typeof candidate.title !== 'string' || typeof candidate.content !== 'string' || candidate.type.length > 40 || candidate.title.length > 120 || candidate.content.length > 5_000) {
+          return NextResponse.json({ error: 'Bloque inválido' }, { status: 400 })
+        }
+        knowledgeBlocks.push({ type: candidate.type, title: candidate.title, content: candidate.content })
+      }
+    }
+
     // Rate limit: 10 peticiones por minuto por usuario
-    const isRateLimited = !(await checkRateLimit(`improve-info-${user.id}`, 'improve-business-info', 10, 60))
+    const isRateLimited = !(await checkRateLimit(`improve-info-${user.id}`, 'improve-business-info', 5, 60))
     if (isRateLimited) {
       return NextResponse.json({ error: 'Demasiados intentos. Espera un minuto e intenta nuevamente.' }, { status: 429 })
     }
@@ -106,9 +126,9 @@ export async function POST(request: NextRequest) {
     if (businessType) userMessage += `- Tipo de negocio: ${businessType}\n`
     if (activeTemplate) userMessage += `- Plantilla base: ${activeTemplate}\n`
     
-    if (existingKnowledgeBlocks && existingKnowledgeBlocks.length > 0) {
+    if (knowledgeBlocks.length > 0) {
       userMessage += `\nOtros bloques ya completados (para referencia):\n`
-      existingKnowledgeBlocks.forEach((b: any) => {
+      knowledgeBlocks.forEach((b) => {
         if (b.type !== blockType && b.content.trim().length > 0) {
           userMessage += `- ${b.title}: ${b.content.substring(0, 100)}...\n`
         }
@@ -145,6 +165,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ improvedText })
   } catch (error: unknown) {
+    if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     let errorMessage = 'No se pudo mejorar la redacción. Intenta de nuevo.'
     let statusCode = 500
     

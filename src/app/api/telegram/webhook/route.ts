@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createBotWebhookHandler } from "@/lib/telegram/bot";
+import { secretsMatch } from "@/lib/http-security";
 
 export const runtime = "nodejs";
 
@@ -16,13 +17,22 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   // Step 1: Validate webhook secret before doing any work
   const webhookSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
-  if (webhookSecret) {
-    const incomingSecret = req.headers.get("x-telegram-bot-api-secret-token");
-    if (incomingSecret !== webhookSecret) {
-      // Return 200 even on auth failure — returning 4xx makes Telegram retry the update forever
-      console.warn("[Webhook] Received request with invalid secret token.");
-      return new NextResponse("OK", { status: 200 });
-    }
+  if (!webhookSecret) {
+    console.error("[Webhook] TELEGRAM_WEBHOOK_SECRET is not configured.");
+    return new NextResponse("Webhook unavailable", { status: 503 });
+  }
+
+  const incomingSecret = req.headers.get("x-telegram-bot-api-secret-token");
+  if (!secretsMatch(incomingSecret, webhookSecret)) {
+    // Return 200 so Telegram does not retry attacker-generated payloads.
+    console.warn("[Webhook] Received request with invalid secret token.");
+    return new NextResponse("OK", { status: 200 });
+  }
+
+  const contentType = req.headers.get('content-type')?.toLowerCase() || '';
+  const contentLength = Number(req.headers.get('content-length') || 0);
+  if (!contentType.startsWith('application/json') || (Number.isFinite(contentLength) && contentLength > 256_000)) {
+    return new NextResponse("OK", { status: 200 });
   }
 
   try {
@@ -37,17 +47,15 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const handlerPromise = handler(req).catch((err: any) => {
+    const handlerPromise = handler(req).catch((err: unknown) => {
       // Handle errors from grammY or our bot handlers — never expose internals
-      console.error("[Webhook] Handler error:", err?.message ?? "Unknown error");
+      console.error("[Webhook] Handler error:", err instanceof Error ? err.message : "Unknown error");
       return new NextResponse("OK", { status: 200 });
     });
 
     return await Promise.race([handlerPromise, timeoutPromise]);
   } catch (error) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const errMessage = (error as any)?.message || String(error);
+    const errMessage = error instanceof Error ? error.message : String(error);
     console.error("[Webhook] Unexpected error:", errMessage);
     // Always return 200 so Telegram doesn't retry and disable the webhook
     return new NextResponse("OK", { status: 200 });

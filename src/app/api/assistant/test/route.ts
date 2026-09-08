@@ -5,6 +5,13 @@ import { normalizePlan, getPlanConfig } from '@/lib/plans'
 import { consumeMessageCredit } from '@/lib/security'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { canUsePremiumFeatures } from '@/lib/billing/subscription-status'
+import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
+
+interface AssistantTestBody {
+  assistantId?: unknown
+  assistantConfig?: unknown
+  userMessage?: unknown
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,11 +22,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const body = await request.json()
+    const body = await readJsonBody<AssistantTestBody>(request, 24_576)
     const { assistantId, assistantConfig, userMessage } = body
 
-    if (!userMessage || typeof userMessage !== 'string' || userMessage.trim().length === 0) {
+    if (!userMessage || typeof userMessage !== 'string' || userMessage.trim().length === 0 || userMessage.length > 2000) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
+    }
+
+    if (assistantId != null && !isUuid(assistantId)) {
+      return NextResponse.json({ error: 'Identificador de asistente inválido' }, { status: 400 })
     }
 
     // --- Subscription Limits ---
@@ -89,6 +100,9 @@ export async function POST(request: NextRequest) {
       }
     } else if (assistantConfig) {
       // Preview mode — use provided config without saving
+      if (typeof assistantConfig !== 'object' || Array.isArray(assistantConfig)) {
+        return NextResponse.json({ error: 'Configuración inválida' }, { status: 400 })
+      }
       config = assistantConfig as AssistantConfig
     } else {
       return NextResponse.json({ error: 'Se requiere assistantId o assistantConfig' }, { status: 400 })
@@ -109,6 +123,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ reply })
   } catch (error) {
+    if (error instanceof HttpInputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status })
+    }
     console.error('[API /assistant/test]', error)
     return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 })
   }

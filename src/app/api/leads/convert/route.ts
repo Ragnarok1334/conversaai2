@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 
 export async function POST(request: Request) {
   try {
@@ -10,12 +11,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body = await request.json()
+    const body = await readJsonBody<Record<string, unknown>>(request, 8_192)
     const { conversation_id, assistant_id, source, name, email, phone, notes } = body
 
-    if (!conversation_id) {
+    if (!isUuid(conversation_id) || !isUuid(assistant_id)) {
       return NextResponse.json({ error: 'Conversation ID is required' }, { status: 400 })
     }
+
+    if (source !== undefined && (typeof source !== 'string' || !['webchat', 'telegram', 'whatsapp'].includes(source))) return NextResponse.json({ error: 'Canal inválido' }, { status: 400 })
+    if (name !== undefined && (typeof name !== 'string' || name.length > 120)) return NextResponse.json({ error: 'Nombre inválido' }, { status: 400 })
+    if (email !== undefined && (typeof email !== 'string' || email.length > 254)) return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
+    if (phone !== undefined && (typeof phone !== 'string' || phone.length > 40)) return NextResponse.json({ error: 'Teléfono inválido' }, { status: 400 })
+    if (notes !== undefined && (typeof notes !== 'string' || notes.length > 5_000)) return NextResponse.json({ error: 'Notas inválidas' }, { status: 400 })
 
     if (!email && !phone && !name) {
       return NextResponse.json({ error: 'Faltan datos de contacto para crear un lead útil' }, { status: 400 })
@@ -37,8 +44,8 @@ export async function POST(request: Request) {
     }
 
     // Verify conversation ownership
-    const { data: conv } = await supabaseAdmin.from('conversations').select('id').eq('id', conversation_id).eq('user_id', user.id).single()
-    if (!conv) {
+    const { data: conv } = await supabaseAdmin.from('conversations').select('id, assistant_id').eq('id', conversation_id).eq('user_id', user.id).single()
+    if (!conv || conv.assistant_id !== assistant_id) {
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
     }
 
@@ -67,7 +74,7 @@ export async function POST(request: Request) {
 
     if (existingLead) {
       // Update existing lead with new conversation or notes
-      const updates: any = { conversation_id }
+      const updates: Record<string, string> = { conversation_id }
       if (notes) {
         updates.notes = existingLead.notes ? `${existingLead.notes}\n---\n${notes}` : notes
       }
@@ -108,8 +115,9 @@ export async function POST(request: Request) {
     if (error) throw error
 
     return NextResponse.json({ success: true, lead: newLead, isNew: true })
-  } catch (error: any) {
+  } catch (error: unknown) {
+    if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('[POST /api/leads/convert]', error)
-    return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 })
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Internal Server Error' }, { status: 500 })
   }
 }
