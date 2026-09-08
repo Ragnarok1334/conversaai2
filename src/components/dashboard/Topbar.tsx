@@ -63,11 +63,11 @@ export function Topbar({ onMenuClick, theme, onThemeToggle }: TopbarProps) {
           <div className="h-8 w-[1px] bg-white/[0.08] hidden sm:block" />
 
           <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-2.5 py-1 px-1 sm:pr-4 rounded-full bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] hover:border-white/10 transition-all cursor-default shadow-sm group">
+            <div className="dashboard-user-chip flex items-center gap-2.5 py-1 px-1 sm:pr-4 rounded-full bg-white/[0.02] border border-white/[0.05] hover:bg-white/[0.06] hover:border-white/10 transition-all cursor-default shadow-sm group">
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-violet to-brand-cyan flex items-center justify-center text-white text-sm font-bold shadow-lg shadow-brand-cyan/20 group-hover:scale-105 transition-transform shrink-0">
                 {userInitial}
               </div>
-              <span className="text-sm font-semibold hidden sm:block text-text-main pr-1 max-w-[150px] truncate" title={userName}>
+              <span className="dashboard-user-name text-sm font-semibold hidden sm:block text-text-main pr-1 max-w-[150px] truncate" title={userName}>
                 {userName}
               </span>
             </div>
