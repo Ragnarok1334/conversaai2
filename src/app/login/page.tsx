@@ -49,14 +49,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050816] flex">
+    <div className="auth-page min-h-screen flex">
       {/* Left brand panel — desktop only */}
       <div className="w-[45%] xl:w-[40%] flex-shrink-0">
         <AuthBrandPanel />
       </div>
 
       {/* Right form panel */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 relative overflow-hidden">
+      <div className="auth-main flex-1 flex flex-col items-center justify-center p-6 sm:p-10 relative overflow-hidden">
         {/* Background glow for mobile */}
         <div className="absolute top-1/4 left-1/4 w-80 h-80 bg-brand-violet/15 rounded-full blur-[120px] pointer-events-none lg:hidden" />
         <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-brand-cyan/15 rounded-full blur-[100px] pointer-events-none lg:hidden" />
@@ -102,7 +102,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+          <div className="auth-card bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
             <div className="mb-5 text-center">
               <p className="text-slate-400 text-sm">Accede rápido con tu cuenta social.</p>
             </div>
