@@ -5,6 +5,7 @@ import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plan
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { logAuditEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
+import { HttpInputError, readJsonBody } from '@/lib/http-security'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     // PASO 4: Leer y validar body
-    const body = await request.json()
+    const body = await readJsonBody<Record<string, unknown>>(request, 128_000)
 
     // Acepta tanto los nombres del nuevo payload anidado como los legacy snake_case
     const name = body.assistant_name || body.name || ''
@@ -441,6 +442,9 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     )
   } catch (error) {
+    if (error instanceof HttpInputError) {
+      return NextResponse.json({ success: false, error: error.message }, { status: error.status })
+    }
     const err = error as any
     console.error('[api/assistants][POST] Error creating assistant:', err)
     return NextResponse.json(

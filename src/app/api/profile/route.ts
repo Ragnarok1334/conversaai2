@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { logAuditEvent } from '@/lib/audit'
+import { HttpInputError, readJsonBody } from '@/lib/http-security'
 
 /**
  * GET /api/profile
@@ -63,19 +64,17 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    let body: Record<string, unknown>
-    try {
-      body = await req.json()
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
-    }
+    const body = await readJsonBody<Record<string, unknown>>(req, 16_384)
 
     // Whitelist — never accept id or user_id from body
     const allowedFields = ['full_name', 'company_name', 'phone', 'country', 'business_type', 'preferred_channel', 'onboarding_goal', 'city', 'website', 'support_email', 'address', 'business_hours']
+    const maxLengths: Record<string, number> = { full_name: 120, company_name: 160, phone: 40, country: 80, business_type: 100, preferred_channel: 40, onboarding_goal: 500, city: 100, website: 500, support_email: 254, address: 500, business_hours: 1_000 }
     const patch: Record<string, string | null> = {}
     for (const field of allowedFields) {
       if (field in body) {
         const raw = body[field]
+        if (raw !== null && typeof raw !== 'string') return NextResponse.json({ error: `Campo ${field} inválido` }, { status: 400 })
+        if (typeof raw === 'string' && raw.length > maxLengths[field]) return NextResponse.json({ error: `Campo ${field} demasiado largo` }, { status: 400 })
         // Normalize: empty string → null, otherwise trim
         patch[field] = typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : null
       }
@@ -111,6 +110,7 @@ export async function PATCH(req: NextRequest) {
 
     return NextResponse.json({ success: true, profile })
   } catch (err) {
+    if (err instanceof HttpInputError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('[PATCH /api/profile]', err)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }

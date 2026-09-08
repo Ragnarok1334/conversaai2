@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { extractDomain } from '@/lib/security'
 import { logAuditEvent } from '@/lib/audit'
+import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 
 // Forzar renderizado dinámico para evitar cache de Next.js
 export const dynamic = 'force-dynamic'
@@ -10,6 +11,7 @@ export const dynamic = 'force-dynamic'
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: assistantId } = await params
+    if (!isUuid(assistantId)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -55,6 +57,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id: assistantId } = await params
+    if (!isUuid(assistantId)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -74,8 +77,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404 })
     }
 
-    const body = await request.json()
+    const body = await readJsonBody<{ domain?: unknown }>(request, 2_048)
     const { domain } = body
+
+    if (typeof domain !== 'string' || domain.length > 253) {
+      return NextResponse.json({ error: 'Dominio inválido' }, { status: 400 })
+    }
 
     const normalizedDomain = extractDomain(domain)
     if (!normalizedDomain) {
@@ -171,6 +178,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     return NextResponse.json(data)
   } catch (error) {
+    if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('[POST /api/assistants/[id]/domains]', error)
     return NextResponse.json({ error: 'Error interno' }, { status: 500 })
   }
