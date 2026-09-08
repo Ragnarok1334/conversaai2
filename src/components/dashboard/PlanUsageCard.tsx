@@ -40,7 +40,7 @@ export function PlanUsageCard({ plan, usage }: Props) {
   }
 
   return (
-    <div className={`relative overflow-hidden rounded-[2rem] border ${isPremium ? 'border-brand-violet/30' : 'border-card-border'} bg-card-bg/80 backdrop-blur-2xl w-full`}>
+    <div className={`dashboard-plan-card relative overflow-hidden rounded-[2rem] border ${isPremium ? 'border-brand-violet/30' : 'border-card-border'} bg-card-bg/80 backdrop-blur-2xl w-full`}>
       {isPremium && (
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_100%_0%,rgba(124,58,237,0.15),transparent_60%)] pointer-events-none" />
       )}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Figtree } from "next/font/google";
 import "./globals.css";
+import "./theme-contrast.css";
 import { cn } from "@/lib/utils";
 import { ConversaAISupportWidget } from "@/components/ConversaAISupportWidget"
 
