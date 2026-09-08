@@ -47,7 +47,10 @@ export default async function AssistantDetailPage({
     ? getPlanLimits(normalizePlan(sub.plan)) 
     : getPlanLimits('free')
 
-  const { data: assistant } = await supabase
+  // The authenticated session establishes identity; the server client performs
+  // the joined read so an optional relation with stricter grants cannot turn a
+  // valid owned assistant into a false 404. Ownership remains mandatory.
+  const { data: assistant, error: assistantError } = await supabaseAdmin
     .from('assistants')
     .select(`
       *, 
@@ -58,11 +61,12 @@ export default async function AssistantDetailPage({
     .eq('user_id', user.id)
     .single()
 
+  if (assistantError) console.error('[AssistantDetailPage] assistant query failed:', assistantError.code)
   if (!assistant) notFound()
 
   const [{ count: convCount }, { count: leadsCount }, { count: assistantCount }] = await Promise.all([
-    supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('assistant_id', id),
-    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assistant_id', id),
+    supabaseAdmin.from('conversations').select('*', { count: 'exact', head: true }).eq('assistant_id', id).eq('user_id', user.id),
+    supabaseAdmin.from('leads').select('*', { count: 'exact', head: true }).eq('assistant_id', id).eq('user_id', user.id),
     supabaseAdmin.from('assistants').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
   ])
 

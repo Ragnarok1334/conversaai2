@@ -532,11 +532,13 @@ body::before {
 
 /* Los componentes internos existentes usan utilidades oscuras. Estas reglas
    las conectan al tema claro sin modificar sus flujos ni formularios. */
-.dashboard-root[data-theme="light"] .text-white { color: #211c35; }
-.dashboard-root[data-theme="light"] .text-slate-300 { color: #4e485d; }
-.dashboard-root[data-theme="light"] .text-slate-400 { color: #706a7d; }
+.dashboard-root[data-theme="light"] .text-white,
+.dashboard-root[data-theme="light"] [class*="text-white/"] { color: #211c35; }
+.dashboard-root[data-theme="light"] .text-slate-200,
+.dashboard-root[data-theme="light"] .text-slate-300 { color: #3f394d; }
+.dashboard-root[data-theme="light"] .text-slate-400 { color: #514a60; }
 .dashboard-root[data-theme="light"] .text-slate-500,
-.dashboard-root[data-theme="light"] .text-slate-600 { color: #898391; }
+.dashboard-root[data-theme="light"] .text-slate-600 { color: #625b70; }
 .dashboard-root[data-theme="light"] [class*="bg-white/"] { background-color: rgba(104,66,232,.045); }
 .dashboard-root[data-theme="light"] [class*="bg-black/"] { background-color: rgba(35,28,56,.035); }
 .dashboard-root[data-theme="light"] [class*="border-white"] { border-color: #e5e1ed; }
@@ -548,10 +550,12 @@ body::before {
 .dashboard-root[data-theme="light"] textarea,
 .dashboard-root[data-theme="light"] select { color: #211c35; }
 .dashboard-root[data-theme="light"] input::placeholder,
-.dashboard-root[data-theme="light"] textarea::placeholder { color: #9993a3; }
+.dashboard-root[data-theme="light"] textarea::placeholder { color: #746d80; opacity: 1; }
 .dashboard-root[data-theme="light"] .gradient-btn,
-.dashboard-root[data-theme="light"] .gradient-btn .text-white,
-.dashboard-root[data-theme="light"] [class*="bg-brand-violet"]:not([class*="/10"]):not([class*="/20"]) { color: #ffffff; }
+.dashboard-root[data-theme="light"] .gradient-btn *,
+.dashboard-root[data-theme="light"] [class*="bg-brand-violet"]:not([class*="/10"]):not([class*="/20"]),
+.dashboard-root[data-theme="light"] [class*="bg-brand-violet"]:not([class*="/10"]):not([class*="/20"]) [class*="text-white"] { color: #ffffff; }
+.dashboard-root[data-theme="light"] :disabled { opacity: .72; }
 .dashboard-root[data-theme="light"] .shadow-2xl,
 .dashboard-root[data-theme="light"] [class*="shadow-"] { --tw-shadow-color: rgba(42,31,73,.08); }
 

@@ -19,7 +19,9 @@ export async function GET(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { data, error } = await supabase
+    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
+    const supabaseAdmin = createSupabaseAdmin()
+    const { data, error } = await supabaseAdmin
       .from('assistants')
       .select(`
         *, 
@@ -34,15 +36,17 @@ export async function GET(
       return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404 })
     }
 
-    const { data: convData } = await supabase
+    const { data: convData } = await supabaseAdmin
       .from('conversations')
       .select('created_at')
       .eq('assistant_id', id)
+      .eq('user_id', user.id)
 
-    const { data: leadsData } = await supabase
+    const { data: leadsData } = await supabaseAdmin
       .from('leads')
       .select('created_at')
       .eq('assistant_id', id)
+      .eq('user_id', user.id)
 
     const conversationsCount = convData?.length || 0
     const leadsCount = leadsData?.length || 0
