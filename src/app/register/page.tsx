@@ -268,14 +268,14 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050816] flex">
+    <div className="auth-page min-h-screen flex">
       {/* Left brand panel */}
       <div className="w-[45%] xl:w-[40%] flex-shrink-0">
         <AuthBrandPanel />
       </div>
 
       {/* Right form */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 overflow-y-auto relative">
+      <div className="auth-main flex-1 flex flex-col items-center justify-center p-6 sm:p-10 overflow-y-auto relative">
         <div className="absolute top-1/4 right-1/4 w-64 h-64 bg-brand-cyan/10 rounded-full blur-[100px] pointer-events-none lg:hidden" />
 
         <motion.div
@@ -324,7 +324,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Form card */}
-          <div className="bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 shadow-2xl backdrop-blur-xl">
+          <div className="auth-card bg-white/[0.03] border border-white/[0.08] rounded-2xl p-6 shadow-2xl backdrop-blur-xl">
             <AnimatePresence mode="wait">
 
               {/* ── STEP 1 ── */}
