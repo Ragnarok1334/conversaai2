@@ -102,7 +102,8 @@ export async function PATCH(
     const { normalizePlan } = await import('@/lib/plans')
     const currentPlan = sub ? normalizePlan(sub.plan) : 'free'
 
-    const body = await readJsonBody<Record<string, unknown>>(request, 128_000)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body = await readJsonBody<Record<string, any>>(request, 128_000)
 
     // Whitelist allowed fields
     const allowedFields = [

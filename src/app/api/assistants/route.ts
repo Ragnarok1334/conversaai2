@@ -99,7 +99,10 @@ export async function POST(request: NextRequest) {
     }
 
     // PASO 4: Leer y validar body
-    const body = await readJsonBody<Record<string, unknown>>(request, 128_000)
+    // Existing builder accepts a mixed legacy/new payload; the bounded reader
+    // prevents memory abuse while the field-level validators below enforce shape.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const body = await readJsonBody<Record<string, any>>(request, 128_000)
 
     // Acepta tanto los nombres del nuevo payload anidado como los legacy snake_case
     const name = body.assistant_name || body.name || ''
