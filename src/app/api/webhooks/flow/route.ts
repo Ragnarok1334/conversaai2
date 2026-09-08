@@ -14,8 +14,6 @@ export async function POST(req: Request) {
     }
 
     const supabase = createSupabaseAdmin();
-    const flowStatus = await getFlowPaymentStatus(token);
-
     const { data: payment, error: paymentError } = await supabase
       .from('billing_payments')
       .select('id,user_id,plan,status,flow_token')
@@ -32,6 +30,9 @@ export async function POST(req: Request) {
       });
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
+
+    // Consult Flow only for tokens that were issued and stored by this application.
+    const flowStatus = await getFlowPaymentStatus(token);
 
     let newStatus = 'pending';
     if (flowStatus.status === 2) newStatus = 'paid';

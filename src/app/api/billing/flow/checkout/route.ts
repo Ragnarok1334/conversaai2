@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { createFlowPayment } from '@/lib/flow';
 import { getPlanConfig, normalizePlan } from '@/lib/plans';
+import { getClientIp, HttpInputError, readJsonBody } from '@/lib/http-security';
+import { checkRateLimit } from '@/lib/security';
 
 export async function POST(req: Request) {
   let commerceOrder = '';
@@ -28,7 +30,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Debes iniciar sesión para activar un plan.' }, { status: 401 });
     }
 
-    const body = await req.json();
+    if (!user.email || !user.email_confirmed_at) {
+      return NextResponse.json({ error: 'Debes verificar tu correo antes de pagar.' }, { status: 403 });
+    }
+
+    const ip = getClientIp(req);
+    const [userAllowed, ipAllowed] = await Promise.all([
+      checkRateLimit(`flow-checkout-user-${user.id}`, 'flow-checkout-user', 5, 3600),
+      checkRateLimit(`flow-checkout-ip-${ip}`, 'flow-checkout-ip', 10, 3600),
+    ]);
+    if (!userAllowed || !ipAllowed) {
+      return NextResponse.json({ error: 'Demasiados intentos de pago. Intenta nuevamente más tarde.' }, { status: 429 });
+    }
+
+    const body = await readJsonBody<{ plan?: unknown }>(req, 2_048);
+    if (typeof body.plan !== 'string' || body.plan.length > 32) {
+      return NextResponse.json({ error: 'Plan no válido.' }, { status: 400 });
+    }
     planKey = normalizePlan(body.plan);
 
     if (planKey === 'trial' || body.plan === 'free') {
@@ -62,7 +80,7 @@ export async function POST(req: Request) {
       subject: `ConversaAI ${config.label} - Suscripción mensual`,
       currency: 'CLP',
       amount,
-      email: user.email || 'usuario@conversaai.store',
+      email: user.email,
       urlConfirmation: `${appUrl}/api/webhooks/flow`,
       urlReturn: `${appUrl}/api/billing/flow/return`
     });
@@ -118,11 +136,15 @@ export async function POST(req: Request) {
       url: `${flowResponse.url}?token=${flowResponse.token}`
     });
 
-  } catch (error: any) {
-    if (error.isFlowParseError) {
+  } catch (error: unknown) {
+    if (error instanceof HttpInputError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    if (error && typeof error === 'object' && 'isFlowParseError' in error) {
+      const flowError = error as { message?: string; debug?: unknown };
       return NextResponse.json({
-        error: error.message,
-        debug: process.env.NODE_ENV === 'development' ? error.debug : undefined
+        error: flowError.message || 'Flow devolvió una respuesta no válida.',
+        debug: process.env.NODE_ENV === 'development' ? flowError.debug : undefined
       }, { status: 500 });
     }
 

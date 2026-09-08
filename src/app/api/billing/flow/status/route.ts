@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getFlowPaymentStatus } from '@/lib/flow';
+import { checkRateLimit } from '@/lib/security';
+import { getClientIp } from '@/lib/http-security';
 
 export async function GET(req: Request) {
   try {
@@ -11,9 +13,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Token requerido.' }, { status: 400 });
     }
 
-    const supabaseAdmin = createSupabaseAdmin();
-    const flowStatus = await getFlowPaymentStatus(token);
+    const allowed = await checkRateLimit(`flow-status-${getClientIp(req)}`, 'flow-status', 30, 300);
+    if (!allowed) return NextResponse.json({ error: 'Demasiadas consultas.' }, { status: 429 });
 
+    const supabaseAdmin = createSupabaseAdmin();
     const { data: payment, error: paymentError } = await supabaseAdmin
       .from('billing_payments')
       .select('id,plan,status,amount,currency,flow_token')
@@ -23,6 +26,9 @@ export async function GET(req: Request) {
     if (paymentError || !payment) {
       return NextResponse.json({ error: 'Pago no encontrado.' }, { status: 404 });
     }
+
+    // Avoid turning this endpoint into an unrestricted proxy to Flow.
+    const flowStatus = await getFlowPaymentStatus(token);
 
     // This endpoint is intentionally read-only. Payment fulfillment is performed
     // exclusively by the verified webhook/RPC path.
