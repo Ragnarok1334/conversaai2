@@ -303,51 +303,29 @@ function EditCompanyModal({
     company_name: string; country: string; phone: string; 
     business_type: string; preferred_channel: string; onboarding_goal: string;
     city: string; website: string; support_email: string; address: string; business_hours: string;
+    timezone: string; currency: string; locale: string;
   }
   onClose: () => void
   onSave: (values: Partial<typeof initialValues>) => Promise<void>
 }) {
-  const [values, setValues] = useState({ 
-    company_name: initialValues.company_name, country: initialValues.country, phone: initialValues.phone, 
-    business_type: initialValues.business_type, preferred_channel: initialValues.preferred_channel, onboarding_goal: initialValues.onboarding_goal,
-    city: initialValues.city || '', website: initialValues.website || '', support_email: initialValues.support_email || '', address: initialValues.address || '', business_hours: initialValues.business_hours || '',
-    showCustomCity: false
-  })
-  const [customCity, setCustomCity] = useState('')
+  const [values, setValues] = useState(initialValues)
   const [errorMsg, setErrorMsg] = useState('')
   const [saving, setSaving] = useState(false)
 
   // Opciones de configuración
   const countryOptions = [
-    'Chile', 'México', 'Colombia', 'Argentina', 'Perú', 'Ecuador', 'Bolivia', 'Paraguay', 'Uruguay', 
-    'Brasil', 'Costa Rica', 'Cuba', 'El Salvador', 'Guatemala', 'Honduras', 'Nicaragua', 'Panamá', 
-    'Puerto Rico', 'República Dominicana', 'España', 'Estados Unidos', 'Otro'
+    'Argentina','Bolivia','Brasil','Canadá','Chile','Colombia','Costa Rica','Cuba','Ecuador',
+    'El Salvador','España','Estados Unidos','Guatemala','Honduras','México','Nicaragua',
+    'Panamá','Paraguay','Perú','Portugal','Puerto Rico','República Dominicana','Uruguay',
+    'Venezuela','Alemania','Francia','Italia','Reino Unido','Otro'
   ].map(c => ({ value: c, label: c }))
-
-  const cityOptionsByCountry: Record<string, string[]> = {
-    'Chile': ['Santiago', 'Valparaíso', 'Viña del Mar', 'Concepción', 'La Serena', 'Antofagasta', 'Temuco', 'Puerto Montt', 'Otra ciudad / región'],
-    'México': ['Ciudad de México', 'Guadalajara', 'Monterrey', 'Puebla', 'Querétaro', 'Tijuana', 'Mérida', 'Cancún', 'Otra ciudad / región'],
-    'Colombia': ['Bogotá', 'Medellín', 'Cali', 'Barranquilla', 'Cartagena', 'Bucaramanga', 'Otra ciudad / región'],
-    'Argentina': ['Buenos Aires', 'Córdoba', 'Rosario', 'Mendoza', 'La Plata', 'Otra ciudad / región'],
-    'Perú': ['Lima', 'Arequipa', 'Trujillo', 'Cusco', 'Piura', 'Otra ciudad / región'],
-    'España': ['Madrid', 'Barcelona', 'Valencia', 'Sevilla', 'Málaga', 'Otra ciudad / región'],
-    'Estados Unidos': ['Miami', 'Los Angeles', 'New York', 'Houston', 'Chicago', 'Otra ciudad / región']
-  }
-
-  const getCityOptions = (country: string) => {
-    if (!country) return []
-    const cities = cityOptionsByCountry[country]
-    if (cities) return cities.map(c => ({ value: c, label: c }))
-    return [
-      { value: 'Capital / ciudad principal', label: 'Capital / ciudad principal' },
-      { value: 'Otra ciudad / región', label: 'Otra ciudad / región' }
-    ]
-  }
 
   const channelOptions = [
     { value: 'webchat', label: 'Web Chat en mi sitio' },
-    { value: 'telegram', label: 'Telegram', disabled: true, badge: 'Próximamente' },
-    { value: 'whatsapp', label: 'WhatsApp', disabled: true, badge: 'Próximamente' }
+    { value: 'whatsapp', label: 'WhatsApp', badge: 'Próximamente' },
+    { value: 'instagram', label: 'Instagram', badge: 'Próximamente' },
+    { value: 'facebook', label: 'Facebook Messenger', badge: 'Próximamente' },
+    { value: 'telegram', label: 'Telegram', badge: 'Próximamente' }
   ]
 
   const goalOptions = [
@@ -360,54 +338,43 @@ function EditCompanyModal({
     { value: 'derivar', label: 'Derivar a un asesor humano', description: 'Filtra y asigna conversaciones al equipo.' }
   ]
 
-  useEffect(() => { 
-    const c = initialValues.city || ''
-    const currentCountryCities = getCityOptions(initialValues.country).map(opt => opt.value)
-    const isCustomCity = Boolean(c && !currentCountryCities.includes(c))
+  const languageOptions = [
+    { value: 'es-CL', label: 'Español (Chile)' }, { value: 'es-AR', label: 'Español (Argentina)' },
+    { value: 'es-MX', label: 'Español (México)' }, { value: 'es-CO', label: 'Español (Colombia)' },
+    { value: 'es-PE', label: 'Español (Perú)' }, { value: 'es-ES', label: 'Español (España)' },
+    { value: 'pt-BR', label: 'Português (Brasil)' }, { value: 'en-US', label: 'English (US)' },
+    { value: 'en-GB', label: 'English (UK)' }
+  ]
+  const currencyOptions = ['CLP','ARS','BOB','BRL','COP','CRC','DOP','EUR','GBP','GTQ','HNL','MXN','PAB','PEN','PYG','USD','UYU','VES']
+    .map(code => ({ value: code, label: code }))
+  const timezoneOptions = [
+    ['America/Santiago','Santiago (UTC-4/-3)'],['America/Argentina/Buenos_Aires','Buenos Aires (UTC-3)'],
+    ['America/Sao_Paulo','São Paulo (UTC-3)'],['America/Bogota','Bogotá / Lima (UTC-5)'],
+    ['America/Mexico_City','Ciudad de México (UTC-6)'],['America/New_York','Nueva York / Miami'],
+    ['America/Los_Angeles','Los Ángeles'],['America/Montevideo','Montevideo (UTC-3)'],
+    ['America/Caracas','Caracas (UTC-4)'],['Europe/Madrid','Madrid'],['Europe/Lisbon','Lisboa'],
+    ['Europe/London','Londres'],['UTC','UTC']
+  ].map(([value,label]) => ({ value, label }))
 
-    setValues({ 
-      company_name: initialValues.company_name, country: initialValues.country, phone: initialValues.phone, 
-      business_type: initialValues.business_type, preferred_channel: initialValues.preferred_channel, onboarding_goal: initialValues.onboarding_goal,
-      city: isCustomCity ? 'Otra ciudad / región' : c, 
-      website: initialValues.website || '', support_email: initialValues.support_email || '', address: initialValues.address || '', business_hours: initialValues.business_hours || '',
-      showCustomCity: isCustomCity
-    })
-  }, [initialValues])
-
-  useEffect(() => {
-    if (initialValues.city && initialValues.city !== 'Otra ciudad / región') {
-      const currentCountryCities = getCityOptions(initialValues.country).map(opt => opt.value)
-      if (!currentCountryCities.includes(initialValues.city)) {
-        setCustomCity(initialValues.city)
-      } else {
-        setCustomCity('')
-      }
-    } else {
-      setCustomCity('')
-    }
-  }, [initialValues.city, initialValues.country])
+  // Keep the modal draft aligned with data loaded after the first render.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => setValues(initialValues), [initialValues])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErrorMsg('')
 
-    let finalCity = values.city
-    if (values.showCustomCity || values.city === 'Otra ciudad / región') {
-      const trimmed = customCity.trim()
-      if (!trimmed) {
-        setErrorMsg('Por favor especifica tu ciudad.')
-        return
-      }
-      finalCity = trimmed
+    if (!values.company_name.trim() || !values.country || !values.phone.trim()) {
+      setErrorMsg('Completa el nombre comercial, país y teléfono.')
+      return
     }
 
     setSaving(true)
     try {
-      const { showCustomCity, ...restValues } = values
-      await onSave({ ...restValues, city: finalCity })
+      await onSave(values)
       onClose()
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al guardar los datos.')
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error al guardar los datos.')
     } finally {
       setSaving(false)
     }
@@ -440,20 +407,21 @@ function EditCompanyModal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-[#080f28]/95 border border-white/10 rounded-2xl p-7 max-w-md w-full shadow-2xl"
+            className="bg-[#080f28]/95 border border-white/10 rounded-2xl max-w-3xl w-full shadow-2xl overflow-hidden"
           >
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-semibold text-white text-base">Perfil del negocio</h3>
+            <div className="flex items-center justify-between px-6 py-5 border-b border-white/[0.08]">
+              <div><h3 className="font-semibold text-white text-lg">Perfil del negocio</h3><p className="text-xs text-text-soft mt-1">Adapta horarios, idioma y moneda al país donde atiendes.</p></div>
               <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-text-soft hover:text-white transition-all">
                 <X className="w-4 h-4" />
               </button>
             </div>
             {errorMsg && (
-              <div className="mb-6 p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm rounded-xl">
+              <div className="mx-6 mt-4 p-3 bg-red-500/10 border border-red-500/20 text-red-500 text-sm rounded-xl">
                 {errorMsg}
               </div>
             )}
-            <form onSubmit={handleSubmit} className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-7 max-h-[68vh] overflow-y-auto p-6 custom-scrollbar">
               
               {/* Sección 1: Datos del negocio */}
               <div className="space-y-4">
@@ -461,22 +429,24 @@ function EditCompanyModal({
                   <Building className="w-4 h-4 text-brand-blue" />
                   Datos principales
                 </h4>
-                {field('Nombre comercial *', 'company_name', 'Ej. Tienda Fashion')}
-                {field('Tipo de negocio *', 'business_type', 'Ej. E-commerce, Clínica, etc.')}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {field('Nombre comercial *', 'company_name', 'Ej. Clínica Horizonte')}
+                  {field('Tipo de negocio *', 'business_type', 'Ej. Clínica, e-commerce, inmobiliaria')}
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs text-text-soft mb-1.5 font-medium">País *</label>
                     <CustomSelect
                       options={countryOptions}
                       value={values.country}
                       onChange={(v) => {
-                        setValues(prev => ({ ...prev, country: v, city: '', showCustomCity: false }))
+                        setValues(prev => ({ ...prev, country: v }))
                       }}
                       placeholder="Seleccionar país"
                       searchable={true}
                     />
                   </div>
-                  {field('Teléfono / WhatsApp *', 'phone', 'Ej. +52 55 1234')}
+                  {field('Teléfono internacional *', 'phone', 'Ej. +56 9 1234 5678')}
                 </div>
               </div>
               
@@ -486,6 +456,7 @@ function EditCompanyModal({
                   <MessageCircle className="w-4 h-4 text-brand-cyan" />
                   Configuración inicial
                 </h4>
+                <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-text-soft mb-1.5 font-medium">Canal principal de contacto *</label>
                   <CustomSelect
@@ -494,9 +465,7 @@ function EditCompanyModal({
                     onChange={(v) => setValues(prev => ({ ...prev, preferred_channel: v }))}
                     placeholder="Seleccionar canal"
                   />
-                </div>
-
-                <div>
+                </div><div>
                   <label className="block text-xs text-text-soft mb-1.5 font-medium">Objetivo principal del asistente *</label>
                   <CustomSelect
                     options={goalOptions}
@@ -504,52 +473,29 @@ function EditCompanyModal({
                     onChange={(v) => setValues(prev => ({ ...prev, onboarding_goal: v }))}
                     placeholder="Seleccionar un objetivo"
                   />
-                </div>
+                </div></div>
               </div>
 
               {/* Sección 3: Datos adicionales */}
               <div className="space-y-4">
                 <h4 className="text-sm font-semibold text-white flex items-center gap-2 border-b border-white/[0.05] pb-2">
                   <Globe2 className="w-4 h-4 text-brand-violet" />
-                  Datos adicionales (Opcional)
+                  Ubicación y experiencia regional
                 </h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs text-text-soft mb-1.5 font-medium">Ciudad / Región</label>
-                    <CustomSelect
-                      options={getCityOptions(values.country)}
-                      value={values.city}
-                      onChange={(v) => {
-                        setValues(prev => ({ ...prev, city: v, showCustomCity: v === 'Otra ciudad / región' }))
-                      }}
-                      placeholder="Seleccionar ciudad"
-                      disabled={!values.country}
-                      searchable={true}
-                    />
-                  </div>
-                  {values.showCustomCity ? (
-                    <div>
-                      <label className="block text-xs text-text-soft mb-1.5 font-medium">Especificar ciudad</label>
-                      <input
-                        id="custom_city"
-                        type="text"
-                        value={customCity || ''}
-                        onChange={(e) => setCustomCity(e.target.value)}
-                        placeholder="Escribe tu ciudad o región"
-                        className="w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm text-white focus:outline-none focus:border-brand-blue/50 focus:ring-1 focus:ring-brand-blue/30 transition-all"
-                      />
-                    </div>
-                  ) : (
-                    field('Sitio web', 'website', 'Ej. www.mitienda.com')
-                  )}
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {field('Ciudad / Región', 'city', 'Ej. Santiago, Valparaíso, Madrid')}
+                  {field('Dirección física', 'address', 'Ej. Av. Principal 123')}
                 </div>
-                {values.showCustomCity && field('Sitio web', 'website', 'Ej. www.mitienda.com')}
-                {field('Correo de atención', 'support_email', 'Ej. ayuda@mitienda.com')}
-                {field('Dirección física', 'address', 'Ej. Av. Principal 123')}
-                {field('Horario general', 'business_hours', 'Ej. Lunes a Viernes 9:00 - 18:00')}
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div><label className="block text-xs text-text-soft mb-1.5 font-medium">Idioma de atención</label><CustomSelect options={languageOptions} value={values.locale} onChange={v => setValues(p => ({...p, locale:v}))} placeholder="Seleccionar" searchable /></div>
+                  <div><label className="block text-xs text-text-soft mb-1.5 font-medium">Zona horaria</label><CustomSelect options={timezoneOptions} value={values.timezone} onChange={v => setValues(p => ({...p, timezone:v}))} placeholder="Seleccionar" searchable /></div>
+                  <div><label className="block text-xs text-text-soft mb-1.5 font-medium">Moneda</label><CustomSelect options={currencyOptions} value={values.currency} onChange={v => setValues(p => ({...p, currency:v}))} placeholder="Seleccionar" searchable /></div>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">{field('Sitio web', 'website', 'Ej. negocio.com')}{field('Correo de atención', 'support_email', 'Ej. ayuda@negocio.com')}</div>
+                {field('Horario general', 'business_hours', 'Ej. Lunes a viernes, 09:00–18:00')}
               </div>
-
-              <div className="flex gap-3 pt-4 sticky bottom-0 bg-[#080f28] pb-2">
+              </div>
+              <div className="flex gap-3 px-6 py-4 border-t border-white/[0.08] bg-[#080f28]">
                 <button type="button" onClick={onClose}
                   className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-sm font-medium text-text-soft hover:text-white transition-all">
                   Cancelar
@@ -610,7 +556,8 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   const [profileValues, setProfileValues] = useState({ 
     full_name: userName, company_name: '', phone: '', country: '', 
     business_type: '', preferred_channel: '', onboarding_goal: '',
-    city: '', website: '', support_email: '', address: '', business_hours: ''
+    city: '', website: '', support_email: '', address: '', business_hours: '',
+    timezone: '', currency: '', locale: ''
   })
   const [profileLoading, setProfileLoading] = useState(true)
 
@@ -640,6 +587,9 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
             support_email: prof.support_email || '',
             address: prof.address || '',
             business_hours: prof.business_hours || '',
+            timezone: prof.timezone || '',
+            currency: prof.currency || '',
+            locale: prof.locale || '',
           })
         }
         if (!sett.error) setSettings(sett)
@@ -713,10 +663,13 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
         const errMsg = data.error || 'No se pudo guardar la información'
         showToast(errMsg, 'error')
         console.error('[handleSaveProfile]', data)
+        throw new Error(errMsg)
       }
     } catch (err) {
-      showToast('Error de conexión', 'error')
+      const message = err instanceof Error ? err.message : 'Error de conexión'
+      showToast(message, 'error')
       console.error('[handleSaveProfile] network error', err)
+      throw err
     }
   }
 
@@ -755,6 +708,12 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   const isPremium = plan !== 'trial' && plan !== 'starter' // Define premium appropriately
   const displayName = profileValues.full_name || userName
   const hasAssistant = assistantCount > 0
+  const completedBusinessFields = [
+    profileValues.company_name, profileValues.business_type, profileValues.country,
+    profileValues.city, profileValues.phone, profileValues.locale,
+    profileValues.timezone, profileValues.currency,
+  ].filter(Boolean).length
+  const businessCompletion = Math.round((completedBusinessFields / 8) * 100)
 
   // ── Channel statuses ───────────────────────────────────────────────────────
   const channelStatus = {
@@ -787,6 +746,26 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
       color: 'text-brand-success',
       actionLabel: 'Próximamente',
       actionHref: '/dashboard/billing',
+    },
+    instagram: {
+      available: false,
+      configured: false,
+      label: 'Instagram',
+      description: 'Próximamente disponible',
+      icon: <MessageCircle className="w-4 h-4" />,
+      color: 'text-brand-pink',
+      actionLabel: 'Próximamente',
+      actionHref: '/dashboard/settings',
+    },
+    facebook: {
+      available: false,
+      configured: false,
+      label: 'Facebook Messenger',
+      description: 'Próximamente disponible',
+      icon: <MessageCircle className="w-4 h-4" />,
+      color: 'text-brand-blue',
+      actionLabel: 'Próximamente',
+      actionHref: '/dashboard/settings',
     },
   }
 
@@ -948,6 +927,16 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                       Editar perfil del negocio
                     </button>
                   </div>
+                  <div className="mb-5 rounded-xl border border-brand-violet/15 bg-brand-violet/5 p-4">
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <span className="font-medium text-white">Perfil comercial</span>
+                      <span className="font-semibold text-brand-violet">{businessCompletion}% completo</span>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.06]">
+                      <div className="h-full rounded-full bg-gradient-to-r from-brand-violet to-brand-cyan transition-all" style={{ width: `${businessCompletion}%` }} />
+                    </div>
+                    <p className="mt-2 text-xs text-text-soft">Estos datos preparan formatos, horarios y respuestas para el mercado donde opera tu negocio.</p>
+                  </div>
                   
                   <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
@@ -994,7 +983,7 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                     </div>
                   </div>
 
-                  {(profileValues.city || profileValues.website || profileValues.support_email || profileValues.address || profileValues.business_hours) && (
+                  {(profileValues.city || profileValues.website || profileValues.support_email || profileValues.address || profileValues.business_hours || profileValues.locale || profileValues.timezone || profileValues.currency) && (
                     <>
                       <h4 className="text-sm font-medium text-white mt-6 mb-3 flex items-center gap-2">
                         <Globe2 className="w-4 h-4 text-text-soft" /> Datos adicionales
@@ -1024,6 +1013,21 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                             <span className="text-sm font-medium text-white truncate max-w-[60%]">{profileValues.business_hours}</span>
                           </div>
                         )}
+                        {profileValues.locale && (
+                          <div className="p-3 rounded-xl bg-white/[0.01] border border-white/[0.05] flex justify-between items-center">
+                            <span className="text-xs text-text-soft">Idioma</span><span className="text-sm font-medium text-white">{profileValues.locale}</span>
+                          </div>
+                        )}
+                        {profileValues.timezone && (
+                          <div className="p-3 rounded-xl bg-white/[0.01] border border-white/[0.05] flex justify-between items-center">
+                            <span className="text-xs text-text-soft">Zona horaria</span><span className="text-sm font-medium text-white truncate max-w-[65%]">{profileValues.timezone}</span>
+                          </div>
+                        )}
+                        {profileValues.currency && (
+                          <div className="p-3 rounded-xl bg-white/[0.01] border border-white/[0.05] flex justify-between items-center">
+                            <span className="text-xs text-text-soft">Moneda</span><span className="text-sm font-medium text-white">{profileValues.currency}</span>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
@@ -1045,6 +1049,9 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                       { label: 'Teléfono agregado', done: !!profileValues.phone },
                       { label: 'Canal preferido configurado', done: !!profileValues.preferred_channel },
                       { label: 'Objetivo principal configurado', done: !!profileValues.onboarding_goal },
+                      { label: 'Idioma de atención configurado', done: !!profileValues.locale },
+                      { label: 'Zona horaria configurada', done: !!profileValues.timezone },
+                      { label: 'Moneda configurada', done: !!profileValues.currency },
                     ].map((item, idx) => (
                       <div key={idx} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.05]">
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center border shrink-0 ${item.done ? 'bg-brand-success/20 border-brand-success/50' : 'bg-white/[0.04] border-white/[0.1]'}`}>
@@ -1330,7 +1337,7 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                           className={`shrink-0 text-xs px-3 py-1.5 rounded-lg border transition-all ${
                             ch.available
                               ? 'bg-white/[0.04] border-white/[0.1] text-text-soft hover:text-white hover:border-white/20'
-                              : key === 'whatsapp'
+                              : ch.actionLabel === 'Próximamente'
                                 ? 'bg-white/[0.02] border-white/[0.06] text-text-soft cursor-default pointer-events-none'
                                 : 'bg-brand-violet/10 border-brand-violet/20 text-brand-purple hover:bg-brand-violet/20'
                           }`}
