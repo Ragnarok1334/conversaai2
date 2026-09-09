@@ -1,189 +1,62 @@
 'use client'
 
-import { CheckCircle2, ChevronRight, Clock, MessageSquare, Target } from 'lucide-react'
-import Link from 'next/link'
+import { CheckCircle2, CircleDashed, Globe2, MessageSquare, Palette, Rocket, Users } from 'lucide-react'
 
-interface Domain {
-  id: string
-  domain: string
-  is_verified: boolean
-  verification_status: string
-  last_seen_at: string | null
-}
-
-interface AssistantWebChatHubProps {
-  assistantId: string
-  widgetConfig: any
+interface Domain { is_verified: boolean; last_seen_at: string | null }
+interface Props {
+  widgetConfig: Record<string, unknown> | null
   domains: Domain[]
   conversationsCount: number
   leadsCount: number
-  onScrollToAppearance: () => void
-  onScrollToInstall: () => void
+  activeSection: 'design' | 'install'
+  onSectionChange: (section: 'design' | 'install') => void
 }
 
-export function AssistantWebChatHub({
-  assistantId,
-  widgetConfig,
-  domains,
-  conversationsCount,
-  leadsCount,
-  onScrollToAppearance,
-  onScrollToInstall
-}: AssistantWebChatHubProps) {
-  
-  const isCustomized = Boolean(widgetConfig && Object.keys(widgetConfig).length > 0)
-  const hasDomain = domains.length > 0
-  const isDetected = domains.some(d => d.last_seen_at !== null)
-  const hasConversations = conversationsCount > 0
+export function AssistantWebChatHub({ widgetConfig, domains, conversationsCount, leadsCount, activeSection, onSectionChange }: Props) {
+  const customized = Boolean(widgetConfig && Object.keys(widgetConfig).length)
+  const domain = domains.length > 0
+  const installed = domains.some(item => item.is_verified && Boolean(item.last_seen_at))
+  const completed = [customized, domain, installed].filter(Boolean).length
+
+  const steps = [
+    { label: 'Diseño', detail: customized ? 'Personalizado' : 'Pendiente', done: customized, icon: Palette, action: () => onSectionChange('design') },
+    { label: 'Dominio', detail: domain ? 'Autorizado' : 'Pendiente', done: domain, icon: Globe2, action: () => onSectionChange('install') },
+    { label: 'Publicado', detail: installed ? 'Detectado' : 'Sin detectar', done: installed, icon: Rocket, action: () => onSectionChange('install') },
+  ]
 
   return (
-    <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 lg:p-8 shadow-xl mb-8">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-          <Target className="w-6 h-6 text-brand-cyan" />
-          Configura e instala tu Web Chat
-        </h2>
-        <p className="text-slate-400 mt-2">
-          Personaliza cómo se verá el asistente, autoriza tu dominio e instala el script en tu sitio.
-        </p>
-      </div>
-
-      <div className="grid lg:grid-cols-5 gap-4">
-        {/* Step 1: Appearance */}
-        <div className="relative p-5 rounded-2xl border bg-black/20 transition-all flex flex-col justify-between border-white/10 hover:border-white/20">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                isCustomized ? 'bg-brand-success/20 text-brand-success' : 'bg-brand-cyan/20 text-brand-cyan'
-              }`}>
-                {isCustomized ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-sm font-bold">1</span>}
-              </div>
-              <h3 className="font-semibold text-white">Apariencia</h3>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">
-              {isCustomized ? 'Web Chat personalizado.' : 'Ajusta colores y textos.'}
-            </p>
+    <section className="overflow-hidden rounded-3xl border border-card-border bg-card-bg shadow-sm">
+      <div className="flex flex-col gap-5 border-b border-card-border p-5 sm:flex-row sm:items-center sm:justify-between lg:p-6">
+        <div>
+          <div className="mb-1 flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-brand-cyan" />
+            <h2 className="dashboard-strong text-xl font-bold">Web Chat</h2>
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${installed ? 'border-emerald-500/25 bg-emerald-500/10 text-brand-success' : 'border-amber-500/25 bg-amber-500/10 text-amber-500'}`}>
+              {installed ? 'En línea' : 'En configuración'}
+            </span>
           </div>
-          <button 
-            onClick={onScrollToAppearance}
-            className={`w-full py-2 rounded-xl text-xs font-semibold transition-colors ${
-              isCustomized ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-brand-cyan text-slate-900 hover:bg-brand-cyan/90'
-            }`}
-          >
-            {isCustomized ? 'Editar apariencia' : 'Personalizar Web Chat'}
-          </button>
-          <ChevronRight className="hidden lg:block absolute -right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+          <p className="dashboard-muted text-sm">Personaliza el chat y publícalo en tu sitio sin perderte entre opciones.</p>
         </div>
-
-        {/* Step 2: Domain */}
-        <div className={`relative p-5 rounded-2xl border bg-black/20 transition-all flex flex-col justify-between ${
-          !isCustomized ? 'opacity-50 grayscale pointer-events-none border-transparent' : 'border-white/10 hover:border-white/20'
-        }`}>
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                hasDomain ? 'bg-brand-success/20 text-brand-success' : 'bg-white/10 text-slate-400'
-              }`}>
-                {hasDomain ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-sm font-bold">2</span>}
-              </div>
-              <h3 className="font-semibold text-white">Dominio</h3>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">
-              {hasDomain ? 'Dominio autorizado.' : 'Indica dónde se instalará.'}
-            </p>
-          </div>
-          <button 
-            onClick={onScrollToInstall}
-            className={`w-full py-2 rounded-xl text-xs font-semibold transition-colors ${
-              hasDomain ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-brand-cyan text-slate-900 hover:bg-brand-cyan/90'
-            }`}
-          >
-            {hasDomain ? 'Gestionar dominios' : 'Autorizar dominio'}
-          </button>
-          <ChevronRight className="hidden lg:block absolute -right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
-        </div>
-
-        {/* Step 3: Script */}
-        <div className={`relative p-5 rounded-2xl border bg-black/20 transition-all flex flex-col justify-between ${
-          !hasDomain ? 'opacity-50 grayscale pointer-events-none border-transparent' : 'border-white/10 hover:border-white/20'
-        }`}>
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                isDetected ? 'bg-brand-success/20 text-brand-success' : 'bg-white/10 text-slate-400'
-              }`}>
-                {isDetected ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-sm font-bold">3</span>}
-              </div>
-              <h3 className="font-semibold text-white">Instalación</h3>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">
-              {isDetected ? 'Script copiado.' : 'Copia e instala el script.'}
-            </p>
-          </div>
-          <button 
-            onClick={onScrollToInstall}
-            className={`w-full py-2 rounded-xl text-xs font-semibold transition-colors ${
-              isDetected ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-brand-cyan text-slate-900 hover:bg-brand-cyan/90'
-            }`}
-          >
-            {isDetected ? 'Ver código' : 'Copiar script'}
-          </button>
-          <ChevronRight className="hidden lg:block absolute -right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
-        </div>
-
-        {/* Step 4: Verification */}
-        <div className={`relative p-5 rounded-2xl border bg-black/20 transition-all flex flex-col justify-between ${
-          !hasDomain ? 'opacity-50 grayscale pointer-events-none border-transparent' : 'border-white/10 hover:border-white/20'
-        }`}>
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                isDetected ? 'bg-brand-success/20 text-brand-success' : 'bg-amber-500/20 text-amber-500'
-              }`}>
-                {isDetected ? <CheckCircle2 className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-              </div>
-              <h3 className="font-semibold text-white">Verificación</h3>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">
-              {isDetected ? 'Instalación confirmada.' : 'Esperando detección...'}
-            </p>
-          </div>
-          <button 
-            onClick={onScrollToInstall}
-            className={`w-full py-2 rounded-xl text-xs font-semibold transition-colors ${
-              isDetected ? 'bg-white/5 text-slate-300 hover:bg-white/10' : 'bg-amber-500 text-amber-950 hover:bg-amber-400'
-            }`}
-          >
-            {isDetected ? 'Verificado' : 'Verificar instalación'}
-          </button>
-          <ChevronRight className="hidden lg:block absolute -right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
-        </div>
-
-        {/* Step 5: Test / Conversations */}
-        <div className={`relative p-5 rounded-2xl border bg-black/20 transition-all flex flex-col justify-between ${
-          !isDetected ? 'opacity-50 grayscale pointer-events-none border-transparent' : 'border-brand-violet/30 hover:border-brand-violet/50'
-        }`}>
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                hasConversations ? 'bg-brand-violet/20 text-brand-violet' : 'bg-white/10 text-slate-400'
-              }`}>
-                {hasConversations ? <MessageSquare className="w-4 h-4" /> : <span className="text-sm font-bold">5</span>}
-              </div>
-              <h3 className="font-semibold text-white">Conversaciones</h3>
-            </div>
-            <p className="text-xs text-slate-400 mb-4">
-              {hasConversations ? `${conversationsCount} chats recibidos.` : 'Esperando primer chat.'}
-            </p>
-          </div>
-          <Link 
-            href={`/dashboard/assistants/${assistantId}?tab=test`}
-            className="w-full flex items-center justify-center py-2 rounded-xl bg-brand-violet text-white text-xs font-semibold transition-colors hover:bg-brand-violet/90"
-          >
-            Probar asistente
-          </Link>
+        <div className="min-w-[180px]">
+          <div className="mb-2 flex justify-between text-xs"><span className="dashboard-muted">Progreso</span><strong className="dashboard-strong">{completed}/3 listo</strong></div>
+          <div className="h-2 overflow-hidden rounded-full bg-black/10"><div className="h-full rounded-full bg-gradient-to-r from-brand-violet to-brand-cyan transition-all" style={{ width: `${(completed / 3) * 100}%` }} /></div>
         </div>
       </div>
-    </div>
+
+      <div className="grid gap-3 p-5 sm:grid-cols-3 lg:p-6">
+        {steps.map(({ label, detail, done, icon: Icon, action }) => (
+          <button key={label} type="button" onClick={action} className={`group flex cursor-pointer items-center gap-3 rounded-2xl border p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-brand-cyan/40 ${activeSection === (label === 'Diseño' ? 'design' : 'install') ? 'border-brand-violet/30 bg-brand-violet/5' : 'border-card-border'}`}>
+            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${done ? 'bg-emerald-500/10 text-brand-success' : 'bg-amber-500/10 text-amber-500'}`}><Icon className="h-4 w-4" /></span>
+            <span className="min-w-0"><strong className="dashboard-strong block text-sm">{label}</strong><small className="dashboard-muted">{detail}</small></span>
+            {done ? <CheckCircle2 className="ml-auto h-4 w-4 text-brand-success" /> : <CircleDashed className="ml-auto h-4 w-4 text-amber-500" />}
+          </button>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-2 border-t border-card-border">
+        <div className="flex items-center gap-3 p-4 lg:px-6"><MessageSquare className="h-4 w-4 text-brand-violet" /><div><strong className="dashboard-strong block text-sm">{conversationsCount}</strong><span className="dashboard-muted text-xs">conversaciones</span></div></div>
+        <div className="flex items-center gap-3 border-l border-card-border p-4 lg:px-6"><Users className="h-4 w-4 text-brand-cyan" /><div><strong className="dashboard-strong block text-sm">{leadsCount}</strong><span className="dashboard-muted text-xs">leads captados</span></div></div>
+      </div>
+    </section>
   )
 }
