@@ -285,15 +285,39 @@ export async function DELETE(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { error } = await supabase
+    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
+    const supabaseAdmin = createSupabaseAdmin()
+    const { confirmation } = await readJsonBody<{ confirmation?: string }>(_request, 2_000)
+
+    const { data: ownedAssistant, error: lookupError } = await supabaseAdmin
+      .from('assistants')
+      .select('id, assistant_name')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (lookupError) throw lookupError
+    if (!ownedAssistant) {
+      return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404 })
+    }
+
+    if (!confirmation || confirmation.trim() !== ownedAssistant.assistant_name) {
+      await logSecurityEvent({ userId: user.id, eventType: 'assistant_delete_confirmation_failed', severity: 'warning', message: `Confirmación inválida al eliminar el asistente ${id}`, req: _request })
+      return NextResponse.json({ error: 'Escribe el nombre exacto del asistente para confirmar' }, { status: 400 })
+    }
+
+    const { data: deletedAssistant, error } = await supabaseAdmin
       .from('assistants')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id)
+      .select('id')
+      .maybeSingle()
 
-    if (error) {
+    if (error || !deletedAssistant) {
       await logSecurityEvent({ userId: user.id, eventType: 'assistant_delete_forbidden', severity: 'warning', message: `No se pudo eliminar el asistente ${id}`, req: _request })
-      throw error
+      if (error) throw error
+      return NextResponse.json({ error: 'No se pudo eliminar el asistente' }, { status: 409 })
     }
 
     await logAuditEvent({ userId: user.id, action: 'assistant_deleted', entityType: 'assistant', entityId: id, description: 'Asistente eliminado', req: _request })
