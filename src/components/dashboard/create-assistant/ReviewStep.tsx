@@ -1,10 +1,9 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { CheckCircle2, Lock, Loader2, AlertCircle } from 'lucide-react'
-import { BuilderFormData } from './types'
+import { AlertCircle, Bot, Check, CheckCircle2, Loader2, Lock, MessageSquareText } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { calculateIndicators } from './BehaviorStep'
+import { BuilderFormData } from './types'
 
 interface Props {
   form: BuilderFormData
@@ -18,251 +17,142 @@ interface Props {
   mode?: 'create' | 'edit'
 }
 
-export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, currentPlan, onSubmit, status, errorMsg, mode = 'create' }: Props) {
+const channelLabels: Record<keyof BuilderFormData['channels'], string> = {
+  webchat: 'Webchat',
+  whatsapp: 'WhatsApp',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  telegram: 'Telegram',
+}
+
+export function ReviewStep({
+  form,
+  hasReachedLimit,
+  currentUsage,
+  planLimit,
+  currentPlan,
+  onSubmit,
+  status,
+  errorMsg,
+  mode = 'create',
+}: Props) {
   const router = useRouter()
-
-  const blocks = form.knowledgeBlocks || []
-  
-  const getBlockState = (text: string) => {
-    const chars = text?.trim().length || 0
-    if (chars >= 80) return 'Completo'
-    if (chars > 0) return 'Parcial'
-    return 'Pendiente'
-  }
-
-  const activeAndCompleted = blocks.filter(b => b.is_active && getBlockState(b.content) === 'Completo')
-  const completedCount = activeAndCompleted.length
-  
-  const hasServices = activeAndCompleted.some(b => b.type === 'services')
-  const hasPricing = activeAndCompleted.some(b => b.type === 'pricing')
-  const hasHours = activeAndCompleted.some(b => b.type === 'hours')
-  const hasLocation = activeAndCompleted.some(b => b.type === 'location')
-  
-  const missingEssentials = []
-  if (!hasServices) missingEssentials.push('Servicios')
-  if (!hasPricing) missingEssentials.push('Precios')
-  if (!hasHours) missingEssentials.push('Horarios')
-  if (!hasLocation) missingEssentials.push('Ubicación')
-
-  let qualityLevel = 'Básico'
-  let qualityColor = 'text-amber-500 bg-amber-500/10 border-amber-500/20'
-  
-  if (completedCount >= 6 && missingEssentials.length === 0) {
-    qualityLevel = 'Completo'
-    qualityColor = 'text-brand-success bg-brand-success/10 border-brand-success/20'
-  } else if (completedCount >= 3) {
-    qualityLevel = 'Bueno'
-    qualityColor = 'text-brand-cyan bg-brand-cyan/10 border-brand-cyan/20'
-  }
+  const knowledgeReady = form.instructions.trim().length >= 80
+    || form.knowledgeBlocks.some(block => block.is_active && block.content.trim().length >= 80)
+  const enabledChannels = (Object.keys(form.channels) as Array<keyof BuilderFormData['channels']>)
+    .filter(channel => form.channels[channel].enabled)
 
   const checklist = [
-    { label: 'Plan activo o en prueba', done: true },
-    { label: 'Información básica completa', done: form.assistant_name.trim() !== '' && form.business_name.trim() !== '' },
-    { label: 'Entrenamiento agregado', done: form.instructions.trim().length >= 80 || blocks.some(b => b.content.trim().length >= 80) },
-    { label: 'Canal seleccionado', done: form.channels.webchat.enabled },
+    { label: 'Identidad del asistente', done: Boolean(form.assistant_name.trim() && form.business_name.trim() && form.business_type.trim()) },
+    { label: 'Información del negocio', done: knowledgeReady },
+    { label: 'Comportamiento y reglas', done: Boolean(form.behavior.tone && form.behavior.goal) },
+    { label: 'Al menos un canal activo', done: enabledChannels.length > 0 },
   ]
-
-  const allReady = checklist.every(i => i.done)
-
-  const rulesMap = [
-    { key: 'askName', label: 'Pedir nombre del cliente' },
-    { key: 'askContact', label: 'Pedir teléfono o correo' },
-    { key: 'offerPricesWhenAsked', label: 'Ofrecer precios' },
-    { key: 'suggestAppointment', label: 'Sugerir agendar cita' },
-    { key: 'escalateIfUnknown', label: 'Derivar a humano si no sabe' },
-    { key: 'doNotInvent', label: 'No inventar información' },
-    { key: 'alwaysSpanish', label: 'Responder en español' },
-  ] as const
-
-  const activeRules = rulesMap.filter(r => form.behavior.rules[r.key as keyof typeof form.behavior.rules])
-  const inactiveRules = rulesMap.filter(r => !form.behavior.rules[r.key as keyof typeof form.behavior.rules])
-
-  const inds = calculateIndicators(form.behavior)
+  const allReady = checklist.every(item => item.done)
 
   return (
-    <motion.div
+    <motion.section
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+      className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 lg:p-8 shadow-xl"
     >
-      <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 lg:p-8 space-y-6 shadow-xl">
-        <div className="border-b border-white/[0.06] pb-4">
-          <h2 className="font-semibold text-xl mb-1 text-white">Revisión final</h2>
-          <p className="text-sm text-slate-400">Confirma que tu asistente tiene la información mínima para responder correctamente.</p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-5 border-b border-white/[0.06]">
+        <div>
+          <h2 className="font-semibold text-xl text-white">Todo listo para publicar</h2>
+          <p className="text-sm text-slate-400 mt-1">Revisa lo esencial. Podrás modificar cualquier dato después.</p>
+        </div>
+        <span className="self-start rounded-full border border-brand-violet/20 bg-brand-violet/10 px-3 py-1 text-xs font-semibold text-brand-violet capitalize">
+          Plan {currentPlan}
+        </span>
+      </div>
+
+      <div className="grid md:grid-cols-[1.15fr_.85fr] gap-5 py-6">
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl gradient-btn text-white flex items-center justify-center">
+              <Bot className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-semibold text-white truncate">{form.assistant_name || 'Asistente sin nombre'}</p>
+              <p className="text-xs text-slate-400 truncate">{form.business_name || 'Negocio sin configurar'}</p>
+            </div>
+          </div>
+          <dl className="grid sm:grid-cols-2 gap-3 text-sm">
+            <div><dt className="text-xs text-slate-500">Objetivo</dt><dd className="text-white capitalize mt-0.5">{form.behavior.goal}</dd></div>
+            <div><dt className="text-xs text-slate-500">Tono</dt><dd className="text-white capitalize mt-0.5">{form.behavior.tone}</dd></div>
+            <div className="sm:col-span-2">
+              <dt className="text-xs text-slate-500 mb-2">Canales seleccionados</dt>
+              <dd className="flex flex-wrap gap-2">
+                {enabledChannels.length > 0 ? enabledChannels.map(channel => (
+                  <span key={channel} className="inline-flex items-center gap-1.5 rounded-lg bg-brand-cyan/10 border border-brand-cyan/20 px-2.5 py-1 text-xs text-brand-cyan">
+                    <MessageSquareText className="w-3 h-3" /> {channelLabels[channel]}
+                  </span>
+                )) : <span className="text-xs text-brand-pink">Selecciona al menos un canal.</span>}
+              </dd>
+            </div>
+          </dl>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-white">Resumen</h3>
-            <ul className="space-y-2 text-sm text-slate-300">
-              <li><span className="text-slate-500">Nombre:</span> {form.assistant_name || '-'}</li>
-              <li><span className="text-slate-500">Negocio:</span> {form.business_name || '-'}</li>
-              <li><span className="text-slate-500">Tono:</span> <span className="capitalize">{form.behavior.tone}</span></li>
-              <li><span className="text-slate-500">Objetivo:</span> <span className="capitalize">{form.behavior.goal}</span></li>
-              <li><span className="text-slate-500">Nivel comercial:</span> <span className="capitalize">{form.behavior.salesLevel}</span></li>
-              <li><span className="text-slate-500">Canal activo:</span> Web Chat</li>
-              <li className="flex flex-wrap items-center gap-1.5">
-                <span className="text-slate-500">Próximos:</span>
-                {['WhatsApp', 'Instagram', 'Facebook', 'Telegram'].map(channel => (
-                  <span key={channel} className="text-[9px] uppercase font-bold border border-white/10 px-1.5 py-0.5 rounded text-slate-400">{channel}</span>
-                ))}
-              </li>
-            </ul>
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-white mb-2 flex items-center gap-2">
-                Conocimiento:
-                <span className={`px-2 py-0.5 rounded-full border ${qualityColor}`}>
-                  {qualityLevel}
+        <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
+          <p className="text-sm font-semibold text-white mb-4">Comprobación</p>
+          <ul className="space-y-3">
+            {checklist.map(item => (
+              <li key={item.label} className="flex items-center gap-2.5 text-sm">
+                <span className={`w-5 h-5 rounded-full border flex items-center justify-center ${item.done ? 'bg-brand-success/15 border-brand-success/40' : 'border-white/15'}`}>
+                  {item.done && <Check className="w-3 h-3 text-brand-success" />}
                 </span>
-              </h4>
-              <ul className="space-y-2 text-xs text-slate-300">
-                {blocks.filter(b => b.type !== 'custom').map(b => {
-                  const state = getBlockState(b.content)
-                  return (
-                    <li key={b.type} className="flex items-center justify-between">
-                      <span className="capitalize">{b.title}</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
-                        state === 'Completo' ? 'text-brand-success bg-brand-success/10 border-brand-success/20' : 
-                        state === 'Parcial' ? 'text-amber-500 bg-amber-500/10 border-amber-500/20' : 
-                        'text-slate-500 bg-white/5 border-white/10'
-                      }`}>
-                        {state}
-                      </span>
-                    </li>
-                  )
-                })}
-                {form.instructions.trim().length > 0 && (
-                  <li className="flex items-center justify-between">
-                    <span>Texto libre (Legacy)</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-medium border ${
-                      getBlockState(form.instructions) === 'Completo' ? 'text-brand-success bg-brand-success/10 border-brand-success/20' : 'text-amber-500 bg-amber-500/10 border-amber-500/20'
-                    }`}>
-                      {getBlockState(form.instructions)}
-                    </span>
-                  </li>
-                )}
-              </ul>
-              {missingEssentials.length > 0 && (
-                <div className="mt-3 p-3 bg-brand-violet/10 border border-brand-violet/20 rounded-xl">
-                  <h5 className="text-[11px] font-semibold text-brand-violet mb-1">Recomendación profesional:</h5>
-                  <p className="text-[10px] text-brand-violet/80 mb-2 leading-snug">
-                    Tu asistente funcionará, pero para dar mejores respuestas te sugerimos completar:
-                  </p>
-                  <ul className="grid grid-cols-2 gap-1 text-[10px] text-brand-violet/70">
-                    {missingEssentials.map(m => (
-                      <li key={m} className="flex items-center gap-1"><div className="w-1 h-1 rounded-full bg-brand-violet" /> {m}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-4">
-              <h4 className="text-xs font-semibold text-white mb-2">Impacto del comportamiento:</h4>
-              <ul className="space-y-1.5 text-xs text-slate-300 mb-4 bg-white/5 p-3 rounded-xl border border-white/10">
-                <li className="flex items-center justify-between">
-                  <span className="text-slate-400">Captación de leads:</span> 
-                  <span className={`font-semibold ${inds.leadsIndicator === 'Alta' ? 'text-brand-success' : inds.leadsIndicator === 'Media' ? 'text-amber-400' : 'text-slate-400'}`}>{inds.leadsIndicator}</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span className="text-slate-400">Control de respuesta:</span> 
-                  <span className={`font-semibold ${inds.controlIndicator === 'Estricto' ? 'text-brand-violet' : inds.controlIndicator === 'Controlado' ? 'text-brand-cyan' : 'text-slate-400'}`}>{inds.controlIndicator}</span>
-                </li>
-                <li className="flex items-center justify-between">
-                  <span className="text-slate-400">Fricción para visitante:</span> 
-                  <span className={`font-semibold ${inds.frictionIndicator === 'Alta' ? 'text-brand-pink' : inds.frictionIndicator === 'Media' ? 'text-amber-400' : 'text-slate-400'}`}>{inds.frictionIndicator}</span>
-                </li>
-              </ul>
-
-              <h4 className="text-xs font-semibold text-white mb-2">Reglas activas:</h4>
-              <ul className="space-y-1 text-xs text-slate-300">
-                {activeRules.map(r => (
-                  <li key={r.key} className="flex items-center gap-1.5"><CheckCircle2 className="w-3 h-3 text-brand-success" /> {r.label}</li>
-                ))}
-              </ul>
-            </div>
-            
-            <p className="mt-4 text-[11px] text-slate-400 leading-snug bg-brand-cyan/5 border border-brand-cyan/20 p-3 rounded-lg">
-              Estas reglas modifican cómo responderá tu asistente, pero <strong className="text-slate-300 font-medium">no consumen mensajes por sí mismas</strong>. Cada respuesta real del asistente consume 1 mensaje del plan.
-            </p>
-          </div>
-          
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-white">Lista de verificación</h3>
-            <ul className="space-y-3 mb-4">
-              {checklist.map((item, i) => (
-                <li key={i} className={`flex items-center gap-2 text-sm ${item.done ? 'text-brand-success' : 'text-slate-500'}`}>
-                  {item.done ? <CheckCircle2 className="w-4 h-4" /> : <div className="w-4 h-4 rounded-full border-2 border-slate-700" />}
-                  {item.label}
-                </li>
-              ))}
-            </ul>
-            <p className="text-xs text-slate-400">Después de crear, te llevaremos a la sección de instalación para copiar el script del Web Chat y autorizar tu dominio.</p>
-          </div>
-        </div>
-
-        {/* Límite del plan */}
-        <div className="pt-6 border-t border-white/[0.06]">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-slate-300">Uso de tu plan (<span className="capitalize">{currentPlan}</span>)</span>
-            <span className="text-sm text-slate-400">{currentUsage} / {planLimit === null ? 'Ilimitado' : planLimit} asistentes</span>
-          </div>
-          <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mb-4">
-            <div
-              className={`h-full rounded-full transition-all duration-700 ease-out ${
-                planLimit === null 
-                  ? 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan' 
-                  : (currentUsage / planLimit) * 100 >= 90 
-                    ? 'bg-brand-pink' 
-                    : (currentUsage / planLimit) * 100 >= 80 
-                      ? 'bg-amber-400' 
-                      : 'bg-gradient-to-r from-brand-violet via-brand-blue to-brand-cyan'
-              }`}
-              style={{ width: planLimit === null ? '100%' : `${Math.min((currentUsage / planLimit) * 100, 100)}%` }}
-            />
-          </div>
-
-          {hasReachedLimit ? (
-            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 flex flex-col gap-3">
-              <div className="flex items-start gap-2">
-                <Lock className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-amber-200">
-                  Alcanzaste el límite de asistentes de tu plan actual.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => router.push('/dashboard/billing')}
-                className="w-full bg-gradient-to-r from-violet-500 to-cyan-500 py-3 rounded-xl text-white font-bold shadow-[0_0_15px_rgba(34,211,238,0.2)] hover:shadow-[0_0_25px_rgba(34,211,238,0.4)] transition-all"
-              >
-                Mejorar plan para guardar
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {status === 'error' && (
-                <div className="p-3 rounded-xl bg-brand-pink/10 border border-brand-pink/20 text-brand-pink text-sm flex gap-2">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                  {errorMsg}
-                </div>
-              )}
-              <button
-                type="button"
-                onClick={onSubmit}
-                disabled={!allReady || status === 'saving' || status === 'success'}
-                className="w-full bg-gradient-to-r from-brand-violet to-brand-cyan py-4 rounded-xl text-white font-bold text-lg shadow-[0_0_20px_rgba(34,211,238,0.2)] hover:shadow-[0_0_30px_rgba(34,211,238,0.4)] hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {status === 'saving' && <Loader2 className="w-5 h-5 animate-spin" />}
-                {status === 'success' && <CheckCircle2 className="w-5 h-5" />}
-                {status === 'saving' ? (mode === 'edit' ? 'Guardando cambios...' : 'Creando asistente...') : 
-                 status === 'success' ? (mode === 'edit' ? 'Cambios guardados correctamente' : 'Asistente creado correctamente') : 
-                 (mode === 'edit' ? 'Guardar cambios' : 'Crear asistente')}
-              </button>
-            </div>
-          )}
+                <span className={item.done ? 'text-white' : 'text-slate-500'}>{item.label}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
-    </motion.div>
+
+      <div className="pt-5 border-t border-white/[0.06]">
+        <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
+          <span>Asistentes utilizados</span>
+          <span>{currentUsage} / {planLimit === null ? 'Ilimitados' : planLimit}</span>
+        </div>
+
+        {hasReachedLimit ? (
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 p-4">
+            <p className="flex items-center gap-2 text-sm text-amber-600">
+              <Lock className="w-4 h-4" /> Alcanzaste el límite de asistentes de tu plan.
+            </p>
+            <button type="button" onClick={() => router.push('/dashboard/billing')} className="mt-3 w-full py-3 rounded-xl gradient-btn text-white font-semibold">
+              Ver opciones de plan
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {status === 'error' && (
+              <div className="p-3 rounded-xl bg-brand-pink/10 border border-brand-pink/20 text-brand-pink text-sm flex gap-2">
+                <AlertCircle className="w-5 h-5 shrink-0" /> {errorMsg}
+              </div>
+            )}
+            {!allReady && (
+              <p className="text-xs text-amber-600">Completa los puntos pendientes para continuar.</p>
+            )}
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={!allReady || status === 'saving' || status === 'success'}
+              className="w-full py-3.5 rounded-xl gradient-btn text-white font-bold shadow-lg shadow-brand-cyan/15 transition-all hover:scale-[1.01] disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {status === 'saving' && <Loader2 className="w-5 h-5 animate-spin" />}
+              {status === 'success' && <CheckCircle2 className="w-5 h-5" />}
+              {status === 'saving'
+                ? 'Guardando…'
+                : status === 'success'
+                  ? 'Guardado correctamente'
+                  : mode === 'edit'
+                    ? 'Guardar cambios'
+                    : 'Crear y publicar asistente'}
+            </button>
+            <p className="text-center text-[11px] text-slate-500">Crear el asistente no envía mensajes ni consume créditos por sí solo.</p>
+          </div>
+        )}
+      </div>
+    </motion.section>
   )
 }
