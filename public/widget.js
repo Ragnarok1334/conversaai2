@@ -38,6 +38,8 @@
   // Icons
   const closeIconSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
   const chatIconSVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 1.821.487 3.53 1.338 5L2 22l5.001-1.339A9.954 9.954 0 0012 22c5.523 0 10-4.477 10-10S17.523 2 12 2zm0 18c-1.482 0-2.883-.327-4.135-.911l-.296-.138-3.084.825.834-3.003-.153-.3A7.95 7.95 0 014 12c0-4.411 3.589-8 8-8s8 3.589 8 8-3.589 8-8 8z"/></svg>`;
+  const sparklesIconSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.5 4.5L6 9l4.5 1.5L12 15l1.5-4.5L18 9l-4.5-1.5L12 3Z"/><path d="M5 3v4M3 5h4M19 17v4M17 19h4"/></svg>`;
+  const supportIconSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a8 8 0 0 1 16 0"/><path d="M18 19c0 1.1-.9 2-2 2h-3"/><path d="M4 14v3a2 2 0 0 0 2 2h1v-7H6a2 2 0 0 0-2 2ZM20 14v3a2 2 0 0 1-2 2h-1v-7h1a2 2 0 0 1 2 2Z"/></svg>`;
   const sendIconSVG = `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`;
 
   if (document.readyState === 'loading') {
@@ -158,6 +160,11 @@
         transform: scale(1.05);
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
       }
+      .conversaai-widget-container.cai-size-small .conversaai-widget-button { width: 48px; height: 48px; }
+      .conversaai-widget-container.cai-size-small .conversaai-widget-button svg { width: 22px; height: 22px; }
+      .conversaai-widget-container.cai-size-large .conversaai-widget-button { width: 68px; height: 68px; }
+      .conversaai-widget-container.cai-size-large .conversaai-widget-button svg { width: 31px; height: 31px; }
+      .conversaai-widget-container.cai-shape-rounded .conversaai-widget-button { border-radius: 18px; }
       .conversaai-widget-button svg {
         width: 28px;
         height: 28px;
@@ -607,6 +614,12 @@
     });
   }
 
+  function getLauncherIconSVG() {
+    if (config && config.launcherIcon === 'sparkles') return sparklesIconSVG;
+    if (config && config.launcherIcon === 'support') return supportIconSVG;
+    return chatIconSVG;
+  }
+
   function toggleWidget() {
     isOpen = !isOpen;
     const panel = document.getElementById('conversaai-widget-panel');
@@ -616,6 +629,8 @@
     if (isOpen) {
       panel.classList.add('conversaai-open');
       launcherBtn.innerHTML = closeIconSVG;
+      const launcherTextEl = document.getElementById('conversaai-launcher-text');
+      if (launcherTextEl) launcherTextEl.classList.remove('cai-show');
       if (!isChatBlocked) {
         setTimeout(() => input.focus(), 100);
         // Refresh config in case it was updated in the dashboard
@@ -623,7 +638,11 @@
       }
     } else {
       panel.classList.remove('conversaai-open');
-      launcherBtn.innerHTML = chatIconSVG;
+      launcherBtn.innerHTML = getLauncherIconSVG();
+      const launcherTextEl = document.getElementById('conversaai-launcher-text');
+      if (launcherTextEl && config && config.launcherMode === 'icon-text' && config.launcherText) {
+        launcherTextEl.classList.add('cai-show');
+      }
     }
   }
 
@@ -652,6 +671,9 @@
         position: wConfig.position || 'bottom-right',
         launcherMode: wConfig.launcherMode || 'icon-text',
         launcherText: wConfig.launcherText || '¿Necesitas ayuda?',
+        launcherSize: wConfig.launcherSize || 'medium',
+        launcherShape: wConfig.launcherShape || 'circle',
+        launcherIcon: wConfig.launcherIcon || 'chat',
         quickQuestions: wConfig.quickQuestions || []
       };
 
@@ -685,9 +707,12 @@
     container.style.setProperty('--cai-secondary', config.secondaryColor);
 
     // Position
-    if (config.position === 'bottom-left') {
-      container.classList.add('cai-pos-left');
-    }
+    container.classList.toggle('cai-pos-left', config.position === 'bottom-left');
+    container.classList.remove('cai-size-small', 'cai-size-large', 'cai-shape-rounded');
+    if (config.launcherSize === 'small') container.classList.add('cai-size-small');
+    if (config.launcherSize === 'large') container.classList.add('cai-size-large');
+    if (config.launcherShape === 'rounded') container.classList.add('cai-shape-rounded');
+    if (!isOpen) launcherBtn.innerHTML = getLauncherIconSVG();
 
     // Theme logic
     if (config.theme === 'minimal') {
@@ -709,7 +734,8 @@
     avatarEl.textContent = firstLetter || 'A';
 
     // Launcher text safely
-    if (config.launcherMode === 'icon-text' && config.launcherText) {
+    launcherTextEl.classList.remove('cai-show');
+    if (config.launcherMode === 'icon-text' && config.launcherText && !isOpen) {
       launcherTextEl.textContent = config.launcherText;
       launcherTextEl.classList.add('cai-show');
     }

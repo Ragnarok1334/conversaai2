@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Send, Bot, Loader2, Trash2, Sparkles } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, Bot, CheckCircle2, Clock3, Eraser, Loader2, MessageSquare, Send, Sparkles } from 'lucide-react'
 import { type AssistantConfig } from '@/lib/openai'
 
 interface Message {
@@ -10,281 +9,155 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   timestamp: Date
+  latency?: number
 }
 
-interface AssistantPlaygroundProps {
+interface Props {
   assistantId?: string
   assistantConfig?: Partial<AssistantConfig>
   title?: string
 }
 
-export function AssistantPlayground({ assistantId, assistantConfig, title }: AssistantPlaygroundProps) {
+const SCENARIOS = [
+  { label: 'Información', prompt: 'Hola, ¿qué servicios ofrecen y cuáles son sus precios?' },
+  { label: 'Disponibilidad', prompt: '¿Qué horarios tienen disponibles esta semana?' },
+  { label: 'Objeción', prompt: 'Me parece caro. ¿Por qué debería elegirlos?' },
+  { label: 'Fuera de alcance', prompt: 'Tengo una consulta que no aparece en su información. ¿Puedes ayudarme?' },
+]
+
+export function AssistantPlayground({ assistantId, assistantConfig, title }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [showWarningModal, setShowWarningModal] = useState(false)
-  const [hasAcknowledgedWarning, setHasAcknowledgedWarning] = useState(false)
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [loading, setLoading] = useState(false)
+  const [warningOpen, setWarningOpen] = useState(false)
+  const [acknowledged, setAcknowledged] = useState(false)
+  const [error, setError] = useState('')
+  const endRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const assistantName = title || assistantConfig?.assistantName || 'Asistente IA'
+  const turns = messages.filter(item => item.role === 'assistant').length
+  const lastLatency = [...messages].reverse().find(item => item.role === 'assistant')?.latency
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  const processMessage = async () => {
-    const trimmed = input.trim()
-    if (!trimmed || isLoading) return
-
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: trimmed,
-      timestamp: new Date(),
-    }
-    setMessages(prev => [...prev, userMsg])
-    setInput('')
-    setIsLoading(true)
-
+  const runTest = async () => {
+    const text = input.trim()
+    if (!text || loading) return
+    const history = messages.map(({ role, content }) => ({ role, content }))
+    const startedAt = Date.now()
+    setMessages(previous => [...previous, { id: crypto.randomUUID(), role: 'user', content: text, timestamp: new Date() }])
+    setInput(''); setLoading(true); setError('')
     try {
-      const res = await fetch('/api/assistant/test', {
+      const response = await fetch('/api/assistant/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          assistantId,
-          assistantConfig,
-          userMessage: trimmed,
-        }),
+        body: JSON.stringify({ assistantId, assistantConfig, userMessage: text, history }),
       })
-
-      const data = await res.json()
-
-      const assistantMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: res.ok ? data.reply : (data.error || 'Error al procesar tu mensaje.'),
-        timestamp: new Date(),
-      }
-      setMessages(prev => [...prev, assistantMsg])
-    } catch {
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Error de conexión. Verifica tu configuración.',
-        timestamp: new Date(),
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || 'No se pudo completar la prueba.')
+      setMessages(previous => [...previous, {
+        id: crypto.randomUUID(), role: 'assistant', content: data.reply,
+        timestamp: new Date(), latency: Date.now() - startedAt
       }])
+    } catch (requestError) {
+      const reason = requestError instanceof Error ? requestError.message : 'Error de conexión.'
+      setError(reason)
+      setMessages(previous => [...previous, { id: crypto.randomUUID(), role: 'assistant', content: reason, timestamp: new Date(), latency: Date.now() - startedAt }])
     } finally {
-      setIsLoading(false)
-      inputRef.current?.focus()
+      setLoading(false)
+      window.setTimeout(() => inputRef.current?.focus(), 50)
     }
   }
 
-  const handleSend = () => {
-    const trimmed = input.trim()
-    if (!trimmed || isLoading) return
-
-    if (!hasAcknowledgedWarning && messages.length === 0) {
-      setShowWarningModal(true)
-      return
-    }
-
-    processMessage()
+  const requestSend = () => {
+    if (!input.trim() || loading) return
+    if (!acknowledged && messages.length === 0) setWarningOpen(true)
+    else void runTest()
   }
 
-  const handleConfirmWarning = () => {
-    setHasAcknowledgedWarning(true)
-    setShowWarningModal(false)
-    processMessage()
+  const clear = () => {
+    setMessages([]); setInput(''); setError('')
+    window.setTimeout(() => inputRef.current?.focus(), 50)
   }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
-  }
-
-  const assistantName = assistantConfig?.assistantName || 'Asistente IA'
 
   return (
-    <div className="flex flex-col h-full min-h-[480px] bg-[#050816]/80 backdrop-blur-2xl border border-white/[0.08] rounded-2xl overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-white/[0.02]">
-        <div className="flex items-center gap-3">
-          <div className="relative">
-            <div className="w-9 h-9 rounded-xl gradient-btn flex items-center justify-center">
-              <Bot className="w-5 h-5 text-white" />
+    <div className="grid gap-5 lg:grid-cols-[240px_minmax(0,1fr)]">
+      <aside className="space-y-4">
+        <section className="rounded-2xl border border-card-border bg-card-bg p-4 shadow-sm">
+          <h3 className="dashboard-strong mb-1 text-sm font-bold">Escenarios de prueba</h3>
+          <p className="dashboard-muted mb-4 text-xs leading-relaxed">Simula consultas reales para detectar información faltante.</p>
+          <div className="space-y-2">
+            {SCENARIOS.map(scenario => (
+              <button key={scenario.label} type="button" onClick={() => { setInput(scenario.prompt); inputRef.current?.focus() }} className="group flex w-full cursor-pointer items-center gap-2 rounded-xl border border-card-border px-3 py-2.5 text-left text-xs dashboard-strong transition hover:border-brand-cyan hover:bg-brand-cyan/5">
+                <MessageSquare className="h-3.5 w-3.5 text-brand-cyan" />{scenario.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-card-border bg-card-bg p-4 shadow-sm">
+          <h3 className="dashboard-strong mb-3 text-sm font-bold">Estado de la sesión</h3>
+          <div className="space-y-3 text-xs">
+            <Stat icon={CheckCircle2} label="Contexto" value={messages.length ? 'Recordando' : 'Preparado'} />
+            <Stat icon={MessageSquare} label="Respuestas" value={String(turns)} />
+            <Stat icon={Clock3} label="Última respuesta" value={lastLatency ? `${(lastLatency / 1000).toFixed(1)} s` : '—'} />
+          </div>
+          <p className="dashboard-muted mt-4 border-t border-card-border pt-3 text-[11px] leading-relaxed">Al limpiar, también se reinicia el contexto de esta prueba.</p>
+        </section>
+      </aside>
+
+      <section className="flex min-h-[590px] flex-col overflow-hidden rounded-3xl border border-card-border bg-card-bg shadow-sm">
+        <header className="flex items-center justify-between border-b border-card-border px-5 py-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl gradient-btn text-white"><Bot className="h-5 w-5" /><i className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" /></span>
+            <div className="min-w-0"><strong className="dashboard-strong block truncate text-sm">{assistantName}</strong><span className="flex items-center gap-1 text-xs text-brand-success"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Listo para probar</span></div>
+          </div>
+          <button type="button" onClick={clear} disabled={!messages.length && !input} className="dashboard-icon-button flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed"><Eraser className="h-3.5 w-3.5" /><span className="hidden sm:inline">Nueva prueba</span></button>
+        </header>
+
+        <div className="flex-1 space-y-4 overflow-y-auto bg-black/[0.015] p-4 sm:p-6">
+          {!messages.length && !loading && (
+            <div className="flex h-full min-h-[340px] flex-col items-center justify-center px-4 text-center">
+              <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-brand-violet/20 bg-brand-violet/5 text-brand-violet"><Sparkles className="h-7 w-7" /></span>
+              <h3 className="dashboard-strong font-bold">Comienza una prueba controlada</h3>
+              <p className="dashboard-muted mt-2 max-w-md text-sm leading-relaxed">Elige un escenario o escribe como lo haría un cliente. El asistente recordará esta conversación hasta que pulses “Nueva prueba”.</p>
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-brand-success rounded-full border-2 border-[#050816]" />
-          </div>
-          <div>
-            <p className="font-semibold text-sm">{title || assistantName}</p>
-            <p className="text-xs text-brand-success">En línea · Listo para responder</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-text-soft flex items-center gap-1">
-            <Sparkles className="w-3 h-3 text-brand-cyan" />
-            Playground
-          </span>
-          {messages.length > 0 && (
-            <button
-              onClick={() => setMessages([])}
-              className="p-1.5 rounded-lg hover:bg-white/[0.06] transition-colors text-text-soft hover:text-text-main"
-              title="Limpiar chat"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
           )}
-        </div>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-4 scroll-smooth">
-        {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center py-12">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="w-16 h-16 rounded-2xl gradient-btn/10 border border-brand-violet/20 flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(124,58,237,0.15)]"
-            >
-              <Bot className="w-8 h-8 text-brand-violet/60" />
-            </motion.div>
-            <p className="font-semibold text-text-secondary mb-1">Prueba tu asistente</p>
-            <p className="text-sm text-text-soft max-w-xs">Escribe una pregunta como lo haría un cliente real para ver cómo responde.</p>
-            <div className="mt-4 flex flex-wrap gap-2 justify-center">
-              {['Hola, ¿cómo puedo ayudarte?', '¿Cuáles son sus precios?', '¿Tienen disponibilidad?'].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setInput(s)}
-                  className="text-xs px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-text-soft hover:text-text-main hover:border-brand-violet/30 transition-all"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <AnimatePresence initial={false}>
-          {messages.map((msg) => (
-            <motion.div
-              key={msg.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} gap-3`}
-            >
-              {msg.role === 'assistant' && (
-                <div className="w-7 h-7 rounded-lg gradient-btn flex items-center justify-center flex-shrink-0 mt-1">
-                  <Bot className="w-4 h-4 text-white" />
-                </div>
-              )}
-              <div
-                className={`max-w-[80%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
-                  msg.role === 'user'
-                    ? 'bg-brand-violet/80 text-white rounded-tr-sm'
-                    : 'bg-white/[0.06] border border-white/[0.08] text-text-secondary rounded-tl-sm'
-                }`}
-              >
-                {msg.content}
-                <p className="text-[10px] opacity-50 mt-1 text-right">
-                  {msg.timestamp.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
-                </p>
+          {messages.map(message => (
+            <div key={message.id} className={`flex gap-2.5 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {message.role === 'assistant' && <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg gradient-btn text-white"><Bot className="h-4 w-4" /></span>}
+              <div className={`max-w-[82%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.role === 'user' ? 'rounded-tr-sm bg-brand-violet text-white' : 'rounded-tl-sm border border-card-border bg-card-bg dashboard-strong shadow-sm'}`}>
+                <p className="whitespace-pre-wrap">{message.content}</p>
+                <div className={`mt-1.5 flex justify-end gap-2 text-[10px] ${message.role === 'user' ? 'text-white/60' : 'dashboard-muted'}`}><span>{message.timestamp.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</span>{message.latency && <span>· {(message.latency / 1000).toFixed(1)} s</span>}</div>
               </div>
-            </motion.div>
+            </div>
           ))}
-        </AnimatePresence>
-
-        {isLoading && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex gap-3 justify-start"
-          >
-            <div className="w-7 h-7 rounded-lg gradient-btn flex items-center justify-center flex-shrink-0 mt-1">
-              <Bot className="w-4 h-4 text-white" />
-            </div>
-            <div className="bg-white/[0.06] border border-white/[0.08] px-4 py-3 rounded-2xl rounded-tl-sm">
-              <div className="flex items-center gap-2 text-text-soft text-xs">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Escribiendo...
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <div className="border-t border-white/[0.06] p-4 bg-white/[0.01]">
-        <div className="flex gap-3 items-end">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Escribe un mensaje..."
-            rows={1}
-            className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-text-main placeholder:text-text-soft/50 focus:outline-none focus:border-brand-violet/40 focus:ring-1 focus:ring-brand-violet/20 transition-all resize-none"
-            style={{ maxHeight: '120px' }}
-          />
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-            className="w-11 h-11 rounded-xl gradient-btn flex items-center justify-center text-white disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0 shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-opacity"
-          >
-            <Send className="w-4 h-4" />
-          </motion.button>
+          {loading && <div className="flex items-center gap-2.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg gradient-btn text-white"><Bot className="h-4 w-4" /></span><span className="flex items-center gap-2 rounded-2xl rounded-tl-sm border border-card-border bg-card-bg px-4 py-3 text-xs dashboard-muted"><Loader2 className="h-3.5 w-3.5 animate-spin" />Analizando y respondiendo…</span></div>}
+          <div ref={endRef} />
         </div>
-        <p className="text-[10px] text-text-soft/40 mt-2 text-center">Enter para enviar · Shift+Enter para nueva línea</p>
-      </div>
-      {/* Modal Aviso */}
-      <AnimatePresence>
-        {showWarningModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050816]/80 backdrop-blur-sm"
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="bg-card-bg border border-card-border rounded-3xl p-6 max-w-sm w-full shadow-2xl relative overflow-hidden"
-            >
-              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-brand-violet to-brand-cyan" />
-              <h3 className="text-xl font-bold mb-2">Esta prueba consume mensajes</h3>
-              <p className="text-sm text-text-soft mb-6">
-                Cada mensaje enviado y respondido durante la prueba se descuenta de tu límite mensual.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowWarningModal(false)}
-                  className="flex-1 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors font-medium text-sm"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleConfirmWarning}
-                  className="flex-1 px-4 py-2 rounded-xl gradient-btn text-white font-semibold shadow-lg hover:opacity-90 transition-opacity text-sm"
-                >
-                  Entendido, probar
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+
+        <footer className="border-t border-card-border p-4">
+          {error && <div className="mb-3 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-3 py-2 text-xs text-red-500"><AlertTriangle className="h-3.5 w-3.5" />{error}</div>}
+          <div className="flex items-end gap-2 rounded-2xl border border-card-border bg-black/[0.02] p-2 focus-within:border-brand-violet/40">
+            <textarea ref={inputRef} value={input} maxLength={2000} rows={1} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); requestSend() } }} placeholder="Escribe una consulta para probar…" className="max-h-28 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm dashboard-strong outline-none placeholder:text-slate-500" />
+            <button type="button" onClick={requestSend} disabled={!input.trim() || loading} className="gradient-btn flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl text-white shadow-md disabled:cursor-not-allowed disabled:opacity-40"><Send className="h-4 w-4" /></button>
+          </div>
+          <div className="mt-2 flex justify-between text-[10px] dashboard-muted"><span>Enter para enviar · Shift + Enter para nueva línea</span><span>{input.length}/2000</span></div>
+        </footer>
+      </section>
+
+      {warningOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#050816]/70 p-4 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-labelledby="test-warning-title" className="w-full max-w-sm rounded-3xl border border-card-border bg-card-bg p-6 shadow-2xl">
+          <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500"><AlertTriangle className="h-5 w-5" /></span>
+          <h3 id="test-warning-title" className="dashboard-strong text-lg font-bold">Esta prueba consume un mensaje</h3>
+          <p className="dashboard-muted mt-2 text-sm leading-relaxed">Cada respuesta generada se descuenta del límite mensual. El contexto de la sesión no genera cobros adicionales por sí solo.</p>
+          <div className="mt-6 grid grid-cols-2 gap-3"><button type="button" onClick={() => setWarningOpen(false)} className="cursor-pointer rounded-xl border border-card-border px-4 py-2.5 text-sm font-semibold dashboard-strong">Cancelar</button><button type="button" onClick={() => { setAcknowledged(true); setWarningOpen(false); void runTest() }} className="gradient-btn cursor-pointer rounded-xl px-4 py-2.5 text-sm font-bold text-white">Probar ahora</button></div>
+        </div>
+      </div>}
     </div>
   )
+}
+
+function Stat({ icon: Icon, label, value }: { icon: typeof CheckCircle2; label: string; value: string }) {
+  return <div className="flex items-center gap-2.5"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-violet/5 text-brand-violet"><Icon className="h-3.5 w-3.5" /></span><div><span className="dashboard-muted block text-[10px] uppercase tracking-wide">{label}</span><strong className="dashboard-strong">{value}</strong></div></div>
 }

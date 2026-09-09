@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ArrowRight, Check, CheckCircle2, Lock, MessageCircle, Monitor, Palette, Plus, RotateCcw, Save, Send, Smartphone, Trash2, Type } from 'lucide-react'
+import { ArrowRight, Bot, Check, Headphones, Lock, MessageCircle, Monitor, Palette, Plus, RotateCcw, Save, Send, Smartphone, Sparkles, Trash2, Type, X } from 'lucide-react'
 import Link from 'next/link'
 
 export interface WidgetConfig {
@@ -14,6 +14,9 @@ export interface WidgetConfig {
   position?: 'bottom-right' | 'bottom-left'
   launcherText?: string
   launcherMode?: 'icon' | 'icon-text'
+  launcherSize?: 'small' | 'medium' | 'large'
+  launcherShape?: 'circle' | 'rounded'
+  launcherIcon?: 'chat' | 'sparkles' | 'support'
   quickQuestions?: string[]
 }
 
@@ -29,7 +32,8 @@ interface Props {
 const DEFAULTS: Required<WidgetConfig> = {
   displayName: '', subtitle: '', welcomeMessage: '', primaryColor: '#7C3AED',
   secondaryColor: '#06B6D4', theme: 'modern', position: 'bottom-right',
-  launcherText: '', launcherMode: 'icon-text', quickQuestions: []
+  launcherText: '', launcherMode: 'icon-text', quickQuestions: [],
+  launcherSize: 'medium', launcherShape: 'circle', launcherIcon: 'chat'
 }
 
 const PRESETS = [
@@ -46,6 +50,7 @@ export function AssistantCustomization({ assistantId, assistantName, businessNam
   const [config, setConfig] = useState<Required<WidgetConfig>>({ ...DEFAULTS, ...initialConfig, quickQuestions: initialConfig.quickQuestions || [] })
   const [tab, setTab] = useState<'identity' | 'style' | 'start'>('identity')
   const [previewMode, setPreviewMode] = useState<'desktop' | 'mobile'>('desktop')
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
@@ -57,6 +62,8 @@ export function AssistantCustomization({ assistantId, assistantName, businessNam
   const subtitle = config.subtitle.trim() || businessName || 'Normalmente responde en segundos'
   const welcome = config.welcomeMessage.trim() || `¡Hola! Soy ${name}. ¿En qué puedo ayudarte?`
   const launcher = config.launcherText.trim() || '¿Necesitas ayuda?'
+  const launcherPixels = config.launcherSize === 'small' ? 48 : config.launcherSize === 'large' ? 68 : 58
+  const LauncherIcon = config.launcherIcon === 'support' ? Headphones : config.launcherIcon === 'sparkles' ? Sparkles : MessageCircle
   const completed = useMemo(() => [config.displayName, config.welcomeMessage, config.primaryColor].filter(Boolean).length, [config])
 
   const change = <K extends keyof WidgetConfig>(key: K, value: Required<WidgetConfig>[K]) => {
@@ -152,6 +159,35 @@ export function AssistantCustomization({ assistantId, assistantName, businessNam
                 {([['icon-text', 'Ícono + texto'], ['icon', 'Solo ícono']] as const).map(([value, label]) => <button key={value} type="button" onClick={() => change('launcherMode', value)} className={`cursor-pointer rounded-lg px-3 py-2 text-sm transition ${config.launcherMode === value ? 'bg-brand-violet/10 font-semibold text-brand-violet' : 'dashboard-muted'}`}>{label}</button>)}
               </div>
             </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Tamaño de la burbuja">
+                <select className={fieldClass} value={config.launcherSize} onChange={e => change('launcherSize', e.target.value as Required<WidgetConfig>['launcherSize'])}>
+                  <option value="small">Compacta</option>
+                  <option value="medium">Normal</option>
+                  <option value="large">Grande</option>
+                </select>
+              </Field>
+              <Field label="Forma">
+                <select className={fieldClass} value={config.launcherShape} onChange={e => change('launcherShape', e.target.value as Required<WidgetConfig>['launcherShape'])}>
+                  <option value="circle">Circular</option>
+                  <option value="rounded">Cuadrada redondeada</option>
+                </select>
+              </Field>
+            </div>
+            <div>
+              <label className="dashboard-strong mb-2 block text-xs font-semibold">Ícono de la burbuja</label>
+              <div className="grid grid-cols-3 gap-2">
+                {([
+                  ['chat', 'Chat', MessageCircle],
+                  ['sparkles', 'IA', Sparkles],
+                  ['support', 'Soporte', Headphones],
+                ] as const).map(([value, label, Icon]) => (
+                  <button key={value} type="button" onClick={() => change('launcherIcon', value)} className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border p-3 text-xs transition ${config.launcherIcon === value ? 'border-brand-cyan bg-brand-cyan/5 font-semibold text-brand-cyan' : 'border-card-border dashboard-muted hover:border-brand-cyan/40'}`}>
+                    <Icon className="h-5 w-5" />{label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <Field label="Texto del botón" count={config.launcherText.length} max={40} locked={!paid}><input disabled={!paid || config.launcherMode === 'icon'} className={fieldClass} maxLength={40} value={config.launcherText} onChange={e => change('launcherText', e.target.value)} placeholder="Ej. ¿Necesitas ayuda?" /></Field>
             <div>
               <div className="mb-3 flex items-center justify-between"><label className="dashboard-strong text-xs font-semibold">Preguntas rápidas</label><span className="dashboard-muted text-xs">{config.quickQuestions.length}/4</span></div>
@@ -171,25 +207,33 @@ export function AssistantCustomization({ assistantId, assistantName, businessNam
       </div>
 
       <aside className="sticky top-24 rounded-3xl border border-card-border bg-card-bg p-4 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div><h3 className="dashboard-strong font-bold">Vista previa</h3><p className="dashboard-muted text-xs">Se actualiza mientras escribes.</p></div>
+        <div className="mb-3 flex items-center justify-between">
+          <div><h3 className="dashboard-strong font-bold">Vista previa</h3><p className="dashboard-muted text-xs">Burbuja y ventana en tiempo real.</p></div>
           <div className="flex rounded-xl border border-card-border p-1">
             <button type="button" aria-label="Vista de escritorio" onClick={() => setPreviewMode('desktop')} className={`cursor-pointer rounded-lg p-2 ${previewMode === 'desktop' ? 'bg-brand-violet/10 text-brand-violet' : 'dashboard-muted'}`}><Monitor className="h-4 w-4" /></button>
             <button type="button" aria-label="Vista móvil" onClick={() => setPreviewMode('mobile')} className={`cursor-pointer rounded-lg p-2 ${previewMode === 'mobile' ? 'bg-brand-violet/10 text-brand-violet' : 'dashboard-muted'}`}><Smartphone className="h-4 w-4" /></button>
           </div>
         </div>
+        <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-black/5 p-1">
+          <button type="button" onClick={() => setPreviewOpen(false)} className={`cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold transition ${!previewOpen ? 'bg-card-bg text-brand-violet shadow-sm' : 'dashboard-muted'}`}>Burbuja cerrada</button>
+          <button type="button" onClick={() => setPreviewOpen(true)} className={`cursor-pointer rounded-lg px-3 py-2 text-xs font-semibold transition ${previewOpen ? 'bg-card-bg text-brand-violet shadow-sm' : 'dashboard-muted'}`}>Chat abierto</button>
+        </div>
         <div className={`relative mx-auto overflow-hidden rounded-2xl bg-[#eef1f7] transition-all ${previewMode === 'mobile' ? 'h-[510px] max-w-[280px]' : 'h-[480px] w-full'}`}>
-          <div className={`absolute bottom-5 ${config.position === 'bottom-left' ? 'left-4' : 'right-4'} w-[calc(100%-2rem)] max-w-[330px] overflow-hidden rounded-2xl bg-white shadow-2xl`}>
+          <div className="absolute inset-x-0 top-0 h-24 border-b border-slate-200 bg-white/60 p-4"><span className="block h-2 w-24 rounded bg-slate-200" /><span className="mt-3 block h-2 w-40 rounded bg-slate-200/70" /></div>
+          {previewOpen && <div className={`absolute bottom-5 ${config.position === 'bottom-left' ? 'left-4' : 'right-4'} w-[calc(100%-2rem)] max-w-[330px] overflow-hidden rounded-2xl bg-white shadow-2xl animate-in zoom-in-95 duration-200`}>
             <div className="p-4 text-white" style={{ background: `linear-gradient(135deg, ${config.primaryColor}, ${growth ? config.secondaryColor : config.primaryColor})` }}>
-              <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 font-bold">{name.charAt(0).toUpperCase()}</span><div className="min-w-0"><strong className="block truncate text-sm">{name}</strong><span className="block truncate text-[11px] text-white/80">{subtitle}</span></div><span className="ml-auto h-2 w-2 rounded-full bg-emerald-300" /></div>
+              <div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 font-bold">{name.charAt(0).toUpperCase()}</span><div className="min-w-0"><strong className="block truncate text-sm">{name}</strong><span className="block truncate text-[11px] text-white/80">{subtitle}</span></div><button type="button" onClick={() => setPreviewOpen(false)} aria-label="Cerrar vista del chat" className="ml-auto cursor-pointer rounded-lg bg-white/10 p-1.5 text-white"><X className="h-4 w-4" /></button></div>
             </div>
             <div className="min-h-[210px] bg-slate-50 p-4">
               <div className="max-w-[90%] rounded-2xl rounded-tl-sm border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-sm">{welcome}</div>
               {config.quickQuestions.length > 0 && <div className="mt-3 flex flex-wrap gap-1.5">{config.quickQuestions.filter(Boolean).slice(0, 3).map(item => <span key={item} className="rounded-full border px-2.5 py-1 text-[10px]" style={{ borderColor: config.primaryColor, color: config.primaryColor }}>{item}</span>)}</div>}
             </div>
             <div className="flex gap-2 border-t border-slate-200 bg-white p-3"><span className="flex-1 rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-400">Escribe tu mensaje…</span><span className="flex h-8 w-8 items-center justify-center rounded-xl text-white" style={{ background: config.primaryColor }}><Send className="h-3.5 w-3.5" /></span></div>
-          </div>
-          <div className={`absolute bottom-5 ${config.position === 'bottom-left' ? 'left-4' : 'right-4'} translate-y-16`}><span className="flex items-center gap-2 rounded-full px-4 py-3 text-xs font-semibold text-white shadow-lg" style={{ background: config.primaryColor }}><MessageCircle className="h-4 w-4" />{config.launcherMode === 'icon-text' && launcher}</span></div>
+          </div>}
+          {!previewOpen && <div className={`absolute bottom-6 ${config.position === 'bottom-left' ? 'left-5 items-start' : 'right-5 items-end'} flex max-w-[calc(100%-2.5rem)] flex-col gap-2 animate-in zoom-in-95 duration-200`}>
+            {config.launcherMode === 'icon-text' && <span className={`max-w-full truncate border border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 shadow-lg ${config.launcherShape === 'rounded' ? 'rounded-xl' : 'rounded-full'}`}>{launcher}</span>}
+            <button type="button" onClick={() => setPreviewOpen(true)} aria-label="Abrir vista del chat" className={`flex cursor-pointer items-center justify-center text-white shadow-xl transition hover:scale-105 ${config.launcherShape === 'rounded' ? 'rounded-2xl' : 'rounded-full'}`} style={{ width: launcherPixels, height: launcherPixels, background: `linear-gradient(135deg, ${config.primaryColor}, ${growth ? config.secondaryColor : config.primaryColor})` }}><LauncherIcon style={{ width: launcherPixels * .43, height: launcherPixels * .43 }} /></button>
+          </div>}
         </div>
         <p className="dashboard-muted mt-3 text-center text-[11px]">Esta vista no consume mensajes del plan.</p>
       </aside>

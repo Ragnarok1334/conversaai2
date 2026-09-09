@@ -36,12 +36,18 @@ export interface AssistantConfig extends Partial<Assistant> {
   knowledge_blocks?: any[] | null
 }
 
+export interface AssistantConversationMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 // Se reemplazó buildSystemPrompt por buildAssistantSystemPrompt
 
 export async function generateAssistantReply(
   config: AssistantConfig,
   userMessage: string,
-  model: string = DEFAULT_OPENAI_MODEL
+  model: string = DEFAULT_OPENAI_MODEL,
+  history: AssistantConversationMessage[] = []
 ): Promise<string> {
   const systemPrompt = buildAssistantSystemPrompt({
     assistant_name: config.assistantName || config.assistant_name,
@@ -65,7 +71,10 @@ export async function generateAssistantReply(
   const response = await getOpenAIClient().responses.create({
     model: model,
     instructions: systemPrompt,
-    input: userMessage,
+    input: [
+      ...history.map(message => ({ role: message.role, content: message.content })),
+      { role: 'user' as const, content: userMessage },
+    ],
   })
 
   const text = response.output_text?.trim()
