@@ -30,7 +30,8 @@ export function Topbar({ onMenuClick, theme, onThemeToggle }: TopbarProps) {
   const userName = profile?.full_name || profile?.email?.split('@')[0] || 'Usuario'
   const userInitial = userName.charAt(0).toUpperCase()
 
-  const currentSection = routeMap[pathname] || 'Dashboard'
+  const currentSection = routeMap[pathname]
+    || (pathname.startsWith('/dashboard/assistants/') ? 'Detalle del asistente' : 'Dashboard')
 
   return (
     <header className="dashboard-topbar sticky top-0 z-10 backdrop-blur-xl">
