@@ -145,6 +145,10 @@ export async function PATCH(
           if (key === 'instructions' && val.length > 2000) {
             return NextResponse.json({ error: `Las instrucciones exceden la longitud máxima permitida (2000).` }, { status: 400 })
           }
+          const knowledgeLimits: Record<string, number> = { services: 5000, faqs: 5000, schedule: 2500 }
+          if (knowledgeLimits[key] && val.length > knowledgeLimits[key]) {
+            return NextResponse.json({ error: `El campo ${key} excede la longitud máxima permitida (${knowledgeLimits[key]}).` }, { status: 400 })
+          }
         }
 
         // Validation for status whitelist
@@ -207,10 +211,10 @@ export async function PATCH(
     }
 
     // Validate final combined state of knowledge ONLY IF knowledge was updated
-    if (updates.instructions !== undefined || updates.knowledge_blocks !== undefined) {
+    if (updates.instructions !== undefined || updates.services !== undefined || updates.faqs !== undefined || updates.schedule !== undefined || updates.knowledge_blocks !== undefined) {
       const { data: currentAssistant, error: fetchErr } = await supabase
         .from('assistants')
-        .select('instructions, knowledge_blocks')
+        .select('instructions, services, faqs, schedule, knowledge_blocks')
         .eq('id', id)
         .eq('user_id', user.id)
         .single();
@@ -218,11 +222,14 @@ export async function PATCH(
       if (!fetchErr && currentAssistant) {
         const finalInstructions = updates.instructions !== undefined ? updates.instructions : (currentAssistant.instructions || '');
         const finalBlocks = updates.knowledge_blocks !== undefined ? updates.knowledge_blocks : (currentAssistant.knowledge_blocks || []);
-        const instLen = (finalInstructions || '').trim().length;
+        const finalServices = updates.services !== undefined ? updates.services : (currentAssistant.services || '');
+        const finalFaqs = updates.faqs !== undefined ? updates.faqs : (currentAssistant.faqs || '');
+        const finalSchedule = updates.schedule !== undefined ? updates.schedule : (currentAssistant.schedule || '');
+        const knowledgeLength = [finalInstructions, finalServices, finalFaqs, finalSchedule].join(' ').trim().length;
         const hasValidBlock = (finalBlocks || []).some((b: any) => b.is_active && (b.content || '').trim().length >= 80);
         
         // Si updates.knowledge_blocks es explícitamente vacío y la base de datos tenía, respetamos la decisión del usuario solo si es válido
-        if (instLen < 80 && !hasValidBlock) {
+        if (knowledgeLength < 80 && !hasValidBlock) {
            return NextResponse.json({ error: 'Agrega información mínima del negocio para entrenar el asistente.' }, { status: 400 })
         }
       }
@@ -285,39 +292,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
-    const supabaseAdmin = createSupabaseAdmin()
-    const { confirmation } = await readJsonBody<{ confirmation?: string }>(_request, 2_000)
-
-    const { data: ownedAssistant, error: lookupError } = await supabaseAdmin
-      .from('assistants')
-      .select('id, assistant_name')
-      .eq('id', id)
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (lookupError) throw lookupError
-    if (!ownedAssistant) {
-      return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404 })
-    }
-
-    if (!confirmation || confirmation.trim() !== ownedAssistant.assistant_name) {
-      await logSecurityEvent({ userId: user.id, eventType: 'assistant_delete_confirmation_failed', severity: 'warning', message: `Confirmación inválida al eliminar el asistente ${id}`, req: _request })
-      return NextResponse.json({ error: 'Escribe el nombre exacto del asistente para confirmar' }, { status: 400 })
-    }
-
-    const { data: deletedAssistant, error } = await supabaseAdmin
+    const { error } = await supabase
       .from('assistants')
       .delete()
       .eq('id', id)
       .eq('user_id', user.id)
-      .select('id')
-      .maybeSingle()
 
-    if (error || !deletedAssistant) {
+    if (error) {
       await logSecurityEvent({ userId: user.id, eventType: 'assistant_delete_forbidden', severity: 'warning', message: `No se pudo eliminar el asistente ${id}`, req: _request })
-      if (error) throw error
-      return NextResponse.json({ error: 'No se pudo eliminar el asistente' }, { status: 409 })
+      throw error
     }
 
     await logAuditEvent({ userId: user.id, action: 'assistant_deleted', entityType: 'assistant', entityId: id, description: 'Asistente eliminado', req: _request })
