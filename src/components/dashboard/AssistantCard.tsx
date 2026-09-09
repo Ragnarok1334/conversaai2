@@ -328,7 +328,7 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
             )
           })()}
           
-          <div className="flex gap-2 pt-1">
+          <div className="grid grid-cols-2 gap-2 pt-1">
             <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
               <Pencil className="w-3.5 h-3.5" /> Editar
             </Link>
@@ -347,11 +347,11 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
                 setDeleteError(null)
                 setShowDelete(true)
               }}
-              className="px-3 py-2 rounded-xl bg-brand-pink/5 border border-brand-pink/20 text-brand-pink hover:bg-brand-pink/10 transition-colors flex items-center gap-1.5 text-[11px] font-semibold"
+              className="col-span-2 w-full px-3 py-2.5 rounded-xl bg-brand-pink/5 border border-brand-pink/25 text-brand-pink hover:bg-brand-pink/10 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
               title="Eliminar asistente"
             >
-              <Trash2 className="w-3.5 h-3.5" />
-              Eliminar
+              <Trash2 className="w-4 h-4" />
+              Eliminar asistente
             </button>
           </div>
         </div>
