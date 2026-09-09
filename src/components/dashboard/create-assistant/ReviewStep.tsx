@@ -100,17 +100,12 @@ export function ReviewStep({ form, hasReachedLimit, currentUsage, planLimit, cur
               <li><span className="text-slate-500">Tono:</span> <span className="capitalize">{form.behavior.tone}</span></li>
               <li><span className="text-slate-500">Objetivo:</span> <span className="capitalize">{form.behavior.goal}</span></li>
               <li><span className="text-slate-500">Nivel comercial:</span> <span className="capitalize">{form.behavior.salesLevel}</span></li>
-              <li>
-                <span className="text-slate-500">Canal disponible:</span>{' '}
-                Web Chat
-              </li>
-              <li>
-                <span className="text-slate-500">Telegram:</span>{' '}
-                <span className="text-brand-violet text-[10px] uppercase font-bold border border-brand-violet/30 px-1.5 py-0.5 rounded ml-1">Próximamente</span>
-              </li>
-              <li>
-                <span className="text-slate-500">WhatsApp:</span>{' '}
-                <span className="text-emerald-500 text-[10px] uppercase font-bold border border-emerald-500/30 px-1.5 py-0.5 rounded ml-1">Próximamente</span>
+              <li><span className="text-slate-500">Canal activo:</span> Web Chat</li>
+              <li className="flex flex-wrap items-center gap-1.5">
+                <span className="text-slate-500">Próximos:</span>
+                {['WhatsApp', 'Instagram', 'Facebook', 'Telegram'].map(channel => (
+                  <span key={channel} className="text-[9px] uppercase font-bold border border-white/10 px-1.5 py-0.5 rounded text-slate-400">{channel}</span>
+                ))}
               </li>
             </ul>
 
