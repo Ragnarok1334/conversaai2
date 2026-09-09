@@ -6,16 +6,11 @@ import { useProfile } from '@/providers/ProfileProvider'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Plus, ArrowRight, Bot, Globe, Send, Pencil, Play,
-  AlertCircle, CheckCircle, Loader2, RefreshCw, Activity, ArrowUpRight
+  Plus, ArrowRight, Bot, Globe, MessageCircle, Users,
+  AlertCircle, CheckCircle2, RefreshCw, Settings, Sparkles
 } from 'lucide-react'
-import { PlanUsageCard } from '@/components/dashboard/PlanUsageCard'
-import { DashboardStatsRow } from '@/components/dashboard/DashboardStatsRow'
 import { DashboardActivity } from '@/components/dashboard/DashboardActivity'
-import { DashboardChannels } from '@/components/dashboard/DashboardChannels'
-import { ExecutiveSummaryCard, ExecutiveSummary } from '@/components/dashboard/ExecutiveSummaryCard'
-import { QuickActions } from '@/components/dashboard/QuickActions'
-import { SetupChecklist } from '@/components/dashboard/SetupChecklist'
+import type { ExecutiveSummary } from '@/components/dashboard/ExecutiveSummaryCard'
 import { EmptyState } from '@/components/dashboard/EmptyState'
 import { DashboardCard } from '@/components/dashboard/DashboardCard'
 
@@ -218,10 +213,8 @@ export function DashboardClient({ initialData, userId }: Props) {
 
   if (!data) return null
 
-  const firstAssistantId = data.recentAssistants[0]?.id
-  // Installation actions must target the assistant that owns the configured
-  // webchat domain, not simply the most recently created assistant.
-  const installationAssistantId = data.webchat.assistantId || firstAssistantId
+  const webchatReady = data.webchat.status === 'installed'
+  const assistantsReady = data.stats.activeAssistantCount > 0
 
   const formatUpdateTime = (isoStr?: string) => {
     if (!isoStr) return ''
@@ -229,64 +222,85 @@ export function DashboardClient({ initialData, userId }: Props) {
     return d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })
   }
 
+  const metrics = [
+    {
+      label: 'Leads nuevos',
+      value: data.stats.newLeadCount,
+      detail: data.stats.newLeadCount > 0 ? 'Requieren atención' : 'Todo al día',
+      href: '/dashboard/leads',
+      icon: Users,
+      tone: 'text-brand-pink bg-brand-pink/10',
+    },
+    {
+      label: 'Conversaciones abiertas',
+      value: data.stats.openConversationCount,
+      detail: `${data.stats.conversationCount} en total`,
+      href: '/dashboard/conversations',
+      icon: MessageCircle,
+      tone: 'text-brand-cyan bg-brand-cyan/10',
+    },
+    {
+      label: 'Asistentes activos',
+      value: data.stats.activeAssistantCount,
+      detail: `${data.stats.assistantCount} creados`,
+      href: '/dashboard/assistants',
+      icon: Bot,
+      tone: 'text-brand-violet bg-brand-violet/10',
+    },
+    {
+      label: 'Web Chat',
+      value: webchatReady ? 'Conectado' : 'Pendiente',
+      detail: data.webchat.domain || 'Sin dominio',
+      href: data.webchat.assistantId
+        ? `/dashboard/assistants/${data.webchat.assistantId}?tab=webchat`
+        : '/dashboard/assistants',
+      icon: Globe,
+      tone: webchatReady
+        ? 'text-brand-success bg-brand-success/10'
+        : 'text-amber-500 bg-amber-500/10',
+    },
+  ]
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-
-      {/* A. Header Compacto */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <p className="text-text-soft text-sm mb-0.5 font-medium">{greeting} 👋</p>
-          <div className="flex items-center gap-3">
+          <p className="text-text-soft text-sm font-medium">{greeting} 👋</p>
+          <div className="flex flex-wrap items-center gap-3 mt-1">
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-white">{userName}</h1>
             {data.timestamps?.lastUpdatedAt && (
-              <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-success/10 border border-brand-success/20 text-brand-success text-[10px] font-semibold mt-1">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-success opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-brand-success"></span>
-                </span>
-                En vivo · Actualizado {formatUpdateTime(data.timestamps.lastUpdatedAt)}
-              </div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-success/10 border border-brand-success/20 text-brand-success text-[10px] font-semibold">
+                <span className="w-2 h-2 rounded-full bg-brand-success" />
+                En vivo · {formatUpdateTime(data.timestamps.lastUpdatedAt)}
+              </span>
             )}
           </div>
-          <p className="text-text-soft text-sm mt-1">Monitorea tus asistentes, conversaciones, leads, canales y uso del plan desde un solo lugar.</p>
+          <p className="text-text-soft text-sm mt-1">Lo importante de tu negocio, en un solo lugar.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button 
+        <div className="flex items-center gap-2">
+          <button
             onClick={() => refreshDashboard(false)}
             disabled={refreshing}
             className="p-2.5 rounded-xl border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08] transition-colors disabled:opacity-50"
-            title="Actualizar dashboard"
+            title="Actualizar"
             aria-label="Actualizar dashboard"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
-          <Link
-            href="/dashboard/create-assistant"
-            className="gradient-btn inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white font-semibold hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(124,58,237,0.3)] transition-all glow-violet text-sm"
-          >
-            <Plus className="w-4 h-4" /> Crear asistente
+          <Link href="/dashboard/create-assistant" className="gradient-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-white font-semibold text-sm">
+            <Plus className="w-4 h-4" /> Nuevo asistente
           </Link>
         </div>
       </div>
 
-      {/* H. Alertas y estado */}
       {data.alerts.length > 0 && (
         <div className="space-y-2">
-          {data.alerts.map((alert, i) => (
-            <div
-              key={i}
-              className={`flex items-center gap-3 p-3 rounded-xl border text-sm font-medium ${
-                alert.type === 'error'
-                  ? 'bg-brand-pink/10 border-brand-pink/20 text-brand-pink'
-                  : alert.type === 'warning'
-                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
-                  : 'bg-brand-cyan/10 border-brand-cyan/20 text-brand-cyan'
-              }`}
-            >
-              {alert.type === 'error' ? <AlertCircle className="w-4 h-4 flex-shrink-0" /> : <AlertCircle className="w-4 h-4 flex-shrink-0" />}
+          {data.alerts.slice(0, 2).map((alert, index) => (
+            <div key={index} className="flex items-center gap-3 p-3 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-500 text-sm font-medium">
+              <AlertCircle className="w-4 h-4 shrink-0" />
               <span className="flex-1">{alert.message}</span>
               {alert.href && alert.action && (
-                <Link href={alert.href} className="font-semibold underline underline-offset-2 text-xs whitespace-nowrap">
+                <Link href={alert.href} className="text-xs font-semibold underline underline-offset-2">
                   {alert.action}
                 </Link>
               )}
@@ -295,124 +309,142 @@ export function DashboardClient({ initialData, userId }: Props) {
         </div>
       )}
 
-      {/* B. Resumen Ejecutivo */}
-      <ExecutiveSummaryCard summary={{
-        ...data.executiveSummary,
-        // Override "attention" to "setup" if there are no assistants yet (avoiding false alarms)
-        status: (data.executiveSummary.status === 'attention' && data.stats.assistantCount === 0) ? 'setup' : data.executiveSummary.status
-      }} />
+      <section aria-labelledby="summary-title">
+        <div className="flex items-center justify-between mb-3">
+          <h2 id="summary-title" className="text-sm font-bold text-white">Resumen</h2>
+          <span className="text-xs text-text-soft">Actualización automática</span>
+        </div>
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
+          {metrics.map((metric) => {
+            const Icon = metric.icon
+            return (
+              <Link key={metric.label} href={metric.href} className="group bg-card-bg/80 border border-card-border rounded-2xl p-4 hover:border-brand-violet/30 transition-all">
+                <div className="flex items-start justify-between gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${metric.tone}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-text-soft group-hover:text-brand-violet group-hover:translate-x-0.5 transition-all" />
+                </div>
+                <p className="text-xs text-text-soft font-semibold mt-4">{metric.label}</p>
+                <p className="text-xl font-bold text-white mt-0.5 truncate">{metric.value}</p>
+                <p className="text-xs text-text-soft mt-1 truncate">{metric.detail}</p>
+              </Link>
+            )
+          })}
+        </div>
+      </section>
 
-      {/* C. Indicadores Clave */}
-      <DashboardStatsRow stats={data.stats} usage={data.usage} />
-
-      {/* D & E. Onboarding y Acciones Rápidas */}
       <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1">
-          <SetupChecklist steps={data.health.items.map(item => ({
-            id: item.key,
-            label: item.label,
-            completed: item.done,
-            href: item.href
-          }))} />
-        </div>
-        <div className="lg:col-span-2 flex flex-col justify-center">
-          <h2 className="text-lg font-bold text-white mb-4">Acciones Rápidas</h2>
-          <QuickActions hasAssistant={data.stats.assistantCount > 0} />
-        </div>
-      </div>
-
-      {/* F & G. Canales y Actividad Reciente */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        <DashboardChannels
-          channels={data.channels}
-          planKey={data.plan.key}
-          firstAssistantId={installationAssistantId}
-        />
-        <DashboardActivity activity={data.activity} />
-      </div>
-
-      {/* H. Asistentes Recientes */}
-      <DashboardCard className="relative z-0">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
-          <div>
-            <h2 className="text-lg font-bold text-white">Asistentes recientes</h2>
-            {data.recentAssistants.length > 0 && data.stats.assistantCount > data.recentAssistants.length && (
-              <p className="text-xs text-text-soft font-medium mt-1">
-                Mostrando los últimos {data.recentAssistants.length} de {data.stats.assistantCount} asistentes
+        <DashboardCard className="lg:col-span-2">
+          <div className="flex items-start gap-3">
+            <div className="w-11 h-11 rounded-xl bg-brand-pink/10 text-brand-pink flex items-center justify-center shrink-0">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-brand-pink">Prioridad de hoy</p>
+              <h2 className="text-xl font-bold text-white mt-1">
+                {data.stats.newLeadCount > 0
+                  ? `Tienes ${data.stats.newLeadCount} ${data.stats.newLeadCount === 1 ? 'lead nuevo' : 'leads nuevos'}`
+                  : 'No tienes leads nuevos pendientes'}
+              </h2>
+              <p className="text-sm text-text-soft mt-1">
+                {data.stats.newLeadCount > 0
+                  ? 'Revisa sus datos y registra el próximo seguimiento.'
+                  : 'Cuando llegue una oportunidad nueva aparecerá destacada aquí.'}
               </p>
-            )}
+            </div>
           </div>
-          <Link href="/dashboard/assistants" className="text-xs font-semibold text-brand-cyan hover:text-brand-cyan/80 flex items-center gap-1 transition-colors self-start sm:self-center">
-            Ver todos <ArrowRight className="w-3 h-3" />
-          </Link>
-        </div>
 
-        {data.recentAssistants.length === 0 ? (
-          <EmptyState 
-            icon={Bot}
-            title="Crea tu primer asistente IA"
-            description="Configura la información de tu negocio, instala el Web Chat y empieza a capturar conversaciones útiles."
-            actionLabel="Crear asistente"
-            actionHref="/dashboard/create-assistant"
-          />
-        ) : (
-          <div className="divide-y divide-white/[0.04]">
-            {data.recentAssistants.map((a) => (
-              <div key={a.id} className="flex flex-col sm:flex-row sm:items-center gap-4 py-4 first:pt-0 last:pb-0 group">
-                <div className="flex items-center gap-4 flex-1 min-w-0">
-                  <div className="w-12 h-12 rounded-2xl gradient-btn flex items-center justify-center text-white font-bold text-lg flex-shrink-0 shadow-[0_0_15px_rgba(124,58,237,0.2)]">
-                    {a.assistant_name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-white truncate">{a.assistant_name}</p>
-                    <p className="text-xs font-medium text-text-soft truncate mt-0.5">{a.business_name}</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3 sm:ml-auto">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${a.status === 'active' ? 'bg-brand-success shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-slate-500'}`} />
-                    <span className="text-[11px] font-medium text-slate-300">
-                      {a.status === 'active' ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </div>
-                  <span className="text-[11px] font-medium px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/5 text-slate-300">
-                    {channelLabel[a.channel] || a.channel}
-                  </span>
-                  
-                  <div className="flex items-center gap-1.5 ml-2">
-                    <Link
-                      href={`/dashboard/assistants/${a.id}`}
-                      className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-transparent hover:border-white/10 text-slate-400 hover:text-white transition-all"
-                      title="Probar asistente"
-                    >
-                      <Play className="w-3.5 h-3.5" />
-                    </Link>
-                    <Link
-                      href={`/dashboard/assistants/${a.id}?tab=edit`}
-                      className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-transparent hover:border-white/10 text-slate-400 hover:text-white transition-all"
-                      title="Editar configuración"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Link>
-                    <Link
-                      href={`/dashboard/assistants/${a.id}?tab=install&channel=webchat`}
-                      className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/10 border border-transparent hover:border-white/10 text-slate-400 hover:text-white transition-all"
-                      title="Instalar Web Chat"
-                    >
-                      <Globe className="w-3.5 h-3.5" />
-                    </Link>
-                  </div>
-                </div>
+          <div className="flex flex-col sm:flex-row gap-3 mt-6">
+            <Link href="/dashboard/leads" className="gradient-btn inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-white text-sm font-semibold">
+              <Users className="w-4 h-4" /> Gestionar leads
+            </Link>
+            <Link href="/dashboard/conversations" className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-card-border bg-white/[0.03] text-white text-sm font-semibold hover:bg-white/[0.07] transition-colors">
+              <MessageCircle className="w-4 h-4" /> Ver conversaciones
+            </Link>
+          </div>
+        </DashboardCard>
+
+        <DashboardCard>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-base font-bold text-white">Estado del sistema</h2>
+            <Link href="/dashboard/settings" className="text-xs font-semibold text-brand-violet hover:opacity-80">Configurar</Link>
+          </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-text-soft">Asistentes</span>
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${assistantsReady ? 'text-brand-success' : 'text-amber-500'}`}>
+                <span className={`w-2 h-2 rounded-full ${assistantsReady ? 'bg-brand-success' : 'bg-amber-500'}`} />
+                {assistantsReady ? 'Activo' : 'Pendiente'}
+              </span>
+            </div>
+            <div className="h-px bg-white/[0.06]" />
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-text-soft">Web Chat</span>
+              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold ${webchatReady ? 'text-brand-success' : 'text-amber-500'}`}>
+                <span className={`w-2 h-2 rounded-full ${webchatReady ? 'bg-brand-success' : 'bg-amber-500'}`} />
+                {webchatReady ? 'Conectado' : 'Configurar'}
+              </span>
+            </div>
+            <div className="h-px bg-white/[0.06]" />
+            <div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-text-soft">Mensajes del plan</span>
+                <span className="font-semibold text-white">{data.usage.messagesUsed} / {data.usage.messagesLimitFormatted}</span>
               </div>
-            ))}
+              <div className="h-2 rounded-full bg-white/[0.06] overflow-hidden mt-2">
+                <div className="h-full rounded-full gradient-btn" style={{ width: `${Math.min(data.usage.messagesPercentage, 100)}%` }} />
+              </div>
+            </div>
           </div>
-        )}
-      </DashboardCard>
+        </DashboardCard>
+      </div>
 
-      {/* I. Plan Usage */}
-      <div className="mt-8">
-        <PlanUsageCard plan={data.plan} usage={data.usage} />
+      <div className="grid lg:grid-cols-2 gap-6">
+        <DashboardActivity activity={data.activity} />
+
+        <DashboardCard>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-base font-bold text-white">Tus asistentes</h2>
+              <p className="text-xs text-text-soft mt-1">Acceso rápido para administrar.</p>
+            </div>
+            <Link href="/dashboard/assistants" className="text-xs font-semibold text-brand-cyan inline-flex items-center gap-1">
+              Ver todos <ArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          {data.recentAssistants.length === 0 ? (
+            <EmptyState
+              icon={Bot}
+              title="Crea tu primer asistente"
+              description="Configura tu negocio y empieza a recibir oportunidades."
+              actionLabel="Crear asistente"
+              actionHref="/dashboard/create-assistant"
+            />
+          ) : (
+            <div className="space-y-2">
+              {data.recentAssistants.slice(0, 3).map((assistant) => (
+                <Link
+                  key={assistant.id}
+                  href={`/dashboard/assistants/${assistant.id}`}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-transparent hover:border-card-border hover:bg-white/[0.03] transition-all"
+                >
+                  <div className="w-10 h-10 rounded-xl gradient-btn text-white font-bold flex items-center justify-center shrink-0">
+                    {assistant.assistant_name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-white truncate">{assistant.assistant_name}</p>
+                    <p className="text-xs text-text-soft truncate">{assistant.business_name} · {channelLabel[assistant.channel] || assistant.channel}</p>
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-1 rounded-full ${assistant.status === 'active' ? 'text-brand-success bg-brand-success/10' : 'text-text-soft bg-white/[0.05]'}`}>
+                    {assistant.status === 'active' ? 'Activo' : 'Inactivo'}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </DashboardCard>
       </div>
     </div>
   )
