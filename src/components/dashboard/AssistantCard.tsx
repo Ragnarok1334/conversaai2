@@ -85,7 +85,9 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
       }
 
       onDelete?.(assistant.id)
-      closeDeleteDialog()
+      setShowDelete(false)
+      setDeleteConfirmation('')
+      setDeleteError(null)
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : 'No se pudo eliminar el asistente.')
     } finally {
