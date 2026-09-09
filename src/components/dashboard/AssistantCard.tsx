@@ -1,13 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Globe, MessageCircle, Send, Pencil, Trash2, Calendar, Plug, Play, CheckCircle2, Lock, AlertCircle, Sparkles, Users, Activity, Target, ShieldAlert, AlertTriangle, Palette } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { CheckCircle2, Globe, MessageCircle, MoreHorizontal, Palette, Pencil, Play, Plug, Target, Trash2, Users } from 'lucide-react'
 import Link from 'next/link'
-import { AssistantInstallModal } from './AssistantInstallModal'
 import { AssistantTestModal } from './AssistantTestModal'
 import type { PlanKey } from '@/lib/plans'
-import type { AssistantHealthData } from '@/lib/assistant/assistant-health'
 
 interface Assistant {
   id: string
@@ -15,16 +13,13 @@ interface Assistant {
   status: string
   created_at: string
   purpose?: string
-  domains_count?: number
-  conversations_count?: number
-  widget_config?: any
+  widget_config?: Record<string, unknown>
   health?: any
   conversationsCount?: number
   leadsCount?: number
-  lastActivityAt?: string
   assistant_name?: string
   business_name?: string
-  assistant_domains?: any[]
+  assistant_domains?: Array<{ last_seen_at?: string | null }>
 }
 
 interface AssistantCardProps {
@@ -39,328 +34,123 @@ interface AssistantCardProps {
 export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, onToggleStatus }: AssistantCardProps) {
   const [showDelete, setShowDelete] = useState(false)
   const [showTest, setShowTest] = useState(false)
-  const [showInstall, setShowInstall] = useState(false)
+  const [showMenu, setShowMenu] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [deleteConfirmation, setDeleteConfirmation] = useState('')
-  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const health = assistant.health || {
-    baseState: 'Falta instalación',
-    score: 0,
-    scoreLevel: 'Bajo',
+    baseState: 'Falta instalación', score: 0, scoreLevel: 'Bajo', trainingQuality: 'Básico',
+    nextStep: 'Completa la configuración del asistente.',
     badges: { isReceivingConversations: false, isGeneratingLeads: false, hasVerifiedDomain: false, hasPendingDomain: false },
-    nextStep: 'Cargando información del asistente...',
-    trainingQuality: 'Básico'
   }
+  const name = assistant.assistant_name || assistant.name || 'Asistente'
+  const initial = name.charAt(0).toUpperCase()
+  const domains = assistant.assistant_domains || []
+  const hasTraining = health.score > 20 || health.baseState !== 'Necesita entrenamiento'
+  const isCustomized = Boolean(assistant.widget_config && Object.keys(assistant.widget_config).length > 0)
+  const hasDomain = domains.length > 0
+  const isDetected = domains.some(domain => domain.last_seen_at)
 
-  const assistantChannels = [{ channel: 'webchat' }]
+  const primaryAction = !hasTraining
+    ? { href: `/dashboard/assistants/${assistant.id}?tab=edit`, label: 'Completar información', icon: Pencil, tone: 'amber' }
+    : !isCustomized
+      ? { href: `/dashboard/assistants/${assistant.id}?tab=webchat`, label: 'Personalizar Web Chat', icon: Palette, tone: 'cyan' }
+      : !hasDomain
+        ? { href: `/dashboard/assistants/${assistant.id}?tab=install`, label: 'Autorizar dominio', icon: Globe, tone: 'cyan' }
+        : !isDetected
+          ? { href: `/dashboard/assistants/${assistant.id}?tab=install`, label: 'Terminar instalación', icon: Plug, tone: 'amber' }
+          : { href: `/dashboard/conversations?assistantId=${assistant.id}`, label: 'Ver conversaciones', icon: MessageCircle, tone: 'violet' }
+  const PrimaryIcon = primaryAction.icon
 
-  const assistantDisplayName = assistant.assistant_name || assistant.name || 'Asistente'
-
-  const closeDeleteDialog = () => {
-    if (deleting) return
-    setShowDelete(false)
-    setDeleteConfirmation('')
-    setDeleteError(null)
-  }
-
-  const handleDelete = async () => {
-    if (deleteConfirmation.trim() !== assistantDisplayName) {
-      setDeleteError('Escribe el nombre exacto del asistente.')
-      return
-    }
-
-    setDeleting(true)
-    setDeleteError(null)
-    try {
-      const response = await fetch(`/api/assistants/${assistant.id}`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmation: deleteConfirmation.trim() }),
-      })
-      const result = await response.json().catch(() => null)
-
-      if (!response.ok) {
-        throw new Error(result?.error || 'No se pudo eliminar el asistente.')
-      }
-
-      onDelete?.(assistant.id)
-      setShowDelete(false)
-      setDeleteConfirmation('')
-      setDeleteError(null)
-    } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : 'No se pudo eliminar el asistente.')
-    } finally {
-      setDeleting(false)
-    }
-  }
+  const stateClass = health.baseState === 'Activo'
+    ? 'bg-brand-success/10 text-brand-success border-brand-success/20'
+    : health.baseState === 'Requiere atención' || health.baseState === 'Necesita entrenamiento'
+      ? 'bg-brand-pink/10 text-brand-pink border-brand-pink/20'
+      : health.baseState === 'Falta instalación'
+        ? 'bg-brand-violet/10 text-brand-violet border-brand-violet/20'
+        : 'bg-brand-cyan/10 text-brand-cyan border-brand-cyan/20'
+  const scoreClass = health.score >= 80 ? 'text-brand-success' : health.score >= 50 ? 'text-amber-500' : 'text-brand-pink'
+  const primaryClass = primaryAction.tone === 'cyan'
+    ? 'bg-brand-cyan text-slate-950 border-brand-cyan'
+    : primaryAction.tone === 'amber'
+      ? 'bg-amber-500/10 text-amber-600 border-amber-500/25'
+      : 'bg-brand-violet/10 text-brand-violet border-brand-violet/25'
 
   const handleToggle = async () => {
     const newStatus = assistant.status === 'active' ? 'inactive' : 'active'
+    const response = await fetch(`/api/assistants/${assistant.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: newStatus }),
+    })
+    if (response.ok) onToggleStatus?.(assistant.id, newStatus)
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
     try {
-      await fetch(`/api/assistants/${assistant.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      })
-      onToggleStatus?.(assistant.id, newStatus)
-    } catch {
-      // silent
-    }
-  }
-
-  const initial = (assistant.assistant_name || assistant.name || '?').charAt(0).toUpperCase()
-  
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Desconocida'
-    return new Date(dateString).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  }
-
-  const getBaseStateColor = (state: string) => {
-    switch (state) {
-      case 'Activo': return 'bg-brand-success/10 text-brand-success border-brand-success/20'
-      case 'En configuración': return 'bg-brand-cyan/10 text-brand-cyan border-brand-cyan/20'
-      case 'Falta instalación': return 'bg-brand-violet/10 text-brand-violet border-brand-violet/20'
-      case 'Necesita entrenamiento': return 'bg-amber-500/10 text-amber-500 border-amber-500/20'
-      case 'Requiere atención': return 'bg-brand-pink/10 text-brand-pink border-brand-pink/20'
-      default: return 'bg-white/10 text-slate-300 border-white/20'
-    }
-  }
-
-  const getScoreColor = (level: string) => {
-    switch (level) {
-      case 'Excelente': return 'text-brand-success'
-      case 'Bueno': return 'text-brand-cyan'
-      case 'Medio': return 'text-amber-500'
-      case 'Bajo': return 'text-brand-pink'
-      default: return 'text-slate-400'
+      const response = await fetch(`/api/assistants/${assistant.id}`, { method: 'DELETE' })
+      if (!response.ok) throw new Error('No se pudo eliminar')
+      onDelete?.(assistant.id)
+      setShowDelete(false)
+    } finally {
+      setDeleting(false)
     }
   }
 
   return (
     <>
       <AssistantTestModal open={showTest} onClose={() => setShowTest(false)} assistantId={assistant.id} plan={plan} planLimits={planLimits} usage={usage} />
-      <AssistantInstallModal open={showInstall} onClose={() => setShowInstall(false)} assistantId={assistant.id} plan={plan} planLimits={planLimits} assistantChannels={assistantChannels} />
 
       <AnimatePresence>
         {showDelete && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: 'rgba(5,8,22,0.8)', backdropFilter: 'blur(8px)' }} onClick={closeDeleteDialog}>
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} onClick={e => e.stopPropagation()} className="dashboard-danger-modal bg-[#080f28] border border-white/10 rounded-3xl p-7 max-w-md w-full shadow-2xl relative overflow-hidden">
-              <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-brand-pink to-brand-violet" />
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-brand-pink/10 border border-brand-pink/20 flex items-center justify-center">
-                  <Trash2 className="w-5 h-5 text-brand-pink" />
-                </div>
-                <h3 className="font-bold text-white text-lg">Eliminar asistente</h3>
-              </div>
-              <p className="text-sm text-slate-400 mb-4">
-                Se eliminarán también sus conversaciones, leads, dominios, canales y mensajes de prueba. Esta acción no se puede deshacer.
-              </p>
-              <label className="block text-sm font-semibold text-slate-300 mb-2">
-                Escribe <span className="text-brand-pink">{assistantDisplayName}</span> para confirmar
-              </label>
-              <input
-                value={deleteConfirmation}
-                onChange={(event) => {
-                  setDeleteConfirmation(event.target.value)
-                  setDeleteError(null)
-                }}
-                disabled={deleting}
-                autoComplete="off"
-                className="w-full rounded-xl bg-black/20 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-brand-violet mb-2"
-                placeholder={assistantDisplayName}
-              />
-              {deleteError && <p className="text-xs text-brand-pink mb-4" role="alert">{deleteError}</p>}
-              {!deleteError && <div className="h-5 mb-4" />}
-              <div className="flex gap-3">
-                <button onClick={closeDeleteDialog} disabled={deleting} className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-slate-400 font-medium hover:text-white transition-all disabled:opacity-50">Cancelar</button>
-                <button
-                  onClick={handleDelete}
-                  disabled={deleting || deleteConfirmation.trim() !== assistantDisplayName}
-                  className="flex-1 py-2.5 rounded-xl bg-brand-pink/10 border border-brand-pink/30 text-brand-pink font-semibold hover:bg-brand-pink/20 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  {deleting ? 'Eliminando...' : 'Eliminar definitivamente'}
-                </button>
-              </div>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowDelete(false)}>
+            <motion.div initial={{ scale: 0.96, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.96, y: 12 }} onClick={event => event.stopPropagation()} className="w-full max-w-sm rounded-3xl border border-card-border bg-card-bg p-6 shadow-2xl">
+              <div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-xl bg-brand-pink/10"><Trash2 className="h-5 w-5 text-brand-pink" /></div><h3 className="text-lg font-bold">Eliminar asistente</h3></div>
+              <p className="mt-4 text-sm text-text-soft">Eliminarás <strong className="text-text-main">{name}</strong> y su configuración. Esta acción no se puede deshacer.</p>
+              <div className="mt-6 flex gap-3"><button onClick={() => setShowDelete(false)} className="flex-1 rounded-xl border border-card-border px-4 py-2.5 text-sm font-semibold">Cancelar</button><button onClick={handleDelete} disabled={deleting} className="flex-1 rounded-xl border border-brand-pink/30 bg-brand-pink/10 px-4 py-2.5 text-sm font-semibold text-brand-pink disabled:opacity-50">{deleting ? 'Eliminando…' : 'Eliminar'}</button></div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <motion.div layout initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-5 flex flex-col group hover:border-brand-violet/30 hover:-translate-y-1 transition-all overflow-hidden relative">
-        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-brand-violet/0 via-brand-violet/20 to-brand-violet/0 opacity-0 group-hover:opacity-100 transition-opacity" />
-
-        {/* Top row */}
-        <div className="flex items-start justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-12 h-12 rounded-2xl gradient-btn flex items-center justify-center text-white font-bold text-xl flex-shrink-0 shadow-[0_0_20px_rgba(124,58,237,0.3)]">
-              {initial}
-            </div>
-            <div className="min-w-0">
-            <h3 className="font-bold text-white text-base leading-tight truncate">{assistant.assistant_name || assistant.name}</h3>
-            <p className="text-sm text-slate-400 truncate max-w-[150px]">{assistant.business_name || assistant.purpose || 'Sin negocio definido'}</p>
-            </div>
+      <motion.article layout initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97 }} className="relative flex flex-col rounded-2xl border border-card-border bg-card-bg/80 p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-violet/30 hover:shadow-lg">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="gradient-btn grid h-11 w-11 shrink-0 place-items-center rounded-xl text-lg font-bold text-white">{initial}</div>
+            <div className="min-w-0"><h3 className="truncate font-bold text-text-main">{name}</h3><p className="truncate text-sm text-text-soft">{assistant.business_name || assistant.purpose || 'Sin negocio definido'}</p></div>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <button
-              onClick={handleToggle}
-              className={`flex-shrink-0 w-9 h-5 rounded-full transition-all ${assistant.status === 'active' ? 'bg-brand-success' : 'bg-white/20'} relative`}
-              title={assistant.status === 'active' ? 'Desactivar' : 'Activar'}
-            >
-              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${assistant.status === 'active' ? 'left-4.5' : 'left-0.5'}`} />
-            </button>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border ${getBaseStateColor(health.baseState)}`}>
-              {health.baseState}
-            </span>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            <button onClick={handleToggle} role="switch" aria-checked={assistant.status === 'active'} aria-label={assistant.status === 'active' ? 'Desactivar asistente' : 'Activar asistente'} className={`relative h-5 w-9 rounded-full ${assistant.status === 'active' ? 'bg-brand-success' : 'bg-slate-400/30'}`}><span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-all ${assistant.status === 'active' ? 'left-[18px]' : 'left-0.5'}`} /></button>
+            <span className={`max-w-28 truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold ${stateClass}`}>{health.baseState}</span>
           </div>
         </div>
 
-        {/* Health & Training Quality */}
-        <div className="mb-4 flex items-center justify-between bg-black/20 rounded-xl p-3 border border-white/[0.05]">
-          <div>
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5">Health Score</p>
-            <div className="flex items-center gap-1.5">
-              <span className={`text-lg font-black ${getScoreColor(health.scoreLevel)}`}>{health.score}/100</span>
-            </div>
-          </div>
-          <div className="w-px h-8 bg-white/10" />
-          <div className="text-right">
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold mb-0.5">Calidad info</p>
-            <span className="text-sm font-semibold text-slate-300">{health.trainingQuality}</span>
-          </div>
+        <div className="mt-4 grid grid-cols-3 divide-x divide-card-border rounded-xl border border-card-border bg-white/[0.025] py-2.5 text-center">
+          <div><p className="text-[10px] font-semibold uppercase text-text-soft">Salud</p><p className={`mt-0.5 text-base font-black ${scoreClass}`}>{health.score}/100</p></div>
+          <Link href={`/dashboard/conversations?assistantId=${assistant.id}`} className="block"><p className="text-[10px] font-semibold uppercase text-text-soft">Chats</p><p className="mt-0.5 text-base font-bold text-text-main">{assistant.conversationsCount || 0}</p></Link>
+          <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="block"><p className="text-[10px] font-semibold uppercase text-text-soft">Leads</p><p className="mt-0.5 text-base font-bold text-text-main">{assistant.leadsCount || 0}</p></Link>
         </div>
 
-        {/* Activity Badges */}
-        <div className="mb-4 space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {health.badges.isReceivingConversations && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gradient-to-r from-brand-violet/20 to-brand-cyan/20 border border-brand-violet/30 text-white text-[10px] font-semibold">
-                <MessageCircle className="w-3 h-3 text-brand-cyan" /> Recibiendo conversaciones
-              </div>
-            )}
-            {health.badges.isGeneratingLeads && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-gradient-to-r from-brand-cyan/20 to-brand-success/20 border border-brand-success/30 text-white text-[10px] font-semibold">
-                <Users className="w-3 h-3 text-brand-success" /> Generando leads
-              </div>
-            )}
-            {health.badges.hasVerifiedDomain && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/5 border border-white/10 text-slate-300 text-[10px] font-medium">
-                <Globe className="w-3 h-3 text-brand-cyan" /> Dominio verificado
-              </div>
-            )}
-            {health.badges.hasPendingDomain && !health.badges.hasVerifiedDomain && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[10px] font-medium">
-                <Globe className="w-3 h-3" /> Dominio pendiente
-              </div>
-            )}
-            {!health.badges.hasVerifiedDomain && !health.badges.hasPendingDomain && (
-              <div className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/[0.03] border border-white/[0.05] text-slate-500 text-[10px] font-medium">
-                <Globe className="w-3 h-3 opacity-50" /> Sin instalación web
-              </div>
-            )}
-          </div>
-          
-          {/* Stats counts */}
-          <div className="flex gap-4 text-xs">
-            <Link href={`/dashboard/conversations?assistantId=${assistant.id}`} className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
-              <span className="font-semibold text-white">{assistant.conversationsCount || 0}</span> conv.
-            </Link>
-            <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
-              <span className="font-semibold text-white">{assistant.leadsCount || 0}</span> leads
-            </Link>
-          </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {health.badges.isReceivingConversations && <span className="inline-flex items-center gap-1 rounded-full border border-brand-violet/20 bg-brand-violet/10 px-2 py-1 text-[10px] font-semibold text-brand-violet"><MessageCircle className="h-3 w-3" /> Conversando</span>}
+          {health.badges.isGeneratingLeads && <span className="inline-flex items-center gap-1 rounded-full border border-brand-success/20 bg-brand-success/10 px-2 py-1 text-[10px] font-semibold text-brand-success"><Users className="h-3 w-3" /> Captando leads</span>}
+          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold ${health.badges.hasVerifiedDomain ? 'border-brand-cyan/20 bg-brand-cyan/10 text-brand-cyan' : 'border-card-border bg-white/[0.025] text-text-soft'}`}><Globe className="h-3 w-3" /> {health.badges.hasVerifiedDomain ? 'Web instalado' : 'Web pendiente'}</span>
         </div>
 
-        {/* Siguiente paso */}
-        <div className="mb-5 p-3 rounded-xl bg-gradient-to-br from-brand-violet/10 to-brand-cyan/5 border border-brand-violet/20 flex gap-2 items-start">
-          <Target className="w-4 h-4 text-brand-cyan shrink-0 mt-0.5" />
-          <div>
-            <p className="text-[10px] text-brand-cyan font-semibold uppercase tracking-wider mb-0.5">Siguiente paso sugerido</p>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              {health.nextStep}
-            </p>
-          </div>
-        </div>
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-brand-violet/15 bg-brand-violet/[0.05] p-2.5"><Target className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-violet" /><p className="line-clamp-2 text-xs leading-relaxed text-text-soft">{health.nextStep}</p></div>
 
-        {/* Actions */}
-        <div className="mt-auto space-y-2">
-          {(() => {
-            const hasTraining = health.score > 20 || health.baseState !== 'Necesita entrenamiento'
-            const isCustomized = Boolean(assistant.widget_config && Object.keys(assistant.widget_config).length > 0)
-            const domains = assistant.assistant_domains || []
-            const hasDomain = domains.length > 0
-            const isDetected = domains.some((d: any) => d.last_seen_at !== null)
-            const hasConversations = (assistant.conversationsCount || 0) > 0
+        <Link href={primaryAction.href} className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-opacity hover:opacity-90 ${primaryClass}`}><PrimaryIcon className="h-4 w-4" />{primaryAction.label}</Link>
 
-            if (!hasTraining) {
-              return (
-                <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm font-semibold hover:bg-amber-500/20 transition-all">
-                  <Pencil className="w-4 h-4" /> Completar entrenamiento
-                </Link>
-              )
-            }
-            if (!isCustomized) {
-              return (
-                <Link href={`/dashboard/assistants/${assistant.id}?tab=webchat`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-cyan border border-brand-cyan/20 text-slate-900 text-sm font-bold hover:bg-brand-cyan/90 transition-all">
-                  <Palette className="w-4 h-4" /> Personalizar Web Chat
-                </Link>
-              )
-            }
-            if (!hasDomain) {
-              return (
-                <Link href={`/dashboard/assistants/${assistant.id}?tab=install`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-cyan border border-brand-cyan/20 text-slate-900 text-sm font-bold hover:bg-brand-cyan/90 transition-all">
-                  <Globe className="w-4 h-4" /> Autorizar dominio
-                </Link>
-              )
-            }
-            if (!isDetected) {
-              return (
-                <Link href={`/dashboard/assistants/${assistant.id}?tab=install`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500 text-sm font-semibold hover:bg-amber-500/20 transition-all">
-                  <Plug className="w-4 h-4" /> Instalar script
-                </Link>
-              )
-            }
-            return (
-              <Link href={`/dashboard/conversations?assistantId=${assistant.id}`} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-brand-violet/10 border border-brand-violet/30 text-brand-violet text-sm font-semibold hover:bg-brand-violet/20 transition-all">
-                <MessageCircle className="w-4 h-4" /> Ver conversaciones
-              </Link>
-            )
-          })()}
-          
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
-              <Pencil className="w-3.5 h-3.5" /> Editar
-            </Link>
-            <Link href={`/dashboard/assistants/${assistant.id}?tab=webchat`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors" title="Web Chat">
-              <Palette className="w-3.5 h-3.5" /> Web Chat
-            </Link>
-            <Link href={`/dashboard/assistants/${assistant.id}?tab=test`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors" title="Probar">
-              <Play className="w-3.5 h-3.5" /> Probar
-            </Link>
-            <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
-              <Users className="w-3.5 h-3.5" /> Leads
-            </Link>
-            <button
-              onClick={() => {
-                setDeleteConfirmation('')
-                setDeleteError(null)
-                setShowDelete(true)
-              }}
-              className="col-span-2 w-full px-3 py-2.5 rounded-xl bg-brand-pink/5 border border-brand-pink/25 text-brand-pink hover:bg-brand-pink/10 transition-colors flex items-center justify-center gap-1.5 text-xs font-semibold"
-              title="Eliminar asistente"
-            >
-              <Trash2 className="w-4 h-4" />
-              Eliminar asistente
-            </button>
-          </div>
+        <div className="relative mt-2 grid grid-cols-[1fr_1fr_auto] gap-2">
+          <Link href={`/dashboard/assistants/${assistant.id}?tab=edit`} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-card-border px-3 py-2 text-xs font-semibold text-text-main hover:bg-white/[0.04]"><Pencil className="h-3.5 w-3.5" /> Editar</Link>
+          <button onClick={() => setShowTest(true)} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-card-border px-3 py-2 text-xs font-semibold text-text-main hover:bg-white/[0.04]"><Play className="h-3.5 w-3.5" /> Probar</button>
+          <button onClick={() => setShowMenu(value => !value)} aria-expanded={showMenu} aria-label="Más acciones" className="grid w-10 place-items-center rounded-xl border border-card-border text-text-soft hover:text-text-main"><MoreHorizontal className="h-4 w-4" /></button>
+          {showMenu && <div className="absolute bottom-11 right-0 z-30 w-44 overflow-hidden rounded-xl border border-card-border bg-card-bg p-1.5 shadow-2xl">
+            <Link onClick={() => setShowMenu(false)} href={`/dashboard/assistants/${assistant.id}?tab=webchat`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium hover:bg-white/[0.05]"><Palette className="h-3.5 w-3.5" /> Web Chat</Link>
+            <Link onClick={() => setShowMenu(false)} href={`/dashboard/assistants/${assistant.id}?tab=install`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium hover:bg-white/[0.05]"><Globe className="h-3.5 w-3.5" /> Instalación</Link>
+            <Link onClick={() => setShowMenu(false)} href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium hover:bg-white/[0.05]"><Users className="h-3.5 w-3.5" /> Ver leads</Link>
+            <button onClick={() => { setShowMenu(false); setShowDelete(true) }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-brand-pink hover:bg-brand-pink/10"><Trash2 className="h-3.5 w-3.5" /> Eliminar</button>
+          </div>}
         </div>
-
-        {/* Footer info */}
-        <div className="mt-4 pt-4 border-t border-white/[0.05] flex items-center justify-between text-[10px] text-slate-500 font-medium">
-          <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Últ. act: {formatDate(assistant.lastActivityAt || assistant.created_at)}</span>
-        </div>
-      </motion.div>
+      </motion.article>
     </>
   )
 }
