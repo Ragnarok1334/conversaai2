@@ -409,6 +409,16 @@ body::before {
 .light-faq-list { overflow: hidden; background: #fff; border: 1px solid #e8e3ef; border-radius: 25px; }
 .light-faq-list details + details { border-top: 1px solid #eeeaf4; }
 .light-faq-list summary { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 24px; cursor: pointer; list-style: none; font-weight: 760; }
+
+/* Dashboard affordances: every actionable control should visibly feel clickable. */
+.dashboard-root button:not(:disabled),
+.dashboard-root a[href],
+.dashboard-root select:not(:disabled),
+.dashboard-root summary,
+.dashboard-root [role="button"]:not([aria-disabled="true"]),
+.dashboard-root [role="option"]:not(:disabled) {
+  cursor: pointer;
+}
 .light-faq-list summary::-webkit-details-marker { display: none; }
 .light-faq-list summary svg { width: 19px; transition: transform .2s; }
 .light-faq-list details[open] summary svg { transform: rotate(180deg); }
