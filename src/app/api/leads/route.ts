@@ -49,7 +49,11 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
 
-    if (status && status !== 'all' && ['new', 'contacted', 'qualified', 'converted', 'lost'].includes(status)) query = query.eq('status', status)
+    if (status === 'followup') {
+      query = query.in('status', ['contacted', 'qualified'])
+    } else if (status && status !== 'all' && ['new', 'contacted', 'qualified', 'converted', 'lost'].includes(status)) {
+      query = query.eq('status', status)
+    }
     if (source && source !== 'all' && ['webchat', 'telegram', 'whatsapp'].includes(source)) query = query.eq('source', source)
     if (assistantId && assistantId !== 'all' && isUuid(assistantId)) query = query.eq('assistant_id', assistantId)
     if (search) {

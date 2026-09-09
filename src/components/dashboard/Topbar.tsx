@@ -13,10 +13,10 @@ interface TopbarProps {
 }
 
 const routeMap: Record<string, string> = {
-  '/dashboard': 'Centro de control',
+  '/dashboard': 'Inicio',
   '/dashboard/assistants': 'Tus Asistentes',
   '/dashboard/conversations': 'Conversaciones',
-  '/dashboard/leads': 'Leads Capturados',
+  '/dashboard/leads': 'Leads',
   '/dashboard/billing': 'Facturación y Plan',
   '/dashboard/settings': 'Configuración',
   '/dashboard/support': 'Soporte',
