@@ -55,11 +55,6 @@ export function CustomSelect({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [])
 
-  // Clear search when opened
-  useEffect(() => {
-    if (isOpen) setSearch('')
-  }, [isOpen])
-
   const filteredOptions = options.filter(opt => 
     opt.label.toLowerCase().includes(search.toLowerCase()) || 
     (opt.description && opt.description.toLowerCase().includes(search.toLowerCase()))
@@ -70,8 +65,14 @@ export function CustomSelect({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full px-4 py-2.5 rounded-xl bg-white/[0.04] border flex items-center justify-between text-left transition-all ${
+        onClick={() => {
+          if (disabled) return
+          if (!isOpen) setSearch('')
+          setIsOpen(!isOpen)
+        }}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        className={`dashboard-select-trigger w-full min-h-11 px-4 py-2.5 rounded-xl bg-white/[0.04] border flex items-center justify-between text-left transition-all ${
           isOpen ? 'border-brand-blue/50 ring-1 ring-brand-blue/30' : 'border-white/[0.1] hover:border-white/[0.2]'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${!selectedOption ? 'text-text-soft' : 'text-white'}`}
       >
@@ -88,11 +89,12 @@ export function CustomSelect({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.15 }}
-            className="absolute z-50 w-full mt-2 rounded-xl bg-[#0b1229] border border-white/10 shadow-2xl overflow-hidden flex flex-col"
+            role="listbox"
+            className="dashboard-select-menu absolute z-[120] w-full mt-2 rounded-xl bg-[#0b1229] border border-white/10 shadow-2xl overflow-hidden flex flex-col"
             style={{ maxHeight: '300px' }}
           >
             {searchable && (
-              <div className="p-2 border-b border-white/[0.05] shrink-0 sticky top-0 bg-[#0b1229] z-10">
+              <div className="dashboard-select-search p-2 border-b border-white/[0.05] shrink-0 sticky top-0 bg-[#0b1229] z-10">
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-soft" />
                   <input
@@ -100,7 +102,7 @@ export function CustomSelect({
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Buscar..."
-                    className="w-full bg-white/[0.04] border border-white/[0.05] rounded-lg pl-9 pr-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-blue/50"
+                    className="w-full bg-white/[0.04] border border-white/[0.05] rounded-lg pl-9 pr-3 py-2 text-sm text-white focus:outline-none focus:border-brand-blue/50"
                   />
                 </div>
               </div>
@@ -115,6 +117,8 @@ export function CustomSelect({
                 filteredOptions.map((opt) => (
                   <button
                     key={opt.value}
+                    role="option"
+                    aria-selected={opt.value === value}
                     type="button"
                     disabled={opt.disabled}
                     onClick={() => {
