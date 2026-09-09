@@ -22,6 +22,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
   const [conversations, setConversations] = useState<any[]>([])
   const [stats, setStats] = useState<any>({})
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   
   const [selectedConv, setSelectedConv] = useState<any>(null)
@@ -70,9 +71,11 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
         setHasMore(data.conversations.length === limit)
         setStats(data.stats || {})
       }
+      return true
     } catch (error) {
       console.error('Error fetching conversations:', error)
       setErrorMessage(error instanceof Error ? error.message : 'No se pudieron cargar las conversaciones')
+      return false
     } finally {
       setLoading(false)
     }
@@ -82,6 +85,13 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
     const nextPage = page + 1
     setPage(nextPage)
     fetchConversations(nextPage, true)
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    const succeeded = await fetchConversations(1, false)
+    setRefreshing(false)
+    if (succeeded) showToast('Conversaciones actualizadas')
   }
 
   // Trigger fetch when filters change
@@ -201,6 +211,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
     const matchesChannel = channelFilter === 'all' || c.channel === channelFilter
     return matchesSearch && matchesStatus && matchesChannel
   })
+  const hasActiveFilters = Boolean(search) || statusFilter !== 'all' || channelFilter !== 'all'
 
   // Selección automática
   useEffect(() => {
@@ -210,10 +221,8 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
         handleSelectConversation(filteredConversations.find(c => c.id === requestedId) || filteredConversations[0])
       }
     } else {
-      if (selectedConv && conversations.length > 0) {
-        // Search hid everything, don't necessarily clear it, or clear it if strict
-        setSelectedConv(null)
-      }
+      setSelectedConv(null)
+      setMessages([])
     }
   }, [filteredConversations, selectedConv])
 
@@ -240,7 +249,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <button type="button" onClick={() => fetchConversations(1, false)} className="w-8 h-8 inline-flex items-center justify-center rounded-full border border-card-border text-text-soft hover:text-text-primary" title="Actualizar conversaciones"><RefreshCw className="w-3.5 h-3.5" /></button>
+          <button type="button" onClick={handleRefresh} disabled={refreshing} className="w-8 h-8 inline-flex items-center justify-center rounded-full border border-card-border text-text-soft hover:text-text-primary disabled:opacity-50" title="Actualizar conversaciones" aria-label="Actualizar conversaciones"><RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /></button>
           <span className="px-3 py-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan font-medium">
             {stats.open || 0} abiertas
           </span>
@@ -289,7 +298,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
             Ver planes
           </Link>
         </div>
-      ) : conversations.length === 0 && !search ? (
+      ) : conversations.length === 0 && !hasActiveFilters ? (
         <div className="flex-1 bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-8 lg:p-12 shadow-[0_0_50px_rgba(124,58,237,0.05)] flex items-center justify-center flex-col overflow-y-auto custom-scrollbar">
           <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-brand-violet/20 to-brand-cyan/20 border border-brand-violet/30 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(124,58,237,0.2)] shrink-0">
             <MessageSquare className="w-10 h-10 text-brand-violet" />
