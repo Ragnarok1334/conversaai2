@@ -11,6 +11,7 @@ interface AssistantTestBody {
   assistantId?: unknown
   assistantConfig?: unknown
   userMessage?: unknown
+  history?: unknown
 }
 
 export async function POST(request: NextRequest) {
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await readJsonBody<AssistantTestBody>(request, 24_576)
-    const { assistantId, assistantConfig, userMessage } = body
+    const { assistantId, assistantConfig, userMessage, history } = body
 
     if (!userMessage || typeof userMessage !== 'string' || userMessage.trim().length === 0 || userMessage.length > 2000) {
       return NextResponse.json({ error: 'Mensaje requerido' }, { status: 400 })
@@ -32,6 +33,17 @@ export async function POST(request: NextRequest) {
     if (assistantId != null && !isUuid(assistantId)) {
       return NextResponse.json({ error: 'Identificador de asistente inválido' }, { status: 400 })
     }
+
+    const safeHistory = Array.isArray(history)
+      ? history.slice(-12).filter((item): item is { role: 'user' | 'assistant'; content: string } => {
+          if (!item || typeof item !== 'object') return false
+          const message = item as { role?: unknown; content?: unknown }
+          return (message.role === 'user' || message.role === 'assistant')
+            && typeof message.content === 'string'
+            && message.content.trim().length > 0
+            && message.content.length <= 2000
+        }).map(item => ({ role: item.role, content: item.content.trim() }))
+      : []
 
     // --- Subscription Limits ---
     const { data: profile } = await supabase
@@ -53,19 +65,6 @@ export async function POST(request: NextRequest) {
     const normalizedPlan = normalizePlan(sub.plan)
     const planConfig = getPlanConfig(normalizedPlan)
     const effectiveLimit = planConfig.limits.messagesPerMonth
-
-    // Consume credit atomically
-    const consumed = await consumeMessageCredit(user.id, effectiveLimit)
-    if (!consumed) {
-      return NextResponse.json({
-        error: 'Alcanzaste el límite mensual de mensajes de tu plan.',
-        code: 'MESSAGE_LIMIT_REACHED',
-        limit: effectiveLimit,
-        used: sub.current_messages_used, // Will be updated eventually, but shows current snapshot
-        plan: normalizedPlan
-      }, { status: 403 })
-    }
-    // ---------------------------
 
     let config: AssistantConfig
 
@@ -108,8 +107,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Se requiere assistantId o assistantConfig' }, { status: 400 })
     }
 
+    // Consume only after validating access and configuration.
+    const consumed = await consumeMessageCredit(user.id, effectiveLimit)
+    if (!consumed) {
+      return NextResponse.json({
+        error: 'Alcanzaste el límite mensual de mensajes de tu plan.',
+        code: 'MESSAGE_LIMIT_REACHED',
+        limit: effectiveLimit,
+        used: sub.current_messages_used,
+        plan: normalizedPlan
+      }, { status: 403 })
+    }
+
     const aiModel = getModelForPlan(normalizedPlan, 'assistant_test', { messageLength: userMessage.length })
-    const reply = await generateAssistantReply(config, userMessage.trim(), aiModel)
+    const reply = await generateAssistantReply(config, userMessage.trim(), aiModel, safeHistory)
 
     // Save test message if assistantId exists
     if (assistantId) {
