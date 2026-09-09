@@ -50,7 +50,7 @@ export async function GET(request: Request) {
       .range(offset, offset + limit - 1)
 
     if (status && status !== 'all' && ['open', 'pending', 'closed'].includes(status)) query = query.eq('status', status)
-    if (channel && channel !== 'all' && ['webchat', 'telegram', 'whatsapp'].includes(channel)) query = query.eq('channel', channel)
+    if (channel && channel !== 'all' && ['webchat', 'telegram', 'whatsapp', 'instagram', 'facebook'].includes(channel)) query = query.eq('channel', channel)
     if (assistantId && assistantId !== 'all' && isUuid(assistantId)) query = query.eq('assistant_id', assistantId)
     if (search) {
       query = query.or(`visitor_name.ilike.%${search}%,visitor_email.ilike.%${search}%,visitor_phone.ilike.%${search}%,last_message.ilike.%${search}%`)
@@ -106,6 +106,8 @@ export async function GET(request: Request) {
       webchat: allConvs?.filter(c => c.channel === 'webchat').length || 0,
       telegram: allConvs?.filter(c => c.channel === 'telegram').length || 0,
       whatsapp: allConvs?.filter(c => c.channel === 'whatsapp').length || 0,
+      instagram: allConvs?.filter(c => c.channel === 'instagram').length || 0,
+      facebook: allConvs?.filter(c => c.channel === 'facebook').length || 0,
     }
 
     return NextResponse.json({ conversations: data || [], stats, count: count || 0 })
