@@ -12,27 +12,30 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    // Conversation
+    // Resolve the owned conversation without embedding optional relations.
+    // An inaccessible/missing assistant relation must not turn a valid
+    // conversation into a false 404.
     const { data: conv, error: convError } = await supabase
       .from('conversations')
-      .select('*, assistant:assistants(assistant_name, business_name, channel)')
+      .select('*')
       .eq('id', id)
       .eq('user_id', user.id)
       .single()
 
     if (convError || !conv) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    // Messages
-    const { data: messages, error: msgError } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', id)
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true })
+    const supabaseAdmin = createSupabaseAdmin()
+    const [assistantResult, messagesResult] = await Promise.all([
+      conv.assistant_id
+        ? supabaseAdmin.from('assistants').select('assistant_name, business_name, channel').eq('id', conv.assistant_id).eq('user_id', user.id).maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabaseAdmin.from('messages').select('*').eq('conversation_id', id).eq('user_id', user.id).order('created_at', { ascending: true }),
+    ])
 
-    if (msgError) throw msgError
+    if (messagesResult.error) throw messagesResult.error
+    if (assistantResult.error) console.error('[GET /api/conversations/[id]] assistant:', assistantResult.error)
 
-    return NextResponse.json({ conversation: conv, messages: messages || [] })
+    return NextResponse.json({ conversation: { ...conv, assistant: assistantResult.data }, messages: messagesResult.data || [] })
   } catch (error) {
     console.error('[GET /api/conversations/[id]]', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
