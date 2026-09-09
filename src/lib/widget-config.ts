@@ -31,6 +31,15 @@ export function sanitizeWidgetConfigForPlan(widgetConfig: any, effectivePlan: st
   if (widgetConfig.launcherMode && ['icon', 'icon-text'].includes(widgetConfig.launcherMode)) {
     cleanConfig.launcherMode = widgetConfig.launcherMode
   }
+  if (widgetConfig.launcherSize && ['small', 'medium', 'large'].includes(widgetConfig.launcherSize)) {
+    cleanConfig.launcherSize = widgetConfig.launcherSize
+  }
+  if (widgetConfig.launcherShape && ['circle', 'rounded'].includes(widgetConfig.launcherShape)) {
+    cleanConfig.launcherShape = widgetConfig.launcherShape
+  }
+  if (widgetConfig.launcherIcon && ['chat', 'sparkles', 'support'].includes(widgetConfig.launcherIcon)) {
+    cleanConfig.launcherIcon = widgetConfig.launcherIcon
+  }
 
   // Pro & Growth+
   if (canUseSubtitle && widgetConfig.subtitle) cleanConfig.subtitle = sanitizeText(widgetConfig.subtitle).slice(0, 90)
