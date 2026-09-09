@@ -496,7 +496,6 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                           <option value="lost">Descartado</option>
                         </select>
                       </div>
-                      </div>
                     </div>
                   </div>
 
