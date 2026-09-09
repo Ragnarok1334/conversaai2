@@ -2,15 +2,18 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Globe, Send, MessageCircle, Search, Filter, CheckCircle2, Users } from 'lucide-react'
+import { MessageSquare, Globe, Send, MessageCircle, Search, Filter, CheckCircle2, Users, Mail, Phone, RefreshCw } from 'lucide-react'
 import Link from 'next/link'
 import ChannelConnectActions from '@/components/dashboard/ChannelConnectActions'
 import { ConvertLeadModal } from './ConvertLeadModal'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 
 const channelIcon: Record<string, React.ReactNode> = {
   webchat: <Globe className="w-4 h-4" />,
   telegram: <Send className="w-4 h-4" />,
   whatsapp: <MessageCircle className="w-4 h-4" />,
+  instagram: <Globe className="w-4 h-4" />,
+  facebook: <MessageCircle className="w-4 h-4" />,
 }
 
 export default function ConversationsClient({ user, assistants, currentPlan, effectiveStatus, messagesLimit, currentMessagesUsed }: { user: any, assistants: any[], currentPlan: string, effectiveStatus: string, messagesLimit: number, currentMessagesUsed: number }) {
@@ -19,6 +22,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
   const [conversations, setConversations] = useState<any[]>([])
   const [stats, setStats] = useState<any>({})
   const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
   
   const [selectedConv, setSelectedConv] = useState<any>(null)
   const [messages, setMessages] = useState<any[]>([])
@@ -42,6 +46,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
 
   const fetchConversations = async (pageNum = 1, append = false) => {
     try {
+      setErrorMessage('')
       const query = new URLSearchParams({
         limit: limit.toString(),
         page: pageNum.toString()
@@ -50,8 +55,9 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
       if (channelFilter !== 'all') query.append('channel', channelFilter)
       if (search) query.append('search', search)
 
-      const res = await fetch(`/api/conversations?${query.toString()}`)
+      const res = await fetch(`/api/conversations?${query.toString()}`, { cache: 'no-store' })
       const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'No se pudieron cargar las conversaciones')
       if (data.conversations) {
         if (append) {
           setConversations(prev => {
@@ -66,6 +72,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
       }
     } catch (error) {
       console.error('Error fetching conversations:', error)
+      setErrorMessage(error instanceof Error ? error.message : 'No se pudieron cargar las conversaciones')
     } finally {
       setLoading(false)
     }
@@ -90,13 +97,16 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
   const fetchMessages = async (id: string) => {
     setLoadingMessages(true)
     try {
-      const res = await fetch(`/api/conversations/${id}`)
+      const res = await fetch(`/api/conversations/${id}`, { cache: 'no-store' })
       const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'No se pudieron cargar los mensajes')
       if (data.messages) {
         setMessages(data.messages)
       }
     } catch (error) {
       console.error('Error fetching messages:', error)
+      setMessages([])
+      showToast(error instanceof Error ? error.message : 'No se pudieron cargar los mensajes')
     } finally {
       setLoadingMessages(false)
     }
@@ -134,7 +144,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
           // Si la conversación insertada es la que está seleccionada, agregamos el mensaje a la vista
           setSelectedConv((currentSelected: any) => {
             if (currentSelected && currentSelected.id === payload.new.conversation_id) {
-              setMessages((prev) => [...prev, payload.new])
+              setMessages((prev) => prev.some(message => message.id === payload.new.id) ? prev : [...prev, payload.new])
             }
             return currentSelected
           })
@@ -150,9 +160,14 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
   const handleSelectConversation = (conv: any) => {
     setSelectedConv(conv)
     fetchMessages(conv.id)
+    const url = new URL(window.location.href)
+    url.searchParams.set('id', conv.id)
+    window.history.replaceState({}, '', url)
   }
 
   const handleUpdateStatus = async (convId: string, status: string) => {
+    const previousConversations = [...conversations]
+    const previousSelected = selectedConv
     try {
       // Optimistic update
       setConversations(prev => prev.map(c => c.id === convId ? { ...c, status } : c))
@@ -169,6 +184,8 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
       showToast('Estado actualizado')
     } catch (error) {
       console.error('Error updating status', error)
+      setConversations(previousConversations)
+      setSelectedConv(previousSelected)
       showToast('Error al actualizar estado')
     }
   }
@@ -189,7 +206,8 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
   useEffect(() => {
     if (filteredConversations.length > 0) {
       if (!selectedConv || !filteredConversations.find(c => c.id === selectedConv.id)) {
-        handleSelectConversation(filteredConversations[0])
+        const requestedId = new URLSearchParams(window.location.search).get('id')
+        handleSelectConversation(filteredConversations.find(c => c.id === requestedId) || filteredConversations[0])
       }
     } else {
       if (selectedConv && conversations.length > 0) {
@@ -222,6 +240,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
+          <button type="button" onClick={() => fetchConversations(1, false)} className="w-8 h-8 inline-flex items-center justify-center rounded-full border border-card-border text-text-soft hover:text-text-primary" title="Actualizar conversaciones"><RefreshCw className="w-3.5 h-3.5" /></button>
           <span className="px-3 py-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan font-medium">
             {stats.open || 0} abiertas
           </span>
@@ -325,18 +344,11 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                   </button>
                 ))}
               </div>
-              {showFilters && (
-                <select 
-                  value={channelFilter}
-                  onChange={e => setChannelFilter(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
-                >
-                  <option value="all">Todos los canales</option>
-                  <option value="webchat">Web Chat</option>
-                  <option value="telegram" disabled className="text-text-soft">Telegram (Próx.)</option>
-                  <option value="whatsapp" disabled className="text-text-soft">WhatsApp (Próx.)</option>
-                </select>
-              )}
+              {showFilters && <CustomSelect value={channelFilter} onChange={setChannelFilter} options={[
+                { value: 'all', label: 'Todos los canales' }, { value: 'webchat', label: 'Web Chat' },
+                { value: 'whatsapp', label: 'WhatsApp' }, { value: 'instagram', label: 'Instagram' },
+                { value: 'facebook', label: 'Facebook Messenger' }, { value: 'telegram', label: 'Telegram' },
+              ]} />}
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -402,17 +414,17 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                         </span>
                       </p>
                     </div>
-                    <select
-                      aria-label="Estado de la conversación"
-                      value={selectedConv.status}
-                      onChange={(event) => handleUpdateStatus(selectedConv.id, event.target.value)}
-                      className="shrink-0 bg-white/[0.04] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-medium text-white focus:outline-none focus:border-brand-violet/50"
-                    >
-                      <option value="open">Abierta</option>
-                      <option value="pending">Pendiente</option>
-                      <option value="closed">Cerrada</option>
-                    </select>
+                    <div className="shrink-0 w-36"><CustomSelect value={selectedConv.status} onChange={status => handleUpdateStatus(selectedConv.id, status)} options={[
+                      { value: 'open', label: 'Abierta' }, { value: 'pending', label: 'Pendiente' }, { value: 'closed', label: 'Cerrada' },
+                    ]} /></div>
                   </div>
+
+                  {(selectedConv.visitor_email || selectedConv.visitor_phone) && (
+                    <div className="xl:hidden px-4 py-2 border-b border-white/[0.05] flex gap-2">
+                      {selectedConv.visitor_email && <a href={`mailto:${selectedConv.visitor_email}`} className="inline-flex items-center gap-1.5 rounded-lg border border-card-border px-3 py-1.5 text-xs font-semibold"><Mail className="w-3.5 h-3.5" /> Correo</a>}
+                      {selectedConv.visitor_phone && <a href={`https://wa.me/${selectedConv.visitor_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-brand-success/15 border border-brand-success/25 px-3 py-1.5 text-xs font-semibold text-brand-success"><MessageCircle className="w-3.5 h-3.5" /> WhatsApp</a>}
+                    </div>
+                  )}
 
                   {/* Messages Timeline */}
                   <div className="conversation-timeline flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-white/[0.015]">
@@ -471,12 +483,14 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                         <div>
                           <p className="text-[10px] text-text-soft uppercase">Email</p>
                           <p className="text-sm font-medium text-brand-cyan truncate">{selectedConv.visitor_email}</p>
+                          <a href={`mailto:${selectedConv.visitor_email}`} className="mt-1 inline-flex items-center gap-1 text-xs text-brand-cyan"><Mail className="w-3 h-3" /> Escribir correo</a>
                         </div>
                       )}
                       {selectedConv.visitor_phone && (
                         <div>
                           <p className="text-[10px] text-text-soft uppercase">Teléfono</p>
                           <p className="text-sm font-medium truncate">{selectedConv.visitor_phone}</p>
+                          <div className="mt-1 flex gap-3"><a href={`tel:${selectedConv.visitor_phone}`} className="inline-flex items-center gap-1 text-xs text-brand-blue"><Phone className="w-3 h-3" /> Llamar</a><a href={`https://wa.me/${selectedConv.visitor_phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-brand-success"><MessageCircle className="w-3 h-3" /> WhatsApp</a></div>
                         </div>
                       )}
                       {selectedConv.last_message && (
@@ -529,6 +543,11 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
             setConversations(prev => prev.map(c => c.id === updatedConv.id ? updatedConv : c))
           }}
         />
+      )}
+      {errorMessage && conversations.length === 0 && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-page-bg/80 backdrop-blur-sm">
+          <div className="max-w-sm rounded-2xl border border-brand-pink/20 bg-card-bg p-6 text-center"><p className="font-semibold">No pudimos cargar las conversaciones</p><p className="mt-2 text-sm text-text-soft">{errorMessage}</p><button onClick={() => fetchConversations(1, false)} className="mt-4 rounded-xl bg-brand-violet px-4 py-2 text-sm font-semibold text-white">Reintentar</button></div>
+        </div>
       )}
     </div>
   )
