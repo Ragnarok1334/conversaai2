@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useState } from 'react'
+import { CheckCircle2, Code2, Palette, Settings2 } from 'lucide-react'
 import { AssistantWebChatHub } from './AssistantWebChatHub'
 import { AssistantCustomization } from './AssistantCustomization'
 import { AssistantInstallation } from './AssistantInstallation'
@@ -15,80 +16,59 @@ interface Domain {
 
 interface Props {
   assistantId: string
-  widgetConfig: any
+  assistantName: string
+  businessName: string
+  widgetConfig: Record<string, unknown> | null
   domains: Domain[]
   conversationsCount: number
   leadsCount: number
   currentPlan: string
-  planLimits: any
+  planLimits: unknown
   effectivePlanStatus: string
   initialFocus?: 'appearance' | 'install' | null
 }
 
 export function AssistantWebChatTab({
-  assistantId,
-  widgetConfig,
-  domains,
-  conversationsCount,
-  leadsCount,
-  currentPlan,
-  planLimits,
-  effectivePlanStatus,
-  initialFocus
+  assistantId, assistantName, businessName, widgetConfig, domains,
+  conversationsCount, leadsCount, currentPlan, planLimits,
+  effectivePlanStatus, initialFocus
 }: Props) {
-  const appearanceRef = useRef<HTMLDivElement>(null)
-  const installRef = useRef<HTMLDivElement>(null)
+  const [section, setSection] = useState<'design' | 'install'>(initialFocus === 'install' ? 'install' : 'design')
 
   useEffect(() => {
-    // Scroll to the specific section if initialFocus is provided
-    if (initialFocus === 'appearance' && appearanceRef.current) {
-      setTimeout(() => {
-        appearanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100) // Small delay to ensure render layout is complete
-    } else if (initialFocus === 'install' && installRef.current) {
-      setTimeout(() => {
-        installRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
-    }
+    if (initialFocus) setSection(initialFocus === 'install' ? 'install' : 'design')
   }, [initialFocus])
 
-  const scrollToAppearance = () => {
-    appearanceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-  
-  const scrollToInstall = () => {
-    installRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  const isCustomized = Boolean(widgetConfig && Object.keys(widgetConfig).length > 0)
+  const isInstalled = domains.some(domain => Boolean(domain.last_seen_at) && domain.is_verified)
 
   return (
-    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-      <AssistantWebChatHub 
-        assistantId={assistantId}
+    <div className="space-y-6 pb-12 animate-in fade-in duration-300">
+      <AssistantWebChatHub
         widgetConfig={widgetConfig}
         domains={domains}
         conversationsCount={conversationsCount}
         leadsCount={leadsCount}
-        onScrollToAppearance={scrollToAppearance}
-        onScrollToInstall={scrollToInstall}
+        activeSection={section}
+        onSectionChange={setSection}
       />
 
-      <div ref={appearanceRef} className="scroll-mt-6">
-        <h2 className="text-3xl font-bold text-white mb-6">Personalización del Web Chat</h2>
-        <AssistantCustomization 
-          assistantId={assistantId}
-          initialConfig={widgetConfig || {}}
-          currentPlan={currentPlan}
-        />
+      <div className="grid grid-cols-2 gap-2 rounded-2xl border border-card-border bg-card-bg p-1.5 shadow-sm">
+        <button type="button" onClick={() => setSection('design')} className={`flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-left transition-all ${section === 'design' ? 'bg-gradient-to-r from-brand-violet to-brand-cyan text-white shadow-lg' : 'dashboard-muted hover:bg-white/5'}`}>
+          <span className="flex items-center gap-3"><Palette className="h-4 w-4" /><span><strong className="block text-sm">Diseño</strong><small className={`hidden sm:block ${section === 'design' ? 'text-white/75' : 'dashboard-muted'}`}>Textos, colores y botón</small></span></span>
+          {isCustomized && <CheckCircle2 className="h-4 w-4" />}
+        </button>
+        <button type="button" onClick={() => setSection('install')} className={`flex cursor-pointer items-center justify-between rounded-xl px-4 py-3 text-left transition-all ${section === 'install' ? 'bg-gradient-to-r from-brand-violet to-brand-cyan text-white shadow-lg' : 'dashboard-muted hover:bg-white/5'}`}>
+          <span className="flex items-center gap-3"><Code2 className="h-4 w-4" /><span><strong className="block text-sm">Instalación</strong><small className={`hidden sm:block ${section === 'install' ? 'text-white/75' : 'dashboard-muted'}`}>Dominio, código y verificación</small></span></span>
+          {isInstalled ? <CheckCircle2 className="h-4 w-4" /> : <Settings2 className="h-4 w-4" />}
+        </button>
       </div>
 
-      <div ref={installRef} className="scroll-mt-6">
-        <h2 className="text-3xl font-bold text-white mb-6 pt-8 border-t border-white/10">Instalación y Dominios</h2>
-        <AssistantInstallation 
-          assistantId={assistantId}
-          planLimits={planLimits}
-          effectivePlanStatus={effectivePlanStatus}
-        />
-      </div>
+      {section === 'design' ? (
+        <AssistantCustomization assistantId={assistantId} assistantName={assistantName} businessName={businessName} initialConfig={widgetConfig || {}} currentPlan={currentPlan} onContinue={() => setSection('install')} />
+      ) : (
+        <AssistantInstallation assistantId={assistantId} planLimits={planLimits} effectivePlanStatus={effectivePlanStatus} />
+      )}
     </div>
   )
 }
