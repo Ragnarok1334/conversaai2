@@ -331,7 +331,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                   type="button"
                   onClick={() => setShowFilters(value => !value)}
                   aria-expanded={showFilters}
-                  className={`w-10 rounded-xl border flex items-center justify-center transition-colors ${showFilters || channelFilter !== 'all' ? 'bg-brand-violet/10 border-brand-violet/30 text-brand-violet' : 'bg-white/[0.03] border-white/[0.1] text-text-soft hover:text-white'}`}
+                  className={`cursor-pointer w-10 rounded-xl border flex items-center justify-center transition-colors ${showFilters || channelFilter !== 'all' ? 'bg-brand-violet/10 border-brand-violet/30 text-brand-violet' : 'bg-white/[0.03] border-white/[0.1] text-text-soft hover:text-white'}`}
                   title="Filtrar por canal"
                 >
                   <Filter className="w-4 h-4" />
@@ -347,7 +347,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                     key={value}
                     type="button"
                     onClick={() => setStatusFilter(value)}
-                    className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${statusFilter === value ? 'bg-brand-violet/15 text-brand-violet' : 'text-text-soft hover:text-white'}`}
+                    className={`cursor-pointer flex-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${statusFilter === value ? 'bg-brand-violet/15 text-brand-violet' : 'text-text-soft hover:text-white'}`}
                   >
                     {label}
                   </button>
@@ -368,7 +368,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                   <button 
                     key={conv.id}
                     onClick={() => handleSelectConversation(conv)}
-                    className={`w-full text-left p-3 rounded-xl transition-colors flex flex-col gap-2 ${selectedConv?.id === conv.id ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}`}
+                    className={`cursor-pointer w-full text-left p-3 rounded-xl transition-colors flex flex-col gap-2 ${selectedConv?.id === conv.id ? 'bg-white/[0.08]' : 'hover:bg-white/[0.04]'}`}
                   >
                     <div className="flex justify-between items-start">
                       <span className="font-medium text-sm truncate">{conv.visitor_name || conv.visitor_email || 'Visitante anónimo'}</span>
