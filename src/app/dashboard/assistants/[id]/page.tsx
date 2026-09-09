@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { isUuid } from '@/lib/http-security'
 import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
 import { getPlanLimits, normalizePlan } from '@/lib/plans'
 import { calculateAssistantHealth } from '@/lib/assistant/assistant-health'
@@ -31,7 +32,8 @@ export default async function AssistantDetailPage({
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) notFound()
+  if (!user) redirect(`/login?next=${encodeURIComponent(`/dashboard/assistants/${id}?tab=${rawTab}`)}`)
+  if (!isUuid(id)) notFound()
 
   // Use Admin to get plan and profile
   const supabaseAdmin = createSupabaseAdmin()
@@ -47,22 +49,40 @@ export default async function AssistantDetailPage({
     ? getPlanLimits(normalizePlan(sub.plan)) 
     : getPlanLimits('free')
 
-  // The authenticated session establishes identity; the server client performs
-  // the joined read so an optional relation with stricter grants cannot turn a
-  // valid owned assistant into a false 404. Ownership remains mandatory.
+  // Resolve the owned assistant independently. Optional related records must
+  // never turn an existing assistant into a false 404.
   const { data: assistant, error: assistantError } = await supabaseAdmin
     .from('assistants')
-    .select(`
-      *, 
-      assistant_test_messages(id, user_message, assistant_reply, created_at),
-      assistant_domains(id, domain, is_verified, verification_status, last_seen_at)
-    `)
+    .select('*')
     .eq('id', id)
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (assistantError) console.error('[AssistantDetailPage] assistant query failed:', assistantError.code)
+  if (assistantError) {
+    console.error('[AssistantDetailPage] assistant query failed:', assistantError.code)
+    throw new Error('No se pudo cargar el asistente')
+  }
   if (!assistant) notFound()
+
+  const [
+    { data: testMessageRows, error: testMessagesError },
+    { data: domainRows, error: domainsError },
+  ] = await Promise.all([
+    supabaseAdmin
+      .from('assistant_test_messages')
+      .select('id, user_message, assistant_reply, created_at')
+      .eq('assistant_id', id)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }),
+    supabaseAdmin
+      .from('assistant_domains')
+      .select('id, domain, is_verified, verification_status, last_seen_at')
+      .eq('assistant_id', id)
+      .eq('user_id', user.id),
+  ])
+
+  if (testMessagesError) console.error('[AssistantDetailPage] test messages query failed:', testMessagesError.code)
+  if (domainsError) console.error('[AssistantDetailPage] domains query failed:', domainsError.code)
 
   const [{ count: convCount }, { count: leadsCount }, { count: assistantCount }] = await Promise.all([
     supabaseAdmin.from('conversations').select('*', { count: 'exact', head: true }).eq('assistant_id', id).eq('user_id', user.id),
@@ -72,7 +92,7 @@ export default async function AssistantDetailPage({
 
   const conversationsCount = convCount || 0
   const leadsCountRes = leadsCount || 0
-  const domains = assistant.assistant_domains || []
+  const domains = domainRows || []
 
   const health = calculateAssistantHealth(
     assistant,
@@ -80,9 +100,7 @@ export default async function AssistantDetailPage({
     { conversations: conversationsCount, leads: leadsCountRes }
   )
 
-  const testMessages = (assistant.assistant_test_messages || []).sort(
-    (a: { created_at: string }, b: { created_at: string }) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  )
+  const testMessages = testMessageRows || []
 
   const config = {
     assistantName: assistant.assistant_name,
