@@ -123,3 +123,57 @@
 .auth-main [class*="border-white"] { border-color: #d4cfda !important; }
 .auth-main .gradient-btn,
 .auth-main .gradient-btn * { color: #ffffff !important; }
+
+
+/* Complete light-mode surface pass for dashboard elements that still use
+   legacy dark utility classes or hard-coded dark backgrounds. */
+.dashboard-root[data-theme="light"] {
+  color-scheme: light;
+}
+
+.dashboard-root[data-theme="light"] [class*="bg-black/"],
+.dashboard-root[data-theme="light"] [class*="bg-slate-800"],
+.dashboard-root[data-theme="light"] [class*="bg-slate-900"],
+.dashboard-root[data-theme="light"] [class*="bg-[#050816]"],
+.dashboard-root[data-theme="light"] [class*="bg-[#080f28]"],
+.dashboard-root[data-theme="light"] [class*="bg-[#0a0f1e]"],
+.dashboard-root[data-theme="light"] [class*="bg-[#0B1026]"],
+.dashboard-root[data-theme="light"] [class*="bg-[#0b1026]"],
+.dashboard-root[data-theme="light"] [class*="bg-[#111827]"] {
+  background-color: #ffffff !important;
+  color: #191525 !important;
+  border-color: #d9d5e0 !important;
+}
+
+.dashboard-root[data-theme="light"] [class*="from-[#050816]"],
+.dashboard-root[data-theme="light"] [class*="from-[#080f28]"],
+.dashboard-root[data-theme="light"] [class*="from-[#0a0f1e]"] {
+  --tw-gradient-from: #ffffff !important;
+  --tw-gradient-to: rgba(255,255,255,0) !important;
+}
+
+.dashboard-root[data-theme="light"] table,
+.dashboard-root[data-theme="light"] thead,
+.dashboard-root[data-theme="light"] tbody,
+.dashboard-root[data-theme="light"] tr,
+.dashboard-root[data-theme="light"] td,
+.dashboard-root[data-theme="light"] th {
+  color: #292332;
+}
+
+.dashboard-root[data-theme="light"] .dashboard-danger-modal {
+  background: #ffffff !important;
+  color: #191525 !important;
+  border-color: #d9d5e0 !important;
+}
+
+.dashboard-root[data-theme="light"] .dashboard-danger-modal input {
+  background: #f7f6f9 !important;
+  color: #191525 !important;
+  border-color: #bdb6c7 !important;
+}
+
+.dashboard-root[data-theme="light"] .dashboard-danger-modal input:focus {
+  border-color: #7c3aed !important;
+  box-shadow: 0 0 0 3px rgba(124,58,237,.13) !important;
+}
