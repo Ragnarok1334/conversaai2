@@ -16,12 +16,12 @@ import {
 } from 'lucide-react'
 
 const navItems = [
-  { label: 'Centro de control', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Asistentes', href: '/dashboard/assistants', icon: Bot },
-  { label: 'Conversaciones', href: '/dashboard/conversations', icon: MessageSquare },
+  { label: 'Inicio', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Leads', href: '/dashboard/leads', icon: Users },
-  { label: 'Facturación', href: '/dashboard/billing', icon: CreditCard },
+  { label: 'Conversaciones', href: '/dashboard/conversations', icon: MessageSquare },
+  { label: 'Asistentes', href: '/dashboard/assistants', icon: Bot },
   { label: 'Configuración', href: '/dashboard/settings', icon: Settings },
+  { label: 'Facturación', href: '/dashboard/billing', icon: CreditCard },
   { label: 'Soporte', href: '/dashboard/support', icon: HelpCircle },
 ]
 
