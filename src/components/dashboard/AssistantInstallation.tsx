@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Copy, CheckCircle2, Globe, Send, MessageCircle, Clock,
-  ChevronRight, AlertCircle, Info, Plug, ArrowRight
+  ChevronRight, AlertCircle, Info, Plug, ArrowRight, RefreshCw
 } from 'lucide-react'
 import { AssistantDomainsPanel } from './AssistantDomainsPanel'
 
@@ -38,13 +38,25 @@ export function AssistantInstallation({
   const [platform, setPlatform] = useState<Platform>('html')
   const [domains, setDomains] = useState<Domain[]>([])
   const [loadingDomains, setLoadingDomains] = useState(true)
+  const [domainsError, setDomainsError] = useState('')
 
-  useEffect(() => {
-    fetch(`/api/assistants/${assistantId}/domains`, { cache: 'no-store' })
-      .then(r => r.json())
-      .then((data: Domain[]) => { setDomains(data || []); setLoadingDomains(false) })
-      .catch(() => setLoadingDomains(false))
+  const loadDomains = useCallback(async () => {
+    setLoadingDomains(true)
+    setDomainsError('')
+    try {
+      const response = await fetch(`/api/assistants/${assistantId}/domains`, { cache: 'no-store' })
+      const data: unknown = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(data)) throw new Error('No pudimos consultar los dominios.')
+      setDomains(data as Domain[])
+    } catch (error) {
+      setDomains([])
+      setDomainsError(error instanceof Error ? error.message : 'No pudimos consultar los dominios.')
+    } finally {
+      setLoadingDomains(false)
+    }
   }, [assistantId])
+
+  useEffect(() => { void loadDomains() }, [loadDomains])
 
   const hasDomain = domains.length > 0
   const hasDetected = domains.some(d => d.last_seen_at !== null && d.is_verified)
@@ -57,11 +69,15 @@ export function AssistantInstallation({
     setTimeout(() => setToastMsg(''), 3000)
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(snippet)
-    setCopied(true)
-    showToast('Script copiado correctamente.')
-    setTimeout(() => setCopied(false), 2500)
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(snippet)
+      setCopied(true)
+      showToast('Script copiado correctamente.')
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      showToast('No se pudo copiar. Selecciona el código manualmente.')
+    }
   }
 
   type StepStatus = 'done' | 'pending' | 'recommended'
@@ -162,6 +178,15 @@ export function AssistantInstallation({
           El Web Chat es el único canal disponible actualmente. Telegram y WhatsApp estarán disponibles próximamente.
         </p>
       </div>
+
+      {domainsError && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-sm text-red-500"><AlertCircle className="h-4 w-4" />{domainsError}</div>
+          <button type="button" onClick={() => void loadDomains()} className="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-card-border px-3 py-2 text-xs font-semibold dashboard-strong">
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingDomains ? 'animate-spin' : ''}`} />Reintentar
+          </button>
+        </div>
+      )}
 
       <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-6 md:p-8">
         <h3 className="text-base font-semibold text-white mb-5 flex items-center gap-2">
