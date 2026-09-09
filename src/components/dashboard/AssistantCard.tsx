@@ -41,6 +41,8 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
   const [showTest, setShowTest] = useState(false)
   const [showInstall, setShowInstall] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const health = assistant.health || {
     baseState: 'Falta instalación',
@@ -53,14 +55,41 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
 
   const assistantChannels = [{ channel: 'webchat' }]
 
+  const assistantDisplayName = assistant.assistant_name || assistant.name || 'Asistente'
+
+  const closeDeleteDialog = () => {
+    if (deleting) return
+    setShowDelete(false)
+    setDeleteConfirmation('')
+    setDeleteError(null)
+  }
+
   const handleDelete = async () => {
+    if (deleteConfirmation.trim() !== assistantDisplayName) {
+      setDeleteError('Escribe el nombre exacto del asistente.')
+      return
+    }
+
     setDeleting(true)
+    setDeleteError(null)
     try {
-      await fetch(`/api/assistants/${assistant.id}`, { method: 'DELETE' })
+      const response = await fetch(`/api/assistants/${assistant.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmation: deleteConfirmation.trim() }),
+      })
+      const result = await response.json().catch(() => null)
+
+      if (!response.ok) {
+        throw new Error(result?.error || 'No se pudo eliminar el asistente.')
+      }
+
       onDelete?.(assistant.id)
-    } catch {
+      closeDeleteDialog()
+    } catch (error) {
+      setDeleteError(error instanceof Error ? error.message : 'No se pudo eliminar el asistente.')
+    } finally {
       setDeleting(false)
-      setShowDelete(false)
     }
   }
 
@@ -113,8 +142,8 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
 
       <AnimatePresence>
         {showDelete && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: 'rgba(5,8,22,0.8)', backdropFilter: 'blur(8px)' }} onClick={() => setShowDelete(false)}>
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} onClick={e => e.stopPropagation()} className="bg-[#080f28] border border-white/10 rounded-3xl p-7 max-w-sm w-full shadow-2xl relative overflow-hidden">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[9999] flex items-center justify-center p-4" style={{ background: 'rgba(5,8,22,0.8)', backdropFilter: 'blur(8px)' }} onClick={closeDeleteDialog}>
+            <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} onClick={e => e.stopPropagation()} className="dashboard-danger-modal bg-[#080f28] border border-white/10 rounded-3xl p-7 max-w-md w-full shadow-2xl relative overflow-hidden">
               <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-brand-pink to-brand-violet" />
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-brand-pink/10 border border-brand-pink/20 flex items-center justify-center">
@@ -122,11 +151,34 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
                 </div>
                 <h3 className="font-bold text-white text-lg">Eliminar asistente</h3>
               </div>
-              <p className="text-sm text-slate-400 mb-8">Esta acción eliminará el asistente <strong>&quot;{assistant.assistant_name}&quot;</strong> y toda su configuración. No podrás recuperarlo.</p>
+              <p className="text-sm text-slate-400 mb-4">
+                Se eliminarán también sus conversaciones, leads, dominios, canales y mensajes de prueba. Esta acción no se puede deshacer.
+              </p>
+              <label className="block text-sm font-semibold text-slate-300 mb-2">
+                Escribe <span className="text-brand-pink">{assistantDisplayName}</span> para confirmar
+              </label>
+              <input
+                value={deleteConfirmation}
+                onChange={(event) => {
+                  setDeleteConfirmation(event.target.value)
+                  setDeleteError(null)
+                }}
+                disabled={deleting}
+                autoComplete="off"
+                className="w-full rounded-xl bg-black/20 border border-white/10 px-4 py-3 text-sm text-white outline-none focus:border-brand-violet mb-2"
+                placeholder={assistantDisplayName}
+              />
+              {deleteError && <p className="text-xs text-brand-pink mb-4" role="alert">{deleteError}</p>}
+              {!deleteError && <div className="h-5 mb-4" />}
               <div className="flex gap-3">
-                <button onClick={() => setShowDelete(false)} className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-slate-400 font-medium hover:text-white transition-all">Cancelar</button>
-                <button onClick={handleDelete} disabled={deleting} className="flex-1 py-2.5 rounded-xl bg-brand-pink/10 border border-brand-pink/30 text-brand-pink font-semibold hover:bg-brand-pink/20 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                  {deleting ? 'Eliminando...' : 'Eliminar asistente'}
+                <button onClick={closeDeleteDialog} disabled={deleting} className="flex-1 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.1] text-slate-400 font-medium hover:text-white transition-all disabled:opacity-50">Cancelar</button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting || deleteConfirmation.trim() !== assistantDisplayName}
+                  className="flex-1 py-2.5 rounded-xl bg-brand-pink/10 border border-brand-pink/30 text-brand-pink font-semibold hover:bg-brand-pink/20 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {deleting ? 'Eliminando...' : 'Eliminar definitivamente'}
                 </button>
               </div>
             </motion.div>
@@ -287,8 +339,17 @@ export function AssistantCard({ assistant, plan, planLimits, usage, onDelete, on
             <Link href={`/dashboard/leads?assistantId=${assistant.id}`} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-300 text-[11px] font-medium hover:bg-white/[0.08] hover:text-white transition-colors">
               <Users className="w-3.5 h-3.5" /> Leads
             </Link>
-            <button onClick={() => setShowDelete(true)} className="px-2 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] text-slate-400 hover:text-brand-pink hover:bg-brand-pink/10 hover:border-brand-pink/20 transition-colors" title="Eliminar">
+            <button
+              onClick={() => {
+                setDeleteConfirmation('')
+                setDeleteError(null)
+                setShowDelete(true)
+              }}
+              className="px-3 py-2 rounded-xl bg-brand-pink/5 border border-brand-pink/20 text-brand-pink hover:bg-brand-pink/10 transition-colors flex items-center gap-1.5 text-[11px] font-semibold"
+              title="Eliminar asistente"
+            >
               <Trash2 className="w-3.5 h-3.5" />
+              Eliminar
             </button>
           </div>
         </div>
