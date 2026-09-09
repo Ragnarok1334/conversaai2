@@ -5,6 +5,7 @@ import { getPlanLimits, normalizePlan } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import Link from 'next/link'
 import { Lock } from 'lucide-react'
+import { initialBuilderForm } from '@/components/dashboard/create-assistant/types'
 
 // Force cache invalidation
 export default async function CreateAssistantPage() {
@@ -24,7 +25,7 @@ export default async function CreateAssistantPage() {
       .single(),
     supabase
       .from('profiles')
-      .select('trial_used, trial_ends_at')
+      .select('trial_used, trial_ends_at, company_name, business_type, locale')
       .eq('id', user.id)
       .single(),
     supabase
@@ -89,6 +90,12 @@ export default async function CreateAssistantPage() {
   const planLimit = planLimits.assistants === Infinity ? null : planLimits.assistants
   const currentUsage = count
   const hasReachedLimit = planLimit !== null && currentUsage >= planLimit
+  const initialData = {
+    ...initialBuilderForm,
+    business_name: profile?.company_name || '',
+    business_type: profile?.business_type || '',
+    language: profile?.locale?.split('-')[0] || 'es',
+  }
 
   return (
     <div className="w-full h-full p-4 lg:p-8">
@@ -99,6 +106,7 @@ export default async function CreateAssistantPage() {
         currentUsage={currentUsage} 
         planLimit={planLimit} 
         currentPlan={currentPlan}
+        initialData={initialData}
       />
     </div>
   )

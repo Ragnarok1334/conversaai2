@@ -132,6 +132,7 @@ export default async function AssistantDetailPage({
       tone: assistant.tone || 'professional',
       goal: assistant.main_goal || 'support',
       salesLevel: assistant.behavior?.salesLevel || 'soft',
+      responseStyle: assistant.behavior?.responseStyle || 'Detalladas',
       rules: {
         askName: assistant.behavior?.rules?.askName ?? true,
         askContact: assistant.behavior?.rules?.askContact ?? false,
@@ -145,7 +146,9 @@ export default async function AssistantDetailPage({
     channels: {
       webchat: { enabled: true, domains: [] },
       telegram: { enabled: false, token: '' },
-      whatsapp: { enabled: false, phone: '', provider: 'meta' }
+      whatsapp: { enabled: false, phone: '', provider: 'meta' },
+      instagram: { enabled: false },
+      facebook: { enabled: false }
     },
     knowledgeBlocks: assistant.knowledge_blocks || []
   }
