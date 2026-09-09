@@ -315,6 +315,8 @@ export default async function AssistantDetailPage({
       {tab === 'webchat' && (
         <AssistantWebChatTab
           assistantId={assistant.id}
+          assistantName={assistant.assistant_name || 'Asistente virtual'}
+          businessName={assistant.business_name || 'Tu negocio'}
           widgetConfig={assistant.widget_config}
           domains={domains}
           conversationsCount={conversationsCount}
