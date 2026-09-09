@@ -13,11 +13,12 @@ import { ReviewStep } from './ReviewStep'
 import { AssistantLivePreview } from './AssistantLivePreview'
 import { Loader2, AlertCircle, X, ChevronRight, Save, LayoutDashboard, Smartphone } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { BuilderFormData } from './types'
 
 interface Props {
   mode?: 'create' | 'edit'
   assistantId?: string
-  initialData?: any // We use any to avoid importing BuilderFormData everywhere, or import it
+  initialData?: BuilderFormData
   userId: string
   hasReachedLimit: boolean
   currentUsage: number
@@ -237,23 +238,25 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
           {currentStep === 1 && <BasicInfoStep form={form} setForm={setForm} errors={stepErrors} />}
           {currentStep === 2 && <TrainingStep form={form} setForm={setForm} errors={stepErrors} />}
           {currentStep === 3 && <BehaviorStep form={form} setForm={setForm} />}
-          {currentStep === 4 && <ChannelsStep form={form} setForm={setForm} currentPlan={currentPlan} />}
-          {currentStep === 5 && (
-            <ReviewStep 
-              form={form} 
-              mode={mode}
-              hasReachedLimit={mode === 'create' ? hasReachedLimit : false}
-              currentUsage={optimisticUsage}
-              planLimit={planLimit}
-              currentPlan={currentPlan}
-              status={status}
-              errorMsg={errorMsg}
-              onSubmit={handleSubmit}
-            />
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              <ChannelsStep form={form} setForm={setForm} currentPlan={currentPlan} />
+              <ReviewStep
+                form={form}
+                mode={mode}
+                hasReachedLimit={mode === 'create' ? hasReachedLimit : false}
+                currentUsage={optimisticUsage}
+                planLimit={planLimit}
+                currentPlan={currentPlan}
+                status={status}
+                errorMsg={errorMsg}
+                onSubmit={handleSubmit}
+              />
+            </div>
           )}
 
           {/* Navigation Controls */}
-          {currentStep < 5 && (
+          {currentStep < 4 && (
             <div className="mt-8 flex items-center justify-between gap-4">
               {currentStep > 1 ? (
                 <button
