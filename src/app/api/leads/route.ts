@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     } else if (status && status !== 'all' && ['new', 'contacted', 'qualified', 'converted', 'lost'].includes(status)) {
       query = query.eq('status', status)
     }
-    if (source && source !== 'all' && ['webchat', 'telegram', 'whatsapp'].includes(source)) query = query.eq('source', source)
+    if (source && source !== 'all' && ['webchat', 'telegram', 'whatsapp', 'instagram', 'facebook'].includes(source)) query = query.eq('source', source)
     if (assistantId && assistantId !== 'all' && isUuid(assistantId)) query = query.eq('assistant_id', assistantId)
     if (search) {
       query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)

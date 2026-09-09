@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import ChannelConnectActions from '@/components/dashboard/ChannelConnectActions'
+import { CustomSelect } from '@/components/ui/CustomSelect'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   new:       { label: 'Nuevo', color: 'text-brand-cyan bg-brand-cyan/10 border-brand-cyan/20' },
@@ -40,6 +41,7 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
   const [notesValue, setNotesValue] = useState('')
   const [toastMsg, setToastMsg] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [tagValue, setTagValue] = useState('')
 
   const showToast = (msg: string) => {
     setToastMsg(msg)
@@ -170,6 +172,8 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
       
       if (updates.status) showToast('Estado actualizado')
       if (updates.notes !== undefined) showToast('Notas guardadas')
+      if (updates.next_follow_up !== undefined) showToast('Seguimiento actualizado')
+      if (updates.tags !== undefined) showToast('Etiquetas actualizadas')
 
     } catch (error) {
       console.error('Error updating lead', error)
@@ -232,7 +236,25 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
     setSelectedLead(lead)
     setNotesValue(lead.notes || '')
     setNotesEditing(false)
+    setTagValue('')
   }
+
+  const addTag = () => {
+    if (!selectedLead) return
+    const tag = tagValue.trim()
+    const currentTags = Array.isArray(selectedLead.tags) ? selectedLead.tags : []
+    if (!tag || tag.length > 30 || currentTags.includes(tag) || currentTags.length >= 10) return
+    handleUpdateLead(selectedLead.id, { tags: [...currentTags, tag] })
+    setTagValue('')
+  }
+
+  const removeTag = (tag: string) => {
+    if (!selectedLead) return
+    handleUpdateLead(selectedLead.id, { tags: (selectedLead.tags || []).filter((item: string) => item !== tag) })
+  }
+
+  const whatsappHref = (phone: string) => `https://wa.me/${phone.replace(/\D/g, '')}`
+  const toDateTimeLocal = (value?: string | null) => value ? new Date(value).toISOString().slice(0, 16) : ''
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
@@ -354,40 +376,24 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
 
               {showFilters && (
                 <div className="grid sm:grid-cols-3 gap-2 mt-3">
-                  <select
-                    value={statusFilter}
-                    onChange={event => setStatusFilter(event.target.value)}
-                    className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  >
-                    <option value="all">Todos los estados</option>
-                    <option value="new">Nuevos</option>
-                    <option value="followup">En seguimiento</option>
-                    <option value="converted">Convertidos</option>
-                    <option value="lost">Descartados</option>
-                  </select>
-                  <select
-                    value={dateFilter}
-                    onChange={event => setDateFilter(event.target.value)}
-                    className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                  >
-                    <option value="all">Cualquier fecha</option>
-                    <option value="today">Hoy</option>
-                    <option value="7days">Últimos 7 días</option>
-                    <option value="30days">Últimos 30 días</option>
-                  </select>
+                  <CustomSelect value={statusFilter} onChange={setStatusFilter} options={[
+                    { value: 'all', label: 'Todos los estados' }, { value: 'new', label: 'Nuevos' },
+                    { value: 'contacted', label: 'Contactados' }, { value: 'qualified', label: 'Calificados' },
+                    { value: 'converted', label: 'Ganados' }, { value: 'lost', label: 'Descartados' },
+                  ]} />
+                  <CustomSelect value={dateFilter} onChange={setDateFilter} options={[
+                    { value: 'all', label: 'Cualquier fecha' }, { value: 'today', label: 'Hoy' },
+                    { value: '7days', label: 'Últimos 7 días' }, { value: '30days', label: 'Últimos 30 días' },
+                  ]} />
 
                   {hasAnyAssistantsInLeads && (
-                    <select
-                      value={assistantFilter}
-                      onChange={event => setAssistantFilter(event.target.value)}
-                      className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
-                    >
-                      <option value="all">Todos los asistentes</option>
-                      {uniqueAssistantsInLeads.map(astId => {
+                    <CustomSelect value={assistantFilter} onChange={setAssistantFilter} options={[
+                      { value: 'all', label: 'Todos los asistentes' },
+                      ...uniqueAssistantsInLeads.flatMap(astId => {
                         const ast = leads.find(lead => lead.assistant_id === astId)?.assistant
-                        return ast ? <option key={astId as string} value={astId as string}>{ast.assistant_name}</option> : null
-                      })}
-                    </select>
+                        return ast ? [{ value: astId as string, label: ast.assistant_name }] : []
+                      })
+                    ]} />
                   )}
                 </div>
               )}
@@ -484,17 +490,11 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                       
                       <div className="flex items-center gap-2">
                         <label htmlFor="lead-status" className="text-xs font-semibold text-text-soft">Estado</label>
-                        <select
-                          id="lead-status"
-                          value={selectedLead.status === 'qualified' ? 'contacted' : selectedLead.status}
-                          onChange={event => handleUpdateLead(selectedLead.id, { status: event.target.value })}
-                          className="bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-brand-violet"
-                        >
-                          <option value="new">Nuevo</option>
-                          <option value="contacted">En seguimiento</option>
-                          <option value="converted">Convertido</option>
-                          <option value="lost">Descartado</option>
-                        </select>
+                        <CustomSelect className="min-w-40" value={selectedLead.status || 'new'} onChange={status => handleUpdateLead(selectedLead.id, { status })} options={[
+                          { value: 'new', label: 'Nuevo' }, { value: 'contacted', label: 'Contactado' },
+                          { value: 'qualified', label: 'Calificado' }, { value: 'converted', label: 'Ganado' },
+                          { value: 'lost', label: 'Descartado' },
+                        ]} />
                       </div>
                     </div>
                   </div>
@@ -519,6 +519,12 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                               <button onClick={() => copyToClipboard(selectedLead.email)} className="text-brand-cyan hover:text-brand-cyan/80 text-xs font-medium shrink-0">Copiar</button>
                             )}
                           </div>
+                          {(selectedLead.email || selectedLead.phone) && (
+                            <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/[0.05]">
+                              {selectedLead.email && <a href={`mailto:${selectedLead.email}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-card-border px-3 py-2 text-xs font-semibold text-text-primary hover:border-brand-cyan/40"><Mail className="w-3.5 h-3.5" /> Correo</a>}
+                              {selectedLead.phone && <a href={whatsappHref(selectedLead.phone)} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-success/15 border border-brand-success/25 px-3 py-2 text-xs font-semibold text-brand-success"><MessageSquare className="w-3.5 h-3.5" /> WhatsApp</a>}
+                            </div>
+                          )}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
                               <Phone className="w-4 h-4 text-text-soft shrink-0" />
@@ -568,8 +574,22 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                       </div>
                     </div>
 
-                    {/* Notas Internas */}
-                    <div className="flex flex-col">
+                    {/* Seguimiento y notas */}
+                    <div className="flex flex-col gap-6">
+                      <div>
+                        <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2"><Clock className="w-4 h-4 text-brand-blue" /> Próximo seguimiento</h3>
+                        <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 space-y-4">
+                          <input type="datetime-local" value={toDateTimeLocal(selectedLead.next_follow_up)} onChange={event => handleUpdateLead(selectedLead.id, { next_follow_up: event.target.value ? new Date(event.target.value).toISOString() : null })} className="w-full bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-brand-blue/50" />
+                          <div className="flex flex-wrap gap-2">
+                            {(selectedLead.tags || []).map((tag: string) => <button key={tag} onClick={() => removeTag(tag)} title="Quitar etiqueta" className="inline-flex items-center gap-1 rounded-full bg-brand-violet/10 border border-brand-violet/20 px-2.5 py-1 text-xs text-brand-violet">{tag}<XCircle className="w-3 h-3" /></button>)}
+                          </div>
+                          <div className="flex gap-2">
+                            <input value={tagValue} onChange={event => setTagValue(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addTag() } }} maxLength={30} placeholder="Ej.: alta prioridad" className="min-w-0 flex-1 bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-2 text-sm text-white placeholder-text-soft focus:outline-none focus:border-brand-violet/50" />
+                            <button onClick={addTag} className="rounded-lg border border-brand-violet/30 px-3 py-2 text-xs font-semibold text-brand-violet hover:bg-brand-violet/10">Agregar</button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col">
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="text-sm font-semibold text-white flex items-center gap-2">
                           <Edit3 className="w-4 h-4 text-brand-success" /> Notas de Seguimiento
@@ -579,6 +599,7 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                             <Edit3 className="w-3 h-3" /> Editar
                           </button>
                         )}
+                      </div>
                       </div>
                       
                       <div className="flex-1 min-h-[200px] bg-white/[0.02] border border-white/[0.05] rounded-xl overflow-hidden flex flex-col">

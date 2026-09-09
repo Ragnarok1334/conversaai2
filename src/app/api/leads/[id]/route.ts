@@ -40,7 +40,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
 
     const body = await readJsonBody<Record<string, unknown>>(request, 8_192)
-    const { status, notes, name, email, phone } = body
+    const { status, notes, name, email, phone, next_follow_up: nextFollowUp, tags } = body
 
     const normalizedStatus = status === 'discarded' ? 'lost' : status
     if (normalizedStatus !== undefined && (typeof normalizedStatus !== 'string' || !['new', 'contacted', 'qualified', 'converted', 'lost'].includes(normalizedStatus))) {
@@ -51,6 +51,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (name !== undefined && (typeof name !== 'string' || name.length > 120)) return NextResponse.json({ error: 'Nombre inválido' }, { status: 400 })
     if (email !== undefined && (typeof email !== 'string' || email.length > 254)) return NextResponse.json({ error: 'Email inválido' }, { status: 400 })
     if (phone !== undefined && (typeof phone !== 'string' || phone.length > 40)) return NextResponse.json({ error: 'Teléfono inválido' }, { status: 400 })
+    if (nextFollowUp !== undefined && nextFollowUp !== null && (typeof nextFollowUp !== 'string' || Number.isNaN(Date.parse(nextFollowUp)))) {
+      return NextResponse.json({ error: 'Fecha de seguimiento inválida' }, { status: 400 })
+    }
+    if (tags !== undefined && (!Array.isArray(tags) || tags.length > 10 || tags.some(tag => typeof tag !== 'string' || tag.trim().length < 1 || tag.trim().length > 30))) {
+      return NextResponse.json({ error: 'Etiquetas inválidas' }, { status: 400 })
+    }
 
     // Verify ownership via RLS select first
     const { data: verify } = await supabase.from('leads').select('id').eq('id', id).single()
@@ -71,13 +77,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     // Update using admin because frontend cannot UPDATE directly based on our new max security RLS
-    const updates: Record<string, string | null> = {}
+    const updates: Record<string, string | string[] | null> = {}
     
     if (normalizedStatus !== undefined) updates.status = normalizedStatus
     if (notes !== undefined) updates.notes = notes
     if (name !== undefined) updates.name = name
     if (email !== undefined) updates.email = email
     if (phone !== undefined) updates.phone = phone
+    if (nextFollowUp !== undefined) updates.next_follow_up = nextFollowUp === null ? null : new Date(nextFollowUp as string).toISOString()
+    if (tags !== undefined) updates.tags = [...new Set((tags as string[]).map(tag => tag.trim()))]
+    updates.updated_at = new Date().toISOString()
 
     if (Object.keys(updates).length > 0) {
       const { error: updateError } = await supabaseAdmin
