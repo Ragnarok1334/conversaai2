@@ -11,7 +11,6 @@ import {
   Users,
   Settings,
   Plus,
-  CreditCard,
   HelpCircle,
 } from 'lucide-react'
 
@@ -21,8 +20,6 @@ const navItems = [
   { label: 'Conversaciones', href: '/dashboard/conversations', icon: MessageSquare },
   { label: 'Asistentes', href: '/dashboard/assistants', icon: Bot },
   { label: 'Configuración', href: '/dashboard/settings', icon: Settings },
-  { label: 'Facturación', href: '/dashboard/billing', icon: CreditCard },
-  { label: 'Soporte', href: '/dashboard/support', icon: HelpCircle },
 ]
 
 interface SidebarProps {
