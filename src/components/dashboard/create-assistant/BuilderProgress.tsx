@@ -8,11 +8,10 @@ interface Props {
 }
 
 const steps = [
-  { id: 1, label: 'Negocio', desc: 'datos básicos' },
-  { id: 2, label: 'Conocimiento', desc: 'información del negocio' },
+  { id: 1, label: 'Identidad', desc: 'asistente y negocio' },
+  { id: 2, label: 'Información', desc: 'qué debe saber' },
   { id: 3, label: 'Comportamiento', desc: 'tono y reglas' },
-  { id: 4, label: 'Canales', desc: 'dónde funcionará' },
-  { id: 5, label: 'Revisión', desc: 'verificar y crear' },
+  { id: 4, label: 'Publicar', desc: 'canales y revisión' },
 ]
 
 export function BuilderProgress({ currentStep, setCurrentStep }: Props) {
@@ -64,7 +63,7 @@ export function BuilderProgress({ currentStep, setCurrentStep }: Props) {
       <div className="sm:hidden w-full mb-6">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-semibold text-white">
-            Paso {currentStep} de 5 <span className="text-slate-400 font-normal">— {currentStepData?.label}</span>
+            Paso {currentStep} de {steps.length} <span className="text-slate-400 font-normal">— {currentStepData?.label}</span>
           </span>
         </div>
         <div className="w-full h-1 bg-white/[0.05] rounded-full overflow-hidden">
