@@ -51,7 +51,7 @@ export function useAssistantDraft(
     ? `conversaai_edit_assistant_draft_${assistantId}` 
     : `conversaai_create_assistant_draft_${userId}`
     
-  const baseForm = mode === 'edit' && initialData ? initialData : initialBuilderForm
+  const baseForm = initialData ? mergeWithInitialBuilderForm(initialData) : initialBuilderForm
   
   const [form, setForm] = useState<BuilderFormData>(baseForm)
   const [currentStep, setCurrentStep] = useState<number>(1)
@@ -71,7 +71,7 @@ export function useAssistantDraft(
         if (parsed.form) {
           setForm(mergeWithInitialBuilderForm(parsed.form))
         }
-        if (parsed.currentStep) setCurrentStep(parsed.currentStep)
+        if (parsed.currentStep) setCurrentStep(Math.min(Math.max(Number(parsed.currentStep) || 1, 1), 4))
         if (parsed.timestamp) setSavedAt(new Date(parsed.timestamp))
       }
     } catch (e) {
