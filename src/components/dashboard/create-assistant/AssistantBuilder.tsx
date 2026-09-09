@@ -108,6 +108,7 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
         responseStyle: form.behavior.responseStyle,
         rules: form.behavior.rules,
       },
+      channels: form.channels,
       knowledge_blocks: form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim()) || null
     }
 
@@ -171,6 +172,7 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
             schedule: form.schedule,
             fallbackMessage: form.fallback_message,
             language: form.language,
+            behavior: form.behavior,
             knowledge_blocks: form.knowledgeBlocks?.filter(b => b.is_active && b.content.trim()) || null
           },
           userMessage,
@@ -186,19 +188,29 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto space-y-8 pb-20 lg:pb-8">
+    <div className="max-w-[1320px] mx-auto space-y-6 pb-20 lg:pb-8">
       {/* Header and Progress */}
-      <div className="text-center space-y-6">
-        <div className="flex flex-col items-center gap-4">
+      <div className="space-y-5">
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+          <div>
           <Link 
             href="/dashboard/assistants"
-            className="flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white transition-colors mb-3"
           >
             <LayoutDashboard className="w-4 h-4" />
             Volver a mis asistentes
           </Link>
           
-          <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight mb-1 text-white">
+              {mode === 'edit' ? 'Editar asistente' : 'Crear asistente'}
+            </h1>
+            <p className="text-slate-400 text-sm">
+              Configúralo paso a paso y comprueba los cambios en la vista previa.
+            </p>
+          </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
             <span className="px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-medium text-slate-300">
               Plan <span className="capitalize text-brand-cyan">{currentPlan}</span>
             </span>
@@ -213,22 +225,12 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
             )}
           </div>
           
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2 text-white">
-              {mode === 'edit' ? 'Editar asistente IA' : 'Constructor de asistente IA'}
-            </h1>
-            <p className="text-slate-400">
-              {mode === 'edit' 
-                ? 'Actualiza la información, conocimiento, comportamiento y canales de este asistente.' 
-                : 'Diseña un asistente especializado para ventas, soporte, reservas o atención al cliente.'}
-            </p>
-          </div>
         </div>
         <BuilderProgress currentStep={currentStep} setCurrentStep={setCurrentStep} />
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6 lg:gap-8 items-start relative">
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px] gap-6 items-start relative">
         
         {/* Left Column - Form */}
         <div className="min-h-[500px]">
