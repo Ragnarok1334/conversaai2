@@ -27,6 +27,14 @@ function mergeWithInitialBuilderForm(storedForm: any): BuilderFormData {
       whatsapp: {
         ...initialBuilderForm.channels.whatsapp,
         ...storedForm?.channels?.whatsapp
+      },
+      instagram: {
+        ...initialBuilderForm.channels.instagram,
+        ...storedForm?.channels?.instagram
+      },
+      facebook: {
+        ...initialBuilderForm.channels.facebook,
+        ...storedForm?.channels?.facebook
       }
     },
     knowledgeBlocks: Array.isArray(storedForm?.knowledgeBlocks) ? storedForm.knowledgeBlocks : initialBuilderForm.knowledgeBlocks

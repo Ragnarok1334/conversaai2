@@ -78,9 +78,15 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
     const fallback = form.fallback_message || 'Lo siento, no tengo esa información.'
 
     if (lowerMsg.includes('precio') || lowerMsg.includes('cuanto') || lowerMsg.includes('costo')) {
+      if (!form.behavior.rules.offerPricesWhenAsked) {
+        return '*(Simulado)* Los valores se revisan de forma personalizada. Puedo ayudarte a contactar al equipo.'
+      }
       if (instructions.includes('precio') || instructions.includes('$')) {
         return '*(Simulado)* Basado en el entrenamiento: ' + form.instructions.substring(0, 150) + '...'
       }
+    }
+    if ((lowerMsg.includes('cita') || lowerMsg.includes('reserva') || lowerMsg.includes('agendar')) && !form.behavior.rules.suggestAppointment) {
+      return `*(Simulado)* ${fallback}`
     }
     if (lowerMsg.includes('hora') || lowerMsg.includes('abierto') || lowerMsg.includes('cierra')) {
       if (form.schedule) return `*(Simulado)* Nuestro horario es: ${form.schedule}`
@@ -94,6 +100,9 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
       }
     }
 
+    if (!form.behavior.rules.doNotInvent) {
+      return '*(Simulado)* Puedo orientarte de forma general, aunque conviene confirmar esta información con el equipo.'
+    }
     return `*(Simulado)* ${fallback} (Falta agregar información específica al entrenamiento).`
   }
 
@@ -166,7 +175,7 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
   }
 
   return (
-    <div className="flex flex-col h-full min-h-[600px] bg-[#050816]/80 backdrop-blur-2xl border border-white/[0.08] rounded-3xl overflow-hidden relative shadow-2xl">
+    <div className="flex flex-col h-full min-h-[540px] bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl overflow-hidden relative shadow-xl">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-white/[0.02]">
         <div className="flex items-center gap-3">
@@ -195,11 +204,14 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
       </div>
 
       {/* Configuration Summary Badge */}
-      <div className="bg-white/[0.02] border-b border-white/[0.04] px-4 py-2 flex flex-wrap gap-2 text-[10px] text-slate-400">
+      <div className="bg-white/[0.02] border-b border-white/[0.04] px-4 py-2.5 flex flex-wrap gap-2 text-[10px] text-slate-400">
         <span className="px-2 py-1 rounded bg-white/5 border border-white/5">Tono: <span className="capitalize text-slate-300">{form.behavior.tone}</span></span>
         <span className="px-2 py-1 rounded bg-white/5 border border-white/5">Objetivo: <span className="capitalize text-slate-300">{form.behavior.goal}</span></span>
         <span className="px-2 py-1 rounded bg-white/5 border border-white/5">
           Entrenamiento: <span className="text-slate-300">{(form.knowledgeBlocks || []).filter(b => b.is_active && b.content.trim().length >= 80).length} bloques completos</span>
+        </span>
+        <span className="px-2 py-1 rounded bg-brand-success/10 border border-brand-success/20 text-brand-success">
+          {Object.values(form.behavior.rules).filter(Boolean).length} reglas activas
         </span>
       </div>
 
@@ -207,22 +219,6 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {messages.length === 0 && (
           <div className="h-full flex flex-col items-center justify-center text-center py-6 px-2">
-            {/* Encabezado del asistente */}
-            <div className="w-full mb-4 bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 text-left">
-              <div className="flex items-center gap-2 mb-2">
-                <Bot className="w-4 h-4 text-brand-violet" />
-                <span className="text-xs font-semibold text-white">{form.assistant_name || 'Nuevo Asistente'}</span>
-                <span className="ml-auto text-[10px] px-1.5 py-0.5 bg-amber-400/10 border border-amber-400/20 text-amber-400 rounded-full">Borrador</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">Tono: <span className="text-slate-300 capitalize">{form.behavior.tone}</span></span>
-                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">Objetivo: <span className="text-slate-300 capitalize">{form.behavior.goal}</span></span>
-                <span className="text-[10px] px-2 py-0.5 bg-white/5 border border-white/5 rounded text-slate-400">
-                  <span className="text-slate-300">{(form.knowledgeBlocks || []).filter(b => b.is_active && b.content.trim().length >= 80).length}</span> bloques
-                </span>
-              </div>
-            </div>
-
             {/* Mensaje de bienvenida dinámico */}
             <div className="bg-brand-violet/10 border border-brand-violet/20 rounded-2xl p-4 text-sm text-slate-200 mb-4 w-full text-left italic shadow-lg">
               "{getSimulatedGreeting()}"

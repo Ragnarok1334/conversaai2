@@ -369,15 +369,12 @@ export async function POST(request: NextRequest) {
     // Si la tabla no existe todavía, el error se captura de forma segura
     // y no impide que el asistente se cree exitosamente.
     try {
-      const telegramToken = ''
-      const telegramTokenTrimmed = ''
-
       const channelsPayload = [
         {
           assistant_id: assistant.id,
           user_id: user.id,
           channel: 'webchat',
-          is_enabled: true,
+          is_enabled: channels.webchat?.enabled !== false,
           config: { status: 'active' },
         },
         {
@@ -393,6 +390,20 @@ export async function POST(request: NextRequest) {
           channel: 'whatsapp',
           is_enabled: false,
           config: { status: 'coming_soon' },
+        },
+        {
+          assistant_id: assistant.id,
+          user_id: user.id,
+          channel: 'instagram',
+          is_enabled: false,
+          config: { status: 'coming_soon', provider: 'meta' },
+        },
+        {
+          assistant_id: assistant.id,
+          user_id: user.id,
+          channel: 'facebook',
+          is_enabled: false,
+          config: { status: 'coming_soon', provider: 'meta' },
         },
       ]
 
