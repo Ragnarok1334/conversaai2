@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Globe, Send, MessageCircle, Clock, Plus, Settings, Search, Filter, CheckCircle2, Users } from 'lucide-react'
+import { MessageSquare, Globe, Send, MessageCircle, Search, Filter, CheckCircle2, Users } from 'lucide-react'
 import Link from 'next/link'
 import ChannelConnectActions from '@/components/dashboard/ChannelConnectActions'
 import { ConvertLeadModal } from './ConvertLeadModal'
@@ -35,6 +35,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [channelFilter, setChannelFilter] = useState('all')
+  const [showFilters, setShowFilters] = useState(false)
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(true)
   const limit = 25
@@ -212,40 +213,30 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
         </div>
       )}
 
-      {/* Header & Stats */}
-      <div className="mb-6 shrink-0 flex flex-col md:flex-row md:items-start justify-between gap-4">
+      {/* Header & summary */}
+      <div className="mb-5 shrink-0 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Conversaciones</h1>
           <p className="text-text-soft mt-1">
-            Revisa las interacciones de tus clientes en tiempo real.
+            Revisa mensajes y da seguimiento a quienes necesitan atención.
           </p>
         </div>
-
-        {/* Plan Usage Card */}
-        {messagesLimit > 0 && effectiveStatus !== 'free' && (
-          <div className="bg-card-bg/80 border border-card-border p-4 rounded-xl flex flex-col min-w-[250px] shadow-sm">
-            <div className="flex justify-between items-center mb-1">
-              <p className="text-xs text-text-soft uppercase font-semibold">Uso del plan</p>
-              <p className="text-xs font-bold text-white">{currentMessagesUsed} / {messagesLimit}</p>
-            </div>
-            <div className="w-full bg-white/10 h-1.5 rounded-full overflow-hidden mb-2">
-              <div 
-                className={`h-full rounded-full transition-all ${currentMessagesUsed / messagesLimit > 0.9 ? 'bg-brand-pink' : 'bg-brand-violet'}`}
-                style={{ width: `${Math.min((currentMessagesUsed / messagesLimit) * 100, 100)}%` }}
-              ></div>
-            </div>
-            <p className="text-[10px] text-text-soft leading-tight">
-              Cada respuesta real consume 1 mensaje.<br/>
-              Ver el historial no consume mensajes.
-            </p>
-            {currentMessagesUsed >= messagesLimit && (
-              <p className="text-[10px] text-brand-pink mt-1.5 font-medium">Límite alcanzado. Las nuevas respuestas se pausarán.</p>
-            )}
-            {currentMessagesUsed >= messagesLimit * 0.9 && currentMessagesUsed < messagesLimit && (
-              <p className="text-[10px] text-brand-cyan mt-1.5 font-medium">Estás cerca de tu límite.</p>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="px-3 py-1.5 rounded-full bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan font-medium">
+            {stats.open || 0} abiertas
+          </span>
+          <span className="px-3 py-1.5 rounded-full bg-brand-violet/10 border border-brand-violet/20 text-brand-violet font-medium">
+            {stats.pending || 0} pendientes
+          </span>
+          <span className="px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-text-soft font-medium">
+            {stats.total || 0} totales
+          </span>
+          {messagesLimit > 0 && currentMessagesUsed >= messagesLimit * 0.8 && (
+            <span className="px-3 py-1.5 rounded-full bg-brand-pink/10 border border-brand-pink/20 text-brand-pink font-medium">
+              Uso {currentMessagesUsed}/{messagesLimit}
+            </span>
+          )}
+        </div>
       </div>
 
       {effectiveStatus === 'free' ? (
@@ -293,43 +284,59 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex gap-6 min-h-0">
+        <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
           {/* Left: List */}
-          <div className="w-1/3 flex flex-col bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl overflow-hidden">
+          <div className="w-full lg:w-[340px] min-h-[280px] lg:min-h-0 flex flex-col bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-white/[0.05] space-y-3 shrink-0">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-soft" />
-                <input 
-                  type="text" 
-                  placeholder="Buscar mensaje o visitante..." 
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-text-soft focus:outline-none focus:border-brand-violet/50"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <select 
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1"
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-soft" />
+                  <input
+                    type="text"
+                    placeholder="Buscar conversación..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-text-soft focus:outline-none focus:border-brand-violet/50"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(value => !value)}
+                  aria-expanded={showFilters}
+                  className={`w-10 rounded-xl border flex items-center justify-center transition-colors ${showFilters || channelFilter !== 'all' ? 'bg-brand-violet/10 border-brand-violet/30 text-brand-violet' : 'bg-white/[0.03] border-white/[0.1] text-text-soft hover:text-white'}`}
+                  title="Filtrar por canal"
                 >
-                  <option value="all">Todos los estados</option>
-                  <option value="open">Abiertas</option>
-                  <option value="pending">Pendientes</option>
-                  <option value="closed">Cerradas</option>
-                </select>
-
+                  <Filter className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex gap-1 p-1 rounded-xl bg-white/[0.025] border border-white/[0.06]">
+                {[
+                  ['all', 'Todas'],
+                  ['open', 'Abiertas'],
+                  ['pending', 'Pendientes'],
+                ].map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setStatusFilter(value)}
+                    className={`flex-1 px-2 py-1.5 rounded-lg text-[11px] font-medium transition-colors ${statusFilter === value ? 'bg-brand-violet/15 text-brand-violet' : 'text-text-soft hover:text-white'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {showFilters && (
                 <select 
                   value={channelFilter}
                   onChange={e => setChannelFilter(e.target.value)}
-                  className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1"
+                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-xl px-3 py-2 text-xs text-white focus:outline-none"
                 >
                   <option value="all">Todos los canales</option>
                   <option value="webchat">Web Chat</option>
                   <option value="telegram" disabled className="text-text-soft">Telegram (Próx.)</option>
                   <option value="whatsapp" disabled className="text-text-soft">WhatsApp (Próx.)</option>
                 </select>
-              </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
@@ -395,36 +402,20 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                         </span>
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {selectedConv.status !== 'closed' && (
-                        <button
-                          onClick={() => handleUpdateStatus(selectedConv.id, 'closed')}
-                          className="px-3 py-1.5 bg-white/[0.05] hover:bg-white/[0.1] text-text-soft hover:text-white border border-white/[0.05] text-xs font-medium rounded-lg transition-colors"
-                        >
-                          Cerrar
-                        </button>
-                      )}
-                      {selectedConv.status === 'open' && (
-                        <button
-                          onClick={() => handleUpdateStatus(selectedConv.id, 'pending')}
-                          className="px-3 py-1.5 bg-brand-violet/10 hover:bg-brand-violet/20 text-brand-violet border border-brand-violet/20 text-xs font-medium rounded-lg transition-colors"
-                        >
-                          Marcar pendiente
-                        </button>
-                      )}
-                      {selectedConv.status !== 'open' && (
-                        <button
-                          onClick={() => handleUpdateStatus(selectedConv.id, 'open')}
-                          className="px-3 py-1.5 bg-brand-cyan/10 hover:bg-brand-cyan/20 text-brand-cyan border border-brand-cyan/20 text-xs font-medium rounded-lg transition-colors"
-                        >
-                          Reabrir
-                        </button>
-                      )}
-                    </div>
+                    <select
+                      aria-label="Estado de la conversación"
+                      value={selectedConv.status}
+                      onChange={(event) => handleUpdateStatus(selectedConv.id, event.target.value)}
+                      className="shrink-0 bg-white/[0.04] border border-white/[0.1] rounded-xl px-3 py-2 text-xs font-medium text-white focus:outline-none focus:border-brand-violet/50"
+                    >
+                      <option value="open">Abierta</option>
+                      <option value="pending">Pendiente</option>
+                      <option value="closed">Cerrada</option>
+                    </select>
                   </div>
 
                   {/* Messages Timeline */}
-                  <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#050b1a]">
+                  <div className="conversation-timeline flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar bg-white/[0.015]">
                     {loadingMessages ? (
                       <div className="text-center text-text-soft text-sm">Cargando mensajes...</div>
                     ) : messages.length === 0 ? (
@@ -445,8 +436,8 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                 </div>
 
                 {/* Sidebar Contexto */}
-                <div className="w-64 bg-white/[0.01] flex flex-col p-5 overflow-y-auto custom-scrollbar shrink-0">
-                  <h4 className="text-xs font-semibold text-text-soft uppercase tracking-wider mb-4">Datos detectados</h4>
+                <div className="hidden xl:flex w-64 bg-white/[0.01] flex-col p-5 overflow-y-auto custom-scrollbar shrink-0">
+                  <h4 className="text-xs font-semibold text-text-soft uppercase tracking-wider mb-4">Contacto</h4>
                   
                   {(!selectedConv.visitor_name && !selectedConv.visitor_email && !selectedConv.visitor_phone && (!selectedConv.lead || selectedConv.lead.length === 0)) ? (
                     <div className="text-center py-6 px-2 bg-white/[0.02] rounded-xl border border-white/[0.05] mt-2">
