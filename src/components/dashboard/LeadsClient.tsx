@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { 
   Users, Mail, Phone, Globe, TrendingUp, Clock, CheckCircle2, 
   Search, MessageSquare, Edit3, Save, ExternalLink, Calendar, 
-  User, Check, XCircle, Info
+  User, Check, XCircle, Info, SlidersHorizontal
 } from 'lucide-react'
 import Link from 'next/link'
 import ChannelConnectActions from '@/components/dashboard/ChannelConnectActions'
@@ -39,6 +39,7 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
   const [notesEditing, setNotesEditing] = useState(false)
   const [notesValue, setNotesValue] = useState('')
   const [toastMsg, setToastMsg] = useState('')
+  const [showFilters, setShowFilters] = useState(false)
 
   const showToast = (msg: string) => {
     setToastMsg(msg)
@@ -192,7 +193,7 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
     const matchesSearch = (!search || l.name?.toLowerCase().includes(search.toLowerCase()) || 
                            l.email?.toLowerCase().includes(search.toLowerCase()) ||
                            l.phone?.toLowerCase().includes(search.toLowerCase()))
-    const matchesStatus = statusFilter === 'all' || l.status === statusFilter
+    const matchesStatus = statusFilter === 'all' || (statusFilter === 'followup' ? ['contacted', 'qualified'].includes(l.status) : l.status === statusFilter)
     const matchesAssistant = assistantFilter === 'all' || l.assistant_id === assistantFilter
 
     let matchesDate = true
@@ -264,23 +265,19 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
         </p>
 
         {(leads.length > 0 || search) && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-card-bg/50 border border-card-border p-4 rounded-xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-white"><Users className="w-5 h-5"/></div>
-              <div><p className="text-sm text-text-soft">Total Leads</p><p className="font-bold text-xl">{stats.total || 0}</p></div>
-            </div>
-            <div className="bg-card-bg/50 border border-card-border p-4 rounded-xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-brand-cyan/10 flex items-center justify-center text-brand-cyan"><TrendingUp className="w-5 h-5"/></div>
-              <div><p className="text-sm text-text-soft">Nuevos</p><p className="font-bold text-xl">{stats.new || 0}</p></div>
-            </div>
-            <div className="bg-card-bg/50 border border-card-border p-4 rounded-xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-brand-blue/10 flex items-center justify-center text-brand-blue"><Clock className="w-5 h-5"/></div>
-              <div><p className="text-sm text-text-soft">En seguimiento</p><p className="font-bold text-xl">{(stats.contacted || 0) + (stats.qualified || 0)}</p></div>
-            </div>
-            <div className="bg-card-bg/50 border border-card-border p-4 rounded-xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-brand-success/10 flex items-center justify-center text-brand-success"><CheckCircle2 className="w-5 h-5"/></div>
-              <div><p className="text-sm text-text-soft">Convertidos</p><p className="font-bold text-xl">{stats.converted || 0}</p></div>
-            </div>
+          <div className="grid grid-cols-3 gap-3 mt-5">
+            <button onClick={() => setStatusFilter(statusFilter === 'new' ? 'all' : 'new')} className={`text-left bg-card-bg/60 border rounded-xl p-4 transition-all ${statusFilter === 'new' ? 'border-brand-cyan' : 'border-card-border hover:border-brand-cyan/30'}`}>
+              <p className="text-xs text-text-soft font-semibold">Nuevos</p>
+              <p className="font-bold text-2xl mt-1 text-brand-cyan">{stats.new || 0}</p>
+            </button>
+            <button onClick={() => setStatusFilter(statusFilter === 'followup' ? 'all' : 'followup')} className={`text-left bg-card-bg/60 border rounded-xl p-4 transition-all ${statusFilter === 'followup' ? 'border-brand-blue' : 'border-card-border hover:border-brand-blue/30'}`}>
+              <p className="text-xs text-text-soft font-semibold">En seguimiento</p>
+              <p className="font-bold text-2xl mt-1 text-brand-blue">{(stats.contacted || 0) + (stats.qualified || 0)}</p>
+            </button>
+            <button onClick={() => setStatusFilter(statusFilter === 'converted' ? 'all' : 'converted')} className={`text-left bg-card-bg/60 border rounded-xl p-4 transition-all ${statusFilter === 'converted' ? 'border-brand-success' : 'border-card-border hover:border-brand-success/30'}`}>
+              <p className="text-xs text-text-soft font-semibold">Convertidos</p>
+              <p className="font-bold text-2xl mt-1 text-brand-success">{stats.converted || 0}</p>
+            </button>
           </div>
         )}
       </div>
@@ -335,56 +332,65 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
           {/* Columna Izquierda: Lista de Leads y Filtros */}
           <div className="w-full lg:w-1/2 xl:w-5/12 flex flex-col bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-2xl overflow-hidden">
             {/* Filtros */}
-            <div className="p-4 border-b border-white/[0.05] space-y-3 shrink-0 bg-white/[0.01]">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-soft" />
-                <input 
-                  type="text" 
-                  placeholder="Buscar nombre, email o teléfono..." 
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-white/[0.1] rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-text-soft focus:outline-none focus:border-brand-violet/50 transition-colors"
-                />
+            <div className="p-4 border-b border-white/[0.05] shrink-0 bg-white/[0.01]">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-soft" />
+                  <input
+                    type="text"
+                    placeholder="Buscar nombre, email o teléfono..."
+                    value={search}
+                    onChange={event => setSearch(event.target.value)}
+                    className="w-full bg-white/[0.03] border border-white/[0.1] rounded-lg pl-9 pr-4 py-2.5 text-sm text-white placeholder-text-soft focus:outline-none focus:border-brand-violet/50 transition-colors"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowFilters(current => !current)}
+                  className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-lg border text-xs font-semibold transition-all ${showFilters || dateFilter !== 'all' || assistantFilter !== 'all' ? 'border-brand-violet text-brand-violet bg-brand-violet/10' : 'border-white/10 text-text-soft bg-white/[0.03]'}`}
+                >
+                  <SlidersHorizontal className="w-4 h-4" /> Filtros
+                </button>
               </div>
-              <div className="flex flex-wrap gap-2">
-                <select 
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1 min-w-[120px]"
-                >
-                  <option value="all">Todos los estados</option>
-                  <option value="new">Nuevos</option>
-                  <option value="contacted">Contactados</option>
-                  <option value="qualified">Calificados</option>
-                  <option value="converted">Convertidos</option>
-                  <option value="lost">Descartados</option>
-                </select>
 
-                <select 
-                  value={dateFilter}
-                  onChange={e => setDateFilter(e.target.value)}
-                  className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1 min-w-[120px]"
-                >
-                  <option value="all">Cualquier fecha</option>
-                  <option value="today">Hoy</option>
-                  <option value="7days">Últimos 7 días</option>
-                  <option value="30days">Últimos 30 días</option>
-                </select>
-
-                {hasAnyAssistantsInLeads && (
-                  <select 
-                    value={assistantFilter}
-                    onChange={e => setAssistantFilter(e.target.value)}
-                    className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none flex-1 min-w-[120px]"
+              {showFilters && (
+                <div className="grid sm:grid-cols-3 gap-2 mt-3">
+                  <select
+                    value={statusFilter}
+                    onChange={event => setStatusFilter(event.target.value)}
+                    className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
                   >
-                    <option value="all">Todos los asistentes</option>
-                    {uniqueAssistantsInLeads.map(astId => {
-                      const ast = leads.find(l => l.assistant_id === astId)?.assistant
-                      return ast ? <option key={astId as string} value={astId as string}>{ast.assistant_name}</option> : null
-                    })}
+                    <option value="all">Todos los estados</option>
+                    <option value="new">Nuevos</option>
+                    <option value="followup">En seguimiento</option>
+                    <option value="converted">Convertidos</option>
+                    <option value="lost">Descartados</option>
                   </select>
-                )}
-              </div>
+                  <select
+                    value={dateFilter}
+                    onChange={event => setDateFilter(event.target.value)}
+                    className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                  >
+                    <option value="all">Cualquier fecha</option>
+                    <option value="today">Hoy</option>
+                    <option value="7days">Últimos 7 días</option>
+                    <option value="30days">Últimos 30 días</option>
+                  </select>
+
+                  {hasAnyAssistantsInLeads && (
+                    <select
+                      value={assistantFilter}
+                      onChange={event => setAssistantFilter(event.target.value)}
+                      className="bg-white/[0.03] border border-white/[0.1] rounded-lg px-3 py-2 text-xs text-white focus:outline-none"
+                    >
+                      <option value="all">Todos los asistentes</option>
+                      {uniqueAssistantsInLeads.map(astId => {
+                        const ast = leads.find(lead => lead.assistant_id === astId)?.assistant
+                        return ast ? <option key={astId as string} value={astId as string}>{ast.assistant_name}</option> : null
+                      })}
+                    </select>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Lista */}
@@ -476,22 +482,20 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                         </div>
                       </div>
                       
-                      <div className="flex gap-2">
-                        {['new', 'contacted', 'qualified', 'converted', 'lost'].map(s => {
-                          const conf = STATUS_CONFIG[s]
-                          const isActive = selectedLead.status === s
-                          return (
-                            <button
-                              key={s}
-                              onClick={() => handleUpdateLead(selectedLead.id, { status: s })}
-                              className={`text-[10px] px-2.5 py-1.5 rounded-lg border font-medium transition-all ${
-                                isActive ? conf.color + ' ring-1 ring-current' : 'bg-white/5 border-white/10 text-text-soft hover:bg-white/10'
-                              }`}
-                            >
-                              {conf.label}
-                            </button>
-                          )
-                        })}
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="lead-status" className="text-xs font-semibold text-text-soft">Estado</label>
+                        <select
+                          id="lead-status"
+                          value={selectedLead.status === 'qualified' ? 'contacted' : selectedLead.status}
+                          onChange={event => handleUpdateLead(selectedLead.id, { status: event.target.value })}
+                          className="bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-brand-violet"
+                        >
+                          <option value="new">Nuevo</option>
+                          <option value="contacted">En seguimiento</option>
+                          <option value="converted">Convertido</option>
+                          <option value="lost">Descartado</option>
+                        </select>
+                      </div>
                       </div>
                     </div>
                   </div>
