@@ -41,6 +41,9 @@ export async function GET() {
         support_email: null,
         address: null,
         business_hours: null,
+        timezone: null,
+        currency: null,
+        locale: null,
       })
     }
 
@@ -67,8 +70,8 @@ export async function PATCH(req: NextRequest) {
     const body = await readJsonBody<Record<string, unknown>>(req, 16_384)
 
     // Whitelist — never accept id or user_id from body
-    const allowedFields = ['full_name', 'company_name', 'phone', 'country', 'business_type', 'preferred_channel', 'onboarding_goal', 'city', 'website', 'support_email', 'address', 'business_hours']
-    const maxLengths: Record<string, number> = { full_name: 120, company_name: 160, phone: 40, country: 80, business_type: 100, preferred_channel: 40, onboarding_goal: 500, city: 100, website: 500, support_email: 254, address: 500, business_hours: 1_000 }
+    const allowedFields = ['full_name', 'company_name', 'phone', 'country', 'business_type', 'preferred_channel', 'onboarding_goal', 'city', 'website', 'support_email', 'address', 'business_hours', 'timezone', 'currency', 'locale']
+    const maxLengths: Record<string, number> = { full_name: 120, company_name: 160, phone: 40, country: 80, business_type: 100, preferred_channel: 40, onboarding_goal: 500, city: 120, website: 500, support_email: 254, address: 500, business_hours: 1_000, timezone: 80, currency: 3, locale: 16 }
     const patch: Record<string, string | null> = {}
     for (const field of allowedFields) {
       if (field in body) {
@@ -82,6 +85,13 @@ export async function PATCH(req: NextRequest) {
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    if (patch.support_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(patch.support_email)) {
+      return NextResponse.json({ error: 'El correo de atención no es válido' }, { status: 400 })
+    }
+    if (patch.website && !/^https?:\/\//i.test(patch.website)) {
+      patch.website = `https://${patch.website}`
     }
 
     const supabaseAdmin = createSupabaseAdmin()
