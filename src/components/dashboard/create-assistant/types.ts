@@ -39,6 +39,8 @@ export interface BuilderFormData {
     webchat: { enabled: boolean }
     telegram: { enabled: boolean; token: string }
     whatsapp: { enabled: boolean }
+    instagram: { enabled: boolean }
+    facebook: { enabled: boolean }
   }
   knowledgeBlocks: KnowledgeBlock[]
 }
@@ -72,7 +74,9 @@ export const initialBuilderForm: BuilderFormData = {
   channels: {
     webchat: { enabled: true },
     telegram: { enabled: false, token: '' },
-    whatsapp: { enabled: false }
+    whatsapp: { enabled: false },
+    instagram: { enabled: false },
+    facebook: { enabled: false }
   },
   knowledgeBlocks: []
 }
