@@ -13,7 +13,7 @@ export interface BuilderFormData {
   assistant_name: string
   business_name: string
   business_type: string
-  language: "es"
+  language: string
   instructions: string
   faqs: string
   services: string
