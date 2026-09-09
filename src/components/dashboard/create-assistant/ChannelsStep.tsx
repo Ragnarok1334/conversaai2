@@ -1,100 +1,71 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Code2, Send, MessageSquare, AlertTriangle } from 'lucide-react'
+import { Code2, Send, MessageCircle, Camera, MessagesSquare, CheckCircle2, Clock3 } from 'lucide-react'
 import { BuilderFormData } from './types'
 
 interface Props {
   form: BuilderFormData
   setForm: (form: BuilderFormData) => void
-  currentPlan: string // Kept for backwards compatibility if needed by parent
+  currentPlan: string
 }
 
-export function ChannelsStep({ form, setForm, currentPlan }: Props) {
-  const updateChannel = (channel: keyof BuilderFormData['channels'], field: string, value: any) => {
-    setForm({
-      ...form,
-      channels: {
-        ...form.channels,
-        [channel]: { ...form.channels[channel], [field]: value }
-      }
-    })
-  }
+const futureChannels = [
+  { key: 'whatsapp', name: 'WhatsApp', detail: 'Atención, seguimiento y captación desde WhatsApp Business.', icon: MessageCircle, color: 'text-emerald-500 bg-emerald-500/10', group: 'Meta' },
+  { key: 'instagram', name: 'Instagram', detail: 'Respuestas a mensajes directos de la cuenta comercial.', icon: Camera, color: 'text-pink-500 bg-pink-500/10', group: 'Meta' },
+  { key: 'facebook', name: 'Facebook', detail: 'Atención automatizada para mensajes de Messenger.', icon: MessagesSquare, color: 'text-blue-500 bg-blue-500/10', group: 'Meta' },
+  { key: 'telegram', name: 'Telegram', detail: 'Conexión mediante un bot administrado por el negocio.', icon: Send, color: 'text-sky-500 bg-sky-500/10', group: 'Bot API' },
+] as const
 
+export function ChannelsStep({ form }: Props) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 lg:p-8 space-y-6 shadow-xl">
-        <div className="border-b border-white/[0.06] pb-4">
-          <h2 className="font-semibold text-xl mb-1 text-white">Canales e instalación</h2>
-          <p className="text-sm text-slate-400">Elige dónde funcionará tu asistente. Podrás instalar el Web Chat después de crear el asistente.</p>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+      <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 lg:p-8 shadow-xl">
+        <div className="border-b border-white/[0.06] pb-4 mb-5">
+          <h2 className="font-semibold text-xl mb-1 text-white">Canales</h2>
+          <p className="text-sm text-slate-400">El asistente nace con Web Chat. Los demás canales se conectarán después sin volver a entrenarlo.</p>
         </div>
 
-        <div className="space-y-4">
-          {/* Web Chat */}
-          <div className="bg-white/[0.02] border border-white/5 rounded-2xl p-5 hover:border-brand-cyan/30 transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-brand-cyan/10 flex items-center justify-center">
-                  <Code2 className="w-5 h-5 text-brand-cyan" />
-                </div>
-                <div>
+        <div className="rounded-2xl p-5 border border-brand-cyan/30 bg-brand-cyan/[0.06] mb-5">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-brand-cyan/10 flex items-center justify-center shrink-0"><Code2 className="w-5 h-5 text-brand-cyan" /></div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
                   <h3 className="font-semibold text-white">Web Chat</h3>
-                  <p className="text-xs text-slate-400">Instala un widget en tu sitio web.</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-success/10 border border-brand-success/20 text-brand-success font-bold">DISPONIBLE</span>
                 </div>
+                <p className="text-xs text-slate-400 mt-1">Widget para sitios web. Después de crear el asistente podrás copiar el script y autorizar el dominio.</p>
               </div>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <span className="text-xs font-medium text-slate-400 mr-2">Disponible</span>
-                <input type="checkbox" className="hidden" checked={form.channels.webchat.enabled} readOnly disabled />
-                <div className={`w-10 h-5 rounded-full transition-colors flex items-center px-0.5 opacity-50 cursor-not-allowed bg-brand-cyan`}>
-                  <div className={`w-4 h-4 rounded-full bg-white transition-transform translate-x-5`} />
-                </div>
-              </label>
             </div>
-            <div className="mt-3 p-3 rounded-xl bg-brand-cyan/10 border border-brand-cyan/20 text-brand-cyan text-xs flex gap-2">
-              <Code2 className="w-4 h-4 flex-shrink-0" />
-              Instala el asistente en tu sitio web con un script ligero. Ideal para atender visitantes y capturar leads. (Canal base obligatorio).
-            </div>
+            {form.channels.webchat.enabled && <CheckCircle2 className="w-5 h-5 text-brand-success shrink-0" />}
           </div>
+        </div>
 
-          {/* Telegram */}
-          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-5 opacity-60 pointer-events-none">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-brand-violet/10 flex items-center justify-center">
-                  <Send className="w-5 h-5 text-brand-violet" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">Telegram</h3>
-                  <p className="text-xs text-slate-400">Canal planeado para conectar asistentes con bots de Telegram.</p>
-                </div>
-              </div>
-              <span className="px-3 py-1 bg-brand-violet/10 border border-brand-violet/20 rounded-full text-xs font-bold text-brand-violet">
-                PRÓXIMAMENTE
-              </span>
-            </div>
-          </div>
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold text-white">Próximas integraciones</h3>
+          <p className="text-xs text-slate-400 mt-1">Se muestran para explicar cómo crecerá el asistente; todavía no pueden activarse.</p>
+        </div>
 
-          {/* WhatsApp */}
-          <div className="bg-white/[0.01] border border-white/5 rounded-2xl p-5 opacity-60 pointer-events-none">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-                  <MessageSquare className="w-5 h-5 text-emerald-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-white">WhatsApp</h3>
-                  <p className="text-xs text-slate-400">Canal planeado para atención por WhatsApp cuando la integración esté disponible.</p>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {futureChannels.map((channel) => {
+            const Icon = channel.icon
+            return (
+              <div key={channel.key} className="rounded-2xl p-4 border border-white/[0.07] bg-white/[0.02]">
+                <div className="flex items-start gap-3">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${channel.color}`}><Icon className="w-4.5 h-4.5" /></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-semibold text-white">{channel.name}</h4>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-white/[0.05] border border-white/[0.08] text-slate-400">{channel.group}</span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-1 leading-relaxed">{channel.detail}</p>
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mt-3"><Clock3 className="w-3 h-3" /> En preparación</div>
+                  </div>
                 </div>
               </div>
-              <span className="px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full text-xs font-bold text-emerald-500">
-                PRÓXIMAMENTE
-              </span>
-            </div>
-          </div>
+            )
+          })}
         </div>
       </div>
     </motion.div>
