@@ -571,7 +571,7 @@ function EditCompanyModal({
 export function SettingsClient({ userName, email, joinDate, assistantCount }: Props) {
   const { refreshProfile } = useProfile()
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'security' | 'notifications' | 'channels' | 'billing'>('profile')
+  const [activeTab, setActiveTab] = useState<'profile' | 'company' | 'security' | 'notifications' | 'channels' | 'billing'>('company')
 
   // ── Toast state ────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' }>({ show: false, message: '', type: 'success' })
@@ -791,12 +791,11 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
   }
 
   const TABS = [
-    { id: 'profile', label: 'Perfil', icon: <User className="w-4 h-4" /> },
-    { id: 'company', label: 'Empresa', icon: <Building className="w-4 h-4" /> },
-    { id: 'security', label: 'Seguridad', icon: <Shield className="w-4 h-4" /> },
-    { id: 'notifications', label: 'Notificaciones', icon: <Bell className="w-4 h-4" /> },
+    { id: 'company', label: 'Negocio', icon: <Building className="w-4 h-4" /> },
+    { id: 'profile', label: 'Cuenta', icon: <User className="w-4 h-4" /> },
     { id: 'channels', label: 'Canales', icon: <Layers className="w-4 h-4" /> },
-    { id: 'billing', label: 'Facturación', icon: <Zap className="w-4 h-4" /> },
+    { id: 'notifications', label: 'Notificaciones', icon: <Bell className="w-4 h-4" /> },
+    { id: 'security', label: 'Seguridad', icon: <Shield className="w-4 h-4" /> },
   ] as const
 
   return (
@@ -825,7 +824,7 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
         <div className="mb-8">
           <h1 className="text-3xl font-bold tracking-tight">Configuración</h1>
           <p className="text-text-soft mt-1 text-sm">
-            Controla tu cuenta, seguridad, notificaciones e integraciones desde un solo lugar.
+            Administra los datos de tu negocio, tu cuenta y las conexiones de tus asistentes.
           </p>
         </div>
 
