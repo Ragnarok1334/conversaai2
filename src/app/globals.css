@@ -564,6 +564,20 @@ body::before {
 .dashboard-root[data-theme="light"] label { color: #332d41; }
 .dashboard-root[data-theme="light"] input::placeholder,
 .dashboard-root[data-theme="light"] textarea::placeholder { color: #746d80; opacity: 1; }
+.dashboard-root[data-theme="light"] .dashboard-select-trigger {
+  color: #211c35;
+  background: #fff;
+  border-color: #dcd7e6;
+}
+.dashboard-root[data-theme="light"] .dashboard-select-menu,
+.dashboard-root[data-theme="light"] .dashboard-select-search {
+  color: #211c35;
+  background: #fff;
+  border-color: #e5e1ed;
+}
+.dashboard-root[data-theme="light"] .dashboard-select-menu button:not(:disabled) { color: #211c35; }
+.dashboard-root[data-theme="light"] .dashboard-select-menu button:not(:disabled):hover { background: #f2effa; }
+.dashboard-root[data-theme="light"] .dashboard-select-menu input { background: #f7f5fb; }
 .dashboard-root[data-theme="light"] .gradient-btn,
 .dashboard-root[data-theme="light"] .gradient-btn *,
 .dashboard-root[data-theme="light"] [class*="bg-brand-violet"]:not([class*="/10"]):not([class*="/20"]),
