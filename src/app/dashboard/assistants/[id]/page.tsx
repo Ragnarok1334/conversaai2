@@ -10,6 +10,8 @@ import Link from 'next/link'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { AssistantBuilder } from '@/components/dashboard/create-assistant/AssistantBuilder'
 import { AssistantWebChatTab } from '@/components/dashboard/AssistantWebChatTab'
+import { AssistantKnowledgeTab } from '@/components/dashboard/AssistantKnowledgeTab'
+import { AssistantOverview } from '@/components/dashboard/AssistantOverview'
 
 export default async function AssistantDetailPage({
   params,
@@ -155,7 +157,7 @@ export default async function AssistantDetailPage({
 
   const tabs = [
     { id: 'overview', label: 'Resumen', icon: <Info className="w-4 h-4" /> },
-    { id: 'edit', label: 'Entrenamiento', icon: <Settings className="w-4 h-4" /> },
+    { id: 'knowledge', label: 'Conocimiento', icon: <Settings className="w-4 h-4" /> },
     { id: 'webchat', label: 'Web Chat', icon: <Palette className="w-4 h-4" /> },
     { id: 'test', label: 'Prueba', icon: <Play className="w-4 h-4" /> },
   ]
@@ -185,7 +187,9 @@ export default async function AssistantDetailPage({
     }
   }
 
-  const blocksCount = assistant.knowledge_blocks ? assistant.knowledge_blocks.filter((b: any) => b.is_active && (b.content?.trim()?.length || 0) >= 80).length : 0
+  const activeBlocksCount = assistant.knowledge_blocks ? assistant.knowledge_blocks.filter((b: any) => b.is_active && (b.content?.trim()?.length || 0) >= 80).length : 0
+  const coreKnowledgeCount = [assistant.instructions, assistant.services, assistant.faqs, assistant.schedule].filter(value => (value || '').trim().length >= 40).length
+  const blocksCount = activeBlocksCount + coreKnowledgeCount
 
   // Derive explicit publication state for the Overview map
   const isCustomized = Boolean(assistant.widget_config && Object.keys(assistant.widget_config).length > 0)
@@ -234,7 +238,7 @@ export default async function AssistantDetailPage({
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-semibold text-white"
           >
             <Pencil className="w-4 h-4" />
-            Editar asistente
+            Configuración avanzada
           </Link>
         </div>
       </div>
@@ -262,201 +266,34 @@ export default async function AssistantDetailPage({
 
       {/* TAB CONTENT: OVERVIEW */}
       {tab === 'overview' && (
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Columna Izquierda: Estado de Publicación y General */}
-          <div className="lg:col-span-1 space-y-6">
-            
-            {/* ESTADO DE PUBLICACIÓN (NUEVO MAPA DEL CLIENTE) */}
-            <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md">
-              <h2 className="font-semibold text-lg text-white mb-4 flex items-center gap-2">
-                <Target className="w-5 h-5 text-brand-cyan" /> Estado de publicación
-              </h2>
-              
-              <div className="space-y-4">
-                <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg border border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-brand-success/20 flex items-center justify-center">
-                      <CheckCircle2 className="w-4 h-4 text-brand-success" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">Entrenamiento</p>
-                      <p className="text-xs text-slate-400">Asistente creado ({blocksCount} bloques)</p>
-                    </div>
-                  </div>
-                </div>
+        <AssistantOverview
+          assistantId={assistant.id}
+          health={health}
+          conversationsCount={conversationsCount}
+          leadsCount={leadsCountRes}
+          blocksCount={blocksCount}
+          isCustomized={isCustomized}
+          hasDomain={hasDomain}
+          isDetected={isDetected}
+          tests={testMessages}
+        />
+      )}
 
-                <div className={`flex justify-between items-center p-3 rounded-lg border ${
-                  isCustomized ? 'bg-white/5 border-white/5' : 'bg-brand-cyan/10 border-brand-cyan/30'
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      isCustomized ? 'bg-brand-success/20' : 'bg-brand-cyan/20'
-                    }`}>
-                      {isCustomized ? <CheckCircle2 className="w-4 h-4 text-brand-success" /> : <Palette className="w-4 h-4 text-brand-cyan" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">Apariencia</p>
-                      <p className={`text-xs ${isCustomized ? 'text-slate-400' : 'text-brand-cyan'}`}>
-                        {isCustomized ? 'Personalización lista' : 'Pendiente'}
-                      </p>
-                    </div>
-                  </div>
-                  {!isCustomized && (
-                    <Link href={`/dashboard/assistants/${id}?tab=webchat`} className="text-xs bg-brand-cyan/20 text-brand-cyan px-3 py-1.5 rounded-lg hover:bg-brand-cyan/30 transition-colors font-medium">Personalizar</Link>
-                  )}
-                </div>
+      {/* Kept temporarily for backwards-compatible markup; no longer rendered. */}
 
-                <div className={`flex justify-between items-center p-3 rounded-lg border ${
-                  hasDomain ? 'bg-white/5 border-white/5' : (isCustomized ? 'bg-brand-cyan/10 border-brand-cyan/30' : 'bg-white/[0.02] border-transparent opacity-60')
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      hasDomain ? 'bg-brand-success/20' : 'bg-slate-800'
-                    }`}>
-                      {hasDomain ? <CheckCircle2 className="w-4 h-4 text-brand-success" /> : <Globe className="w-4 h-4 text-slate-400" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">Dominio</p>
-                      <p className={`text-xs ${hasDomain ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {hasDomain ? 'Autorizado' : 'Sin dominio'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className={`flex justify-between items-center p-3 rounded-lg border ${
-                  isDetected ? 'bg-white/5 border-white/5' : (hasDomain ? 'bg-amber-500/10 border-amber-500/30' : 'bg-white/[0.02] border-transparent opacity-60')
-                }`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      isDetected ? 'bg-brand-success/20' : 'bg-slate-800'
-                    }`}>
-                      {isDetected ? <CheckCircle2 className="w-4 h-4 text-brand-success" /> : <Plug className="w-4 h-4 text-slate-400" />}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white">Instalación</p>
-                      <p className={`text-xs ${isDetected ? 'text-slate-400' : 'text-slate-500'}`}>
-                        {isDetected ? 'Script detectado' : 'Pendiente de código'}
-                      </p>
-                    </div>
-                  </div>
-                  {hasDomain && !isDetected && (
-                    <Link href={`/dashboard/assistants/${id}?tab=install`} className="text-xs text-amber-500 bg-amber-500/10 px-3 py-1.5 rounded-lg hover:bg-amber-500/20 font-medium transition-colors">Instalar</Link>
-                  )}
-                </div>
-
-                <div className="pt-4 mt-4 border-t border-white/10">
-                  {!isCustomized ? (
-                    <Link href={`/dashboard/assistants/${id}?tab=webchat`} className="w-full flex justify-center py-2.5 rounded-xl bg-brand-cyan text-slate-900 font-bold hover:bg-brand-cyan/90 transition-colors">
-                      Personalizar Web Chat
-                    </Link>
-                  ) : !hasDomain ? (
-                    <Link href={`/dashboard/assistants/${id}?tab=install`} className="w-full flex justify-center py-2.5 rounded-xl bg-brand-cyan text-slate-900 font-bold hover:bg-brand-cyan/90 transition-colors">
-                      Autorizar Dominio
-                    </Link>
-                  ) : !isDetected ? (
-                    <Link href={`/dashboard/assistants/${id}?tab=install`} className="w-full flex justify-center py-2.5 rounded-xl bg-amber-500 text-amber-950 font-bold hover:bg-amber-400 transition-colors">
-                      Ver código de instalación
-                    </Link>
-                  ) : (
-                    <Link href={`/dashboard/conversations?assistantId=${id}`} className="w-full flex justify-center py-2.5 rounded-xl bg-brand-violet text-white font-bold hover:bg-brand-violet/90 transition-colors">
-                      Ver conversaciones
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* ESTADO GENERAL DE SALUD */}
-            <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md">
-              <h2 className="font-semibold text-lg text-white mb-4 flex items-center gap-2"><Activity className="w-5 h-5 text-brand-violet" /> Análisis de rendimiento</h2>
-              
-              <div className="flex items-center justify-between bg-black/20 rounded-xl p-4 border border-white/[0.05] mb-4">
-                <div>
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Health Score</p>
-                  <span className={`text-3xl font-black ${getScoreColor(health.scoreLevel)}`}>{health.score}</span><span className="text-slate-500 font-bold">/100</span>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-1">Calidad</p>
-                  <span className={`text-sm font-semibold px-2.5 py-1 rounded-lg border text-brand-cyan border-brand-cyan/20 bg-brand-cyan/10`}>{health.trainingQuality}</span>
-                </div>
-              </div>
-              <p className="text-xs text-slate-400 flex items-center gap-1.5 px-1"><Calendar className="w-3.5 h-3.5" /> Creado el {formatDate(assistant.created_at)}</p>
-            </div>
-          </div>
-
-          {/* Columna Derecha: Actividad, Acciones rápidas y Playground histórico */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* ACTIVIDAD */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md flex flex-col justify-center">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1.5"><MessageCircle className="w-4 h-4"/> Conversaciones</span>
-                <span className="text-3xl font-bold text-white">{conversationsCount}</span>
-                {conversationsCount === 0 && <span className="text-xs text-slate-400 mt-2">Aún no hay conversaciones</span>}
-              </div>
-              <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md flex flex-col justify-center">
-                <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold mb-2 flex items-center gap-1.5"><Users className="w-4 h-4"/> Leads generados</span>
-                <span className="text-3xl font-bold text-white">{leadsCountRes}</span>
-                {leadsCountRes === 0 && <span className="text-xs text-slate-400 mt-2">Aún no hay leads capturados</span>}
-              </div>
-            </div>
-
-            {/* ACCIONES RÁPIDAS */}
-            <div className="bg-card-bg/60 backdrop-blur border border-white/10 rounded-3xl p-6 shadow-md">
-              <h2 className="font-semibold text-lg text-white mb-4">Acciones rápidas</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <Link href={`/dashboard/assistants/${id}?tab=test`} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-center">
-                  <Play className="w-6 h-6 text-brand-violet" />
-                  <span className="text-xs font-semibold text-slate-300">Probar</span>
-                </Link>
-                <Link href={`/dashboard/assistants/${id}?tab=edit`} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-center">
-                  <Pencil className="w-6 h-6 text-brand-cyan" />
-                  <span className="text-xs font-semibold text-slate-300">Editar</span>
-                </Link>
-                <Link href={`/dashboard/conversations?assistantId=${id}`} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-center">
-                  <MessageCircle className="w-6 h-6 text-brand-success" />
-                  <span className="text-xs font-semibold text-slate-300">Ver chats</span>
-                </Link>
-                <Link href={`/dashboard/leads?assistantId=${id}`} className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-center">
-                  <Users className="w-6 h-6 text-amber-500" />
-                  <span className="text-xs font-semibold text-slate-300">Ver leads</span>
-                </Link>
-              </div>
-            </div>
-
-            {/* Historial Playground */}
-            <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-6 shadow-md">
-              <h2 className="font-semibold text-lg text-white border-b border-white/[0.06] pb-3 mb-4 flex items-center gap-2"><Bot className="w-5 h-5 opacity-70" /> Historial de Pruebas</h2>
-              {testMessages.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-slate-400 mb-4 text-sm">Prueba tu asistente para ver sus respuestas aquí.</p>
-                  <Link href={`/dashboard/assistants/${id}?tab=test`} className="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 font-semibold hover:bg-white/10 transition-colors text-sm">
-                    Ir al Playground
-                  </Link>
-                </div>
-              ) : (
-                <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                  {testMessages.slice(0, 10).map((m: { id: string; user_message: string; assistant_reply: string; created_at: string }) => (
-                    <div key={m.id} className="text-sm space-y-2 pb-4 border-b border-white/[0.05] last:border-0">
-                      <p className="text-[10px] text-slate-500 font-medium">
-                        {new Date(m.created_at).toLocaleString('es', { dateStyle: 'long', timeStyle: 'short' })}
-                      </p>
-                      <div className="bg-brand-violet/10 border border-brand-violet/20 rounded-2xl px-4 py-3 rounded-tr-sm self-end">
-                        <strong className="text-brand-purple text-xs block mb-1">Tú:</strong>
-                        <p className="text-white/90">{m.user_message}</p>
-                      </div>
-                      <div className="bg-white/5 border border-white/10 rounded-2xl px-4 py-3 rounded-tl-sm self-start">
-                        <strong className="text-brand-cyan text-xs block mb-1">Asistente:</strong>
-                        <p className="text-slate-300 whitespace-pre-wrap">{m.assistant_reply}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* TAB CONTENT: KNOWLEDGE */}
+      {tab === 'knowledge' && (
+        <AssistantKnowledgeTab
+          assistantId={assistant.id}
+          assistantName={assistant.assistant_name}
+          canEdit={canEdit}
+          initialData={{
+            instructions: assistant.instructions || '',
+            services: assistant.services || '',
+            faqs: assistant.faqs || '',
+            schedule: assistant.schedule || '',
+          }}
+        />
       )}
 
       {/* TAB CONTENT: TEST */}
