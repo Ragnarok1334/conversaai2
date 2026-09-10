@@ -1,3 +1,5 @@
+import type { AssistantBehavior, AssistantLanguage } from '@/lib/assistant/behavior'
+
 export type KnowledgeBlockType = 'general' | 'services' | 'pricing' | 'hours' | 'location' | 'faq' | 'policies' | 'promotions' | 'lead_capture' | 'rules' | 'custom'
 
 export interface KnowledgeBlock {
@@ -13,28 +15,13 @@ export interface BuilderFormData {
   assistant_name: string
   business_name: string
   business_type: string
-  language: string
+  language: AssistantLanguage
   instructions: string
   faqs: string
   services: string
   schedule: string
   fallback_message: string
-  behavior: {
-    initialChannel: string
-    tone: string
-    goal: string
-    salesLevel: string
-    responseStyle: string
-    rules: {
-      askName: boolean
-      askContact: boolean
-      offerPricesWhenAsked: boolean
-      suggestAppointment: boolean
-      escalateIfUnknown: boolean
-      doNotInvent: boolean
-      alwaysSpanish: boolean
-    }
-  }
+  behavior: AssistantBehavior
   channels: {
     webchat: { enabled: boolean }
     telegram: { enabled: boolean; token: string }
