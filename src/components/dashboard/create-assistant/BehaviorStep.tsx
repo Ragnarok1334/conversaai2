@@ -8,6 +8,7 @@ import {
   DollarSign, Ban, Globe, CheckCircle2, Activity, MessageSquareText
 } from 'lucide-react'
 import { BuilderFormData } from './types'
+import type { AssistantBehavior } from '@/lib/assistant/behavior'
 import { useState } from 'react'
 
 interface Props {
@@ -121,7 +122,7 @@ const TONE_OPTIONS = [
   { value: 'vendedor', title: 'Vendedor', description: 'Persuasivo y enfocado en conversión.', icon: <TrendingUp className="w-4 h-4" />, color: 'text-green-400' },
   { value: 'cercano', title: 'Cercano', description: 'Natural, humano y conversacional.', icon: <MessageCircle className="w-4 h-4" />, color: 'text-violet-400' },
   { value: 'directo', title: 'Directo', description: 'Breve, preciso y sin rodeos.', icon: <Zap className="w-4 h-4" />, color: 'text-orange-400' },
-]
+] as const
 
 const GOAL_OPTIONS = [
   { value: 'captar leads', title: 'Captar Leads', description: 'Solicita datos cuando detecta interés.', icon: <Users className="w-4 h-4" />, color: 'text-cyan-400' },
@@ -129,26 +130,26 @@ const GOAL_OPTIONS = [
   { value: 'vender productos', title: 'Vender Productos', description: 'Orienta hacia productos, precios y compra.', icon: <ShoppingBag className="w-4 h-4" />, color: 'text-green-400' },
   { value: 'agendar citas', title: 'Agendar Citas', description: 'Guía al cliente hacia una reserva.', icon: <Calendar className="w-4 h-4" />, color: 'text-purple-400' },
   { value: 'dar soporte', title: 'Dar Soporte', description: 'Resuelve dudas y deriva si no sabe.', icon: <HeadphonesIcon className="w-4 h-4" />, color: 'text-slate-400' },
-]
+] as const
 
 const SALES_OPTIONS = [
   { value: 'Bajo', title: 'Bajo', description: 'Prioriza ayudar, sin insistir en venta.', icon: <Gauge className="w-4 h-4" />, color: 'text-slate-400' },
   { value: 'Medio', title: 'Medio', description: 'Equilibra ayuda y conversión.', icon: <Gauge className="w-4 h-4" />, color: 'text-yellow-400' },
   { value: 'Alto', title: 'Alto', description: 'Busca captar datos y cerrar la siguiente acción.', icon: <Gauge className="w-4 h-4" />, color: 'text-green-400' },
-]
+] as const
 
 const RESPONSE_OPTIONS = [
   { value: 'Breves', title: 'Breves', description: 'Respuestas cortas y directas, normalmente 1–3 frases.', icon: <Zap className="w-4 h-4" />, color: 'text-orange-400' },
   { value: 'Equilibradas', title: 'Conversacional', description: 'Se adapta a la conversación: breve si es simple y más extensa si hace falta.', icon: <MessageSquareText className="w-4 h-4" />, color: 'text-cyan-400' },
   { value: 'Detalladas', title: 'Detalladas', description: 'Explica más cuando aporta valor, sin rellenar ni repetir.', icon: <Activity className="w-4 h-4" />, color: 'text-violet-400' },
-]
+] as const
 
 const PRESETS = [
   { id: 'segura', title: 'Atención segura', behavior: { tone: 'profesional', goal: 'responder faq', salesLevel: 'Bajo', responseStyle: 'Equilibradas', rules: { askName: false, askContact: false, suggestAppointment: false, escalateIfUnknown: true, doNotInvent: true, alwaysSpanish: true, offerPricesWhenAsked: true } } },
   { id: 'equilibrada', title: 'Captación equilibrada', behavior: { tone: 'cercano', goal: 'captar leads', salesLevel: 'Medio', responseStyle: 'Equilibradas', rules: { askName: true, askContact: true, suggestAppointment: false, escalateIfUnknown: true, doNotInvent: true, alwaysSpanish: true, offerPricesWhenAsked: true } } },
   { id: 'proactiva', title: 'Ventas proactivas', behavior: { tone: 'vendedor', goal: 'vender productos', salesLevel: 'Alto', responseStyle: 'Equilibradas', rules: { askName: true, askContact: true, suggestAppointment: true, escalateIfUnknown: true, doNotInvent: true, alwaysSpanish: true, offerPricesWhenAsked: true } } },
   { id: 'conservador', title: 'Soporte conservador', behavior: { tone: 'profesional', goal: 'dar soporte', salesLevel: 'Bajo', responseStyle: 'Breves', rules: { askName: false, askContact: false, suggestAppointment: false, escalateIfUnknown: true, doNotInvent: true, alwaysSpanish: true, offerPricesWhenAsked: false } } },
-]
+] as const
 
 function buildSummary(form: BuilderFormData) {
   const { tone, goal, salesLevel, responseStyle, rules } = form.behavior
@@ -167,7 +168,7 @@ export function BehaviorStep({ form, setForm }: Props) {
   const rules = form.behavior?.rules ?? {}
   const inds = calculateIndicators(form.behavior)
 
-  const updateBehavior = (key: keyof BuilderFormData['behavior'], val: string) => {
+  const updateBehavior = <K extends Exclude<keyof AssistantBehavior, 'rules'>>(key: K, val: AssistantBehavior[K]) => {
     setAppliedPreset(null)
     setForm({ ...form, behavior: { ...form.behavior, [key]: val } })
   }
