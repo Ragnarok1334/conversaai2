@@ -15,6 +15,12 @@ interface WidgetMessageBody {
   visitorId?: unknown
 }
 
+function redactContactData(text: string): string {
+  return text
+    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, '[correo ya entregado]')
+    .replace(/\+?[0-9][0-9\s\-()]{7,15}/g, '[teléfono ya entregado]')
+}
+
 export async function OPTIONS(request: NextRequest) {
   return new NextResponse(null, { status: 204, headers: widgetCorsHeaders(request, true) })
 }
@@ -166,6 +172,38 @@ export async function POST(request: NextRequest) {
       currentConversationId = conv.id
     }
 
+    // Load recent context before storing the current message so it is not duplicated
+    // in the request sent to the model.
+    const [historyResult, leadContextResult] = await Promise.all([
+      supabaseAdmin
+        .from('messages')
+        .select('role, content, created_at')
+        .eq('conversation_id', currentConversationId)
+        .order('created_at', { ascending: false })
+        .limit(12),
+      supabaseAdmin
+        .from('leads')
+        .select('name, email, phone')
+        .eq('conversation_id', currentConversationId)
+        .maybeSingle(),
+    ])
+
+    if (historyResult.error) {
+      console.warn('[POST /api/widget/message] Could not load conversation history:', historyResult.error.message)
+    }
+
+    const conversationHistory = (historyResult.data ?? [])
+      .filter((item): item is { role: 'user' | 'assistant'; content: string; created_at: string } =>
+        (item.role === 'user' || item.role === 'assistant') && typeof item.content === 'string'
+      )
+      .reverse()
+      .map(item => ({ role: item.role, content: redactContactData(item.content.slice(0, 2000)) }))
+
+    const knownLead = leadContextResult.data
+    const cleanKnownName = knownLead?.name
+      ?.replace(/\s+(?:mi\s+)?(?:n[uú]mero|tel[eé]fono|correo|email|whatsapp)\b.*$/i, '')
+      .trim()
+
     // Guardar mensaje del usuario
     await supabaseAdmin.from('messages').insert({
       conversation_id: currentConversationId,
@@ -195,7 +233,13 @@ export async function POST(request: NextRequest) {
     }
 
     const aiModel = getModelForPlan(normalizedPlan, 'webchat_message', { messageLength: message.length })
-    const reply = await generateAssistantReply(config, message.trim(), aiModel)
+    const reply = await generateAssistantReply(config, message.trim(), aiModel, conversationHistory, {
+      knownLead: knownLead ? {
+        name: cleanKnownName || null,
+        hasEmail: Boolean(knownLead.email),
+        hasPhone: Boolean(knownLead.phone),
+      } : undefined,
+    })
 
     // Guardar respuesta del asistente
     await supabaseAdmin.from('messages').insert({
@@ -215,6 +259,8 @@ export async function POST(request: NextRequest) {
     const extractedEmail = message.match(emailRegex)?.[0]
     const extractedPhone = message.match(phoneRegexSimple)?.[0]
     const extractedName = message.match(nameRegex)?.[1]
+      ?.replace(/\s+(?:mi\s+)?(?:n[uú]mero|tel[eé]fono|correo|email|whatsapp)\b.*$/i, '')
+      .trim()
 
     if (extractedEmail || extractedPhone || extractedName) {
       const { data: existingLead } = await supabaseAdmin

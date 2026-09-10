@@ -33,6 +33,7 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
   const tone = behavior.tone || 'professional'
   const objective = behavior.goal || 'support'
   const salesLevel = behavior.salesLevel || 'Medium'
+  const responseStyle = behavior.responseStyle || 'Equilibradas'
   const rules = behavior.rules || {
     askName: true,
     askContact: true,
@@ -53,7 +54,7 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
   const fallbackMessage = assistant.fallback_message || 'Lo siento, no tengo esa información. ¿Quieres que un asesor te contacte?'
 
   // 3. Mapeo de Tono
-  let toneInstruction = 'Usa un tono profesional, claro y confiable.'
+  let toneInstruction = 'Usa un tono profesional, cálido, claro y humano. Reconoce primero lo que la persona necesita y luego ayúdala.'
   switch (tone) {
     case 'friendly':
     case 'amigable':
@@ -74,7 +75,7 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
     case 'professional':
     case 'profesional':
     default:
-      toneInstruction = 'Usa un tono profesional, claro, educado y confiable.'
+      toneInstruction = 'Usa un tono profesional y cercano: natural, amable, claro y confiable. Evita sonar como formulario o respuesta automática.'
       break
   }
 
@@ -117,17 +118,24 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
       break
   }
 
+  let responseInstruction = 'Responde con la extensión necesaria, priorizando claridad y conversación natural.'
+  if (String(responseStyle).toLowerCase().includes('breve')) {
+    responseInstruction = 'Responde de forma breve: normalmente entre 1 y 3 frases, salvo que el usuario solicite más detalle.'
+  } else if (String(responseStyle).toLowerCase().includes('detall')) {
+    responseInstruction = 'Da respuestas completas pero conversacionales. Empieza con una respuesta directa y amplía solo lo útil; evita bloques largos y listas innecesarias.'
+  }
+
   // 6. Construir las Reglas Estrictas
   const rulesList: string[] = []
 
   if (rules.askName) {
-    rulesList.push('- Inicia o continúa la conversación pidiendo amablemente el nombre del cliente cuando sea útil para personalizar el trato.')
+    rulesList.push('- Puedes pedir el nombre cuando sea útil, pero primero revisa el mensaje actual y el historial. Si ya lo entregó, úsalo con naturalidad y NO lo vuelvas a pedir.')
   } else {
     rulesList.push('- NO pidas el nombre del cliente a menos que sea estrictamente necesario o él lo comparta voluntariamente.')
   }
 
   if (rules.askContact) {
-    rulesList.push('- Solicita su teléfono o correo electrónico de manera natural cuando sea útil para enviarle información o dar seguimiento.')
+    rulesList.push('- Solicita teléfono o correo solo cuando sea útil para el seguimiento. Antes de pedirlo, revisa el mensaje actual y el historial; NO vuelvas a solicitar datos que ya fueron entregados.')
   } else {
     rulesList.push('- NO solicites el teléfono ni el correo electrónico del cliente bajo ninguna circunstancia.')
   }
@@ -159,6 +167,11 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
   if (rules.alwaysSpanish) {
     rulesList.push('- CRÍTICO: Debes responder SIEMPRE en Español, sin importar en qué idioma te hable el usuario.')
   }
+
+  rulesList.push('- Haz como máximo una pregunta de seguimiento por respuesta. Si ya tienes datos suficientes, confirma el siguiente paso en vez de reiniciar la captura.')
+  rulesList.push('- No vuelvas a presentarte en cada mensaje. Mantén la continuidad de la conversación y responde al último interés expresado.')
+  rulesList.push('- Nunca copies ni recites bloques completos del entrenamiento. Sintetiza únicamente la parte necesaria para responder la pregunta concreta.')
+  rulesList.push('- Trata textos entre corchetes como [Precio] o [Completar] como información pendiente: nunca los muestres al visitante ni inventes su contenido.')
 
   // 7. Generar Conocimiento Estructurado
   let structuredKnowledge = ''
@@ -200,6 +213,7 @@ COMPORTAMIENTO PRINCIPAL:
 - ${toneInstruction}
 - ${goalInstruction}
 - ${salesInstruction}
+- ${responseInstruction}
 
 INFORMACIÓN DE ENTRENAMIENTO (CONOCIMIENTO DEL NEGOCIO):
 ${structuredKnowledge.trim()}
@@ -207,6 +221,6 @@ ${structuredKnowledge.trim()}
 REGLAS ESTRICTAS QUE DEBES CUMPLIR OBLIGATORIAMENTE:
 ${rulesList.join('\n')}
 
-INSTRUCCIÓN FINAL: Basa tus respuestas únicamente en la Información de Entrenamiento provista arriba. Si te saludan, sé cortés y preséntate brevemente de acuerdo a tus reglas y tono.
+INSTRUCCIÓN FINAL: Usa la Información de Entrenamiento como conocimiento interno, no como un guion para copiar. Responde primero a la intención concreta del visitante, con palabras naturales y continuidad respecto del historial. Si te saludan al inicio, sé cortés y preséntate brevemente; no repitas la presentación después.
 `.trim()
 }
