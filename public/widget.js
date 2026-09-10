@@ -107,6 +107,26 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         --cai-primary: #7c3aed;
         --cai-secondary: #06b6d4;
+        --cai-surface: #ffffff;
+        --cai-canvas: #f6f7fb;
+        --cai-text: #172033;
+        --cai-muted: #64748b;
+        --cai-border: rgba(15, 23, 42, 0.1);
+        --cai-assistant: #ffffff;
+        --cai-input: #ffffff;
+        --cai-header-text: #ffffff;
+        color-scheme: light;
+      }
+      .conversaai-widget-container.cai-theme-premium {
+        --cai-surface: #080b16;
+        --cai-canvas: #0d1120;
+        --cai-text: #f8fafc;
+        --cai-muted: #a5b4c8;
+        --cai-border: rgba(255, 255, 255, 0.1);
+        --cai-assistant: #202433;
+        --cai-input: #171b28;
+        --cai-header-text: #ffffff;
+        color-scheme: dark;
       }
       .conversaai-widget-container.cai-pos-left {
         right: auto;
@@ -118,6 +138,23 @@
         gap: 12px;
         position: relative;
       }
+      .conversaai-widget-button-wrapper::before {
+        content: '';
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        width: 60px;
+        height: 60px;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--cai-primary) 30%, transparent);
+        animation: cai-launcher-pulse 2.8s ease-out infinite;
+        pointer-events: none;
+      }
+      .conversaai-widget-container.cai-pos-left .conversaai-widget-button-wrapper::before { right: auto; left: 0; }
+      .conversaai-widget-container.cai-size-small .conversaai-widget-button-wrapper::before { width: 48px; height: 48px; }
+      .conversaai-widget-container.cai-size-large .conversaai-widget-button-wrapper::before { width: 68px; height: 68px; }
+      .conversaai-widget-container.cai-shape-rounded .conversaai-widget-button-wrapper::before { border-radius: 20px; }
+      .conversaai-widget-container.cai-is-open .conversaai-widget-button-wrapper::before { animation: none; opacity: 0; }
       .conversaai-widget-container.cai-pos-left .conversaai-widget-button-wrapper {
         flex-direction: row-reverse;
       }
@@ -146,16 +183,39 @@
         height: 60px;
         border-radius: 50%;
         background: linear-gradient(135deg, var(--cai-primary), var(--cai-secondary));
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 12px 30px color-mix(in srgb, var(--cai-primary) 35%, transparent), 0 4px 12px rgba(0, 0, 0, 0.16);
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
         transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease;
-        border: 2px solid transparent;
+        border: 2px solid rgba(255, 255, 255, 0.72);
         outline: none;
         padding: 0;
       }
+      .conversaai-widget-launcher-status {
+        position: absolute;
+        right: 2px;
+        top: 2px;
+        z-index: 3;
+        width: 13px;
+        height: 13px;
+        border: 3px solid white;
+        border-radius: 999px;
+        background: #22c55e;
+        box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.08);
+        transition: opacity .2s ease, transform .2s ease;
+      }
+      .conversaai-widget-launcher-status::after {
+        content: '';
+        position: absolute;
+        inset: -4px;
+        border: 2px solid rgba(34, 197, 94, 0.45);
+        border-radius: inherit;
+        animation: cai-status-pulse 2s ease-out infinite;
+      }
+      .conversaai-widget-container.cai-pos-left .conversaai-widget-launcher-status { right: auto; left: 2px; }
+      .conversaai-widget-container.cai-is-open .conversaai-widget-launcher-status { opacity: 0; transform: scale(.7); }
       .conversaai-widget-button:hover {
         transform: scale(1.05);
         box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
@@ -179,10 +239,10 @@
         width: 360px;
         height: 520px;
         max-height: calc(100vh - 120px);
-        background-color: #050816;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 20px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+        background-color: var(--cai-surface);
+        border: 1px solid var(--cai-border);
+        border-radius: 24px;
+        box-shadow: 0 28px 70px rgba(15, 23, 42, 0.2), 0 8px 24px rgba(15, 23, 42, 0.1);
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -201,6 +261,10 @@
         opacity: 1;
         pointer-events: auto;
         transform: translateY(0) scale(1);
+      }
+      .conversaai-widget-container.cai-theme-minimal .conversaai-widget-panel {
+        border-radius: 16px;
+        box-shadow: 0 18px 50px rgba(15, 23, 42, 0.16);
       }
       @media (max-width: 480px) {
         .conversaai-widget-panel {
@@ -229,6 +293,15 @@
         border-bottom: 1px solid rgba(255,255,255,0.05);
         position: relative;
         overflow: hidden;
+      }
+      .conversaai-widget-container.cai-theme-modern .conversaai-widget-header,
+      .conversaai-widget-container.cai-theme-premium .conversaai-widget-header {
+        background: linear-gradient(135deg, var(--cai-primary), var(--cai-secondary));
+      }
+      .conversaai-widget-container.cai-theme-minimal .conversaai-widget-header {
+        background: var(--cai-surface);
+        border-bottom: 2px solid var(--cai-primary);
+        --cai-header-text: var(--cai-text);
       }
       .conversaai-widget-header::before {
         content: '';
@@ -261,7 +334,7 @@
         box-shadow: 0 4px 10px rgba(0,0,0,0.15);
       }
       .conversaai-widget-title {
-        color: white;
+        color: var(--cai-header-text);
         font-size: 16px;
         font-weight: 600;
         margin: 0 0 2px 0;
@@ -271,7 +344,7 @@
         text-overflow: ellipsis;
       }
       .conversaai-widget-subtitle {
-        color: rgba(255, 255, 255, 0.8);
+        color: color-mix(in srgb, var(--cai-header-text) 82%, transparent);
         font-size: 12px;
         margin: 0;
         display: flex;
@@ -282,8 +355,8 @@
         text-overflow: ellipsis;
       }
       .conversaai-widget-status-dot {
-        width: 6px;
-        height: 6px;
+        width: 8px;
+        height: 8px;
         background-color: #10b981;
         border-radius: 50%;
         display: inline-block;
@@ -292,7 +365,7 @@
       .conversaai-widget-close {
         background: none;
         border: none;
-        color: white;
+        color: var(--cai-header-text);
         cursor: pointer;
         opacity: 0.7;
         padding: 4px;
@@ -315,9 +388,9 @@
         display: flex;
         flex-direction: column;
         gap: 16px;
-        background-color: #0b0f19;
+        background-color: var(--cai-canvas);
         scroll-behavior: smooth;
-        background-image: radial-gradient(circle at top right, rgba(124, 58, 237, 0.05), transparent 300px);
+        background-image: radial-gradient(circle at top right, color-mix(in srgb, var(--cai-primary) 8%, transparent), transparent 300px);
       }
       .conversaai-message {
         max-width: 85%;
@@ -330,9 +403,9 @@
       }
       .conversaai-message.assistant {
         align-self: flex-start;
-        background-color: rgba(255, 255, 255, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        color: #f1f5f9;
+        background-color: var(--cai-assistant);
+        border: 1px solid var(--cai-border);
+        color: var(--cai-text);
         border-bottom-left-radius: 4px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
       }
@@ -354,7 +427,7 @@
       .conversaai-quick-question-btn {
         background: rgba(124, 58, 237, 0.1);
         border: 1px solid rgba(124, 58, 237, 0.3);
-        color: #e2e8f0;
+        color: var(--cai-text);
         padding: 10px 14px;
         border-radius: 16px;
         font-size: 13px;
@@ -378,8 +451,8 @@
       }
       .conversaai-widget-input-area {
         padding: 16px;
-        background-color: #0b0f19;
-        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        background-color: var(--cai-surface);
+        border-top: 1px solid var(--cai-border);
         display: flex;
         align-items: center;
       }
@@ -387,8 +460,8 @@
         flex: 1;
         display: flex;
         align-items: center;
-        background-color: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background-color: var(--cai-input);
+        border: 1px solid var(--cai-border);
         border-radius: 24px;
         padding: 6px 6px 6px 16px;
         transition: all 0.2s;
@@ -396,20 +469,20 @@
       }
       .conversaai-widget-input-wrapper:focus-within {
         border-color: var(--cai-primary);
-        background-color: rgba(255, 255, 255, 0.08);
+        background-color: var(--cai-input);
         box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.2), inset 0 2px 4px rgba(0,0,0,0.1);
       }
       .conversaai-widget-input {
         flex: 1;
         background: transparent;
         border: none;
-        color: white;
+        color: var(--cai-text);
         font-size: 14px;
         outline: none;
         padding: 8px 0;
       }
       .conversaai-widget-input::placeholder {
-        color: rgba(255, 255, 255, 0.4);
+        color: var(--cai-muted);
       }
       .conversaai-widget-input:disabled {
         cursor: not-allowed;
@@ -458,7 +531,8 @@
         display: flex;
         gap: 4px;
         padding: 12px 16px;
-        background-color: rgba(255, 255, 255, 0.05);
+        background-color: var(--cai-assistant);
+        border: 1px solid var(--cai-border);
         border-radius: 16px;
         border-bottom-left-radius: 4px;
         align-self: flex-start;
@@ -467,7 +541,7 @@
       .conversaai-dot {
         width: 6px;
         height: 6px;
-        background-color: rgba(255,255,255,0.6);
+        background-color: var(--cai-muted);
         border-radius: 50%;
         animation: cai-bounce 1.4s infinite ease-in-out both;
       }
@@ -480,6 +554,20 @@
       @keyframes cai-fade-in {
         from { opacity: 0; transform: translateY(5px); }
         to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes cai-launcher-pulse {
+        0% { opacity: .5; transform: scale(.88); }
+        65%, 100% { opacity: 0; transform: scale(1.45); }
+      }
+      @keyframes cai-status-pulse {
+        0% { opacity: .7; transform: scale(.65); }
+        75%, 100% { opacity: 0; transform: scale(1.35); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .conversaai-widget-button-wrapper::before,
+        .conversaai-widget-launcher-status::after,
+        .conversaai-message,
+        .conversaai-typing { animation: none !important; }
       }
     `;
 
@@ -591,8 +679,14 @@
     launcherBtn.setAttribute('aria-label', 'Abrir chat');
     launcherBtn.innerHTML = chatIconSVG; // Safe SVG
 
+    const launcherStatus = document.createElement('span');
+    launcherStatus.className = 'conversaai-widget-launcher-status';
+    launcherStatus.setAttribute('aria-label', 'Asistente en línea');
+    launcherStatus.setAttribute('title', 'En línea');
+
     buttonWrapper.appendChild(launcherText);
     buttonWrapper.appendChild(launcherBtn);
+    buttonWrapper.appendChild(launcherStatus);
 
     container.appendChild(panel);
     container.appendChild(buttonWrapper);
@@ -628,6 +722,7 @@
     
     if (isOpen) {
       panel.classList.add('conversaai-open');
+      container.classList.add('cai-is-open');
       launcherBtn.innerHTML = closeIconSVG;
       const launcherTextEl = document.getElementById('conversaai-launcher-text');
       if (launcherTextEl) launcherTextEl.classList.remove('cai-show');
@@ -638,6 +733,7 @@
       }
     } else {
       panel.classList.remove('conversaai-open');
+      container.classList.remove('cai-is-open');
       launcherBtn.innerHTML = getLauncherIconSVG();
       const launcherTextEl = document.getElementById('conversaai-launcher-text');
       if (launcherTextEl && config && config.launcherMode === 'icon-text' && config.launcherText) {
@@ -695,7 +791,6 @@
     if (!config) return;
 
     const container = document.getElementById('conversaai-widget-container');
-    const header = document.getElementById('conversaai-widget-header');
     const launcherBtn = document.getElementById('conversaai-launcher-btn');
     const launcherTextEl = document.getElementById('conversaai-launcher-text');
     const titleEl = document.getElementById('conversaai-widget-title');
@@ -714,16 +809,9 @@
     if (config.launcherShape === 'rounded') container.classList.add('cai-shape-rounded');
     if (!isOpen) launcherBtn.innerHTML = getLauncherIconSVG();
 
-    // Theme logic
-    if (config.theme === 'minimal') {
-      header.style.background = '#111';
-      header.style.borderBottom = `2px solid ${config.primaryColor}`;
-    } else if (config.theme === 'premium') {
-      header.style.background = `linear-gradient(135deg, ${config.primaryColor}, ${config.secondaryColor})`;
-    } else {
-      // modern
-      header.style.background = config.primaryColor;
-    }
+    // Apply the selected theme to the whole widget, not only the header.
+    container.classList.remove('cai-theme-modern', 'cai-theme-minimal', 'cai-theme-premium');
+    container.classList.add(`cai-theme-${config.theme}`);
 
     // Text content safely
     titleEl.textContent = config.displayName;
@@ -763,7 +851,7 @@
       }
     } else {
       // Update welcome message text if it exists (it's always the first message)
-      const firstMsgText = messages.querySelector('.conversaai-widget-message.assistant .conversaai-widget-message-text');
+      const firstMsgText = messages.querySelector('.conversaai-message.assistant');
       if (firstMsgText && !conversationId) { // Only update if no active conversation
          firstMsgText.textContent = config.welcomeMessage;
       }
