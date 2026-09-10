@@ -78,7 +78,17 @@ export function BasicInfoStep({ form, setForm, errors = {} }: Props) {
             </label>
             <select
               value={form.language}
-              onChange={(event) => setForm({ ...form, language: event.target.value as AssistantLanguage })}
+              onChange={(event) => {
+                const language = event.target.value as AssistantLanguage
+                setForm({
+                  ...form,
+                  language,
+                  behavior: {
+                    ...form.behavior,
+                    rules: { ...form.behavior.rules, alwaysSpanish: language === 'es' },
+                  },
+                })
+              }}
               className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/20"
             >
               <option value="es">Español</option>
