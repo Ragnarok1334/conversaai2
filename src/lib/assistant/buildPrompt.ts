@@ -27,12 +27,12 @@ export interface Assistant {
 }
 
 export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): string {
-  // 1. Extraer configuración de comportamiento (con fallbacks seguros)
   const behavior = assistant.behavior as Record<string, any> || {}
-  
+
   const tone = behavior.tone || 'professional'
   const objective = behavior.goal || 'support'
   const salesLevel = behavior.salesLevel || 'Medium'
+  // "Equilibradas" is the legacy stored value for the adaptive conversational mode.
   const responseStyle = behavior.responseStyle || 'Equilibradas'
   const rules = behavior.rules || {
     askName: true,
@@ -44,7 +44,6 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
     alwaysSpanish: true
   }
 
-  // 2. Información base
   const businessName = assistant.business_name || assistant.assistant_name || 'este negocio'
   const businessType = assistant.business_type || 'un negocio'
   const instructions = assistant.instructions || ''
@@ -53,7 +52,6 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
   const services = assistant.services || ''
   const fallbackMessage = assistant.fallback_message || 'Lo siento, no tengo esa información. ¿Quieres que un asesor te contacte?'
 
-  // 3. Mapeo de Tono
   let toneInstruction = 'Usa un tono profesional, cálido, claro y humano. Reconoce primero lo que la persona necesita y luego ayúdala.'
   switch (tone) {
     case 'friendly':
@@ -79,7 +77,6 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
       break
   }
 
-  // 4. Mapeo de Objetivo
   let goalInstruction = 'Prioriza resolver dudas, orientar y dar soporte.'
   switch (objective) {
     case 'capture_leads':
@@ -105,7 +102,6 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
       break
   }
 
-  // 5. Mapeo de Nivel Comercial
   let salesInstruction = 'Guía al cliente hacia una acción de forma natural, sin presionar.'
   switch (salesLevel) {
     case 'low':
@@ -118,14 +114,15 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
       break
   }
 
-  let responseInstruction = 'Responde con la extensión necesaria, priorizando claridad y conversación natural.'
-  if (String(responseStyle).toLowerCase().includes('breve')) {
-    responseInstruction = 'Responde de forma breve: normalmente entre 1 y 3 frases, salvo que el usuario solicite más detalle.'
-  } else if (String(responseStyle).toLowerCase().includes('detall')) {
-    responseInstruction = 'Da respuestas completas pero conversacionales. Empieza con una respuesta directa y amplía solo lo útil; evita bloques largos y listas innecesarias.'
+  let responseInstruction = `Modo conversacional adaptativo: ajusta la longitud de cada respuesta a la complejidad y a la intención del mensaje.\n- Para preguntas simples, responde normalmente en 1 a 3 frases.\n- Para preguntas complejas, explica lo necesario de forma estructurada, sin rellenar ni repetir información.\n- No entregues de golpe todo el conocimiento disponible ni anticipes información que el cliente no pidió.\n- Mantén el intercambio progresivo: responde primero lo que preguntó y continúa desde ahí.\n- Haz como máximo una pregunta relevante por turno cuando falte información.`
+
+  const normalizedResponseStyle = String(responseStyle).toLowerCase()
+  if (normalizedResponseStyle.includes('breve')) {
+    responseInstruction = 'Modo breve: responde de forma corta, directa y natural, normalmente en 1 a 3 frases. Amplía solo si el usuario lo pide o si la tarea realmente necesita más pasos. No descargues bloques completos de información.'
+  } else if (normalizedResponseStyle.includes('detall')) {
+    responseInstruction = 'Modo detallado: desarrolla la respuesta cuando sea útil, pero empieza por la respuesta directa. Usa solo el contexto necesario, estructura la información cuando ayude y evita párrafos largos, repeticiones o información no solicitada.'
   }
 
-  // 6. Construir las Reglas Estrictas
   const rulesList: string[] = []
 
   if (rules.askName) {
@@ -155,7 +152,7 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
   if (rules.escalateIfUnknown) {
     rulesList.push(`- Si te hacen una pregunta de la cual NO tienes información en el contexto provisto, debes responder textualmente (o una variación similar): "${fallbackMessage}" y ofrecer derivar con un humano.`)
   } else {
-    rulesList.push(`- Si no tienes información suficiente, responde de forma general y empática pidiendo más contexto, pero evita derivar bruscamente a un asesor humano.`)
+    rulesList.push('- Si no tienes información suficiente, responde de forma general y empática pidiendo más contexto, pero evita derivar bruscamente a un asesor humano.')
   }
 
   if (rules.doNotInvent) {
@@ -173,19 +170,17 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
   rulesList.push('- Nunca copies ni recites bloques completos del entrenamiento. Sintetiza únicamente la parte necesaria para responder la pregunta concreta.')
   rulesList.push('- Trata textos entre corchetes como [Precio] o [Completar] como información pendiente: nunca los muestres al visitante ni inventes su contenido.')
 
-  // 7. Generar Conocimiento Estructurado
   let structuredKnowledge = ''
-  
+
   if (assistant.knowledge_blocks && Array.isArray(assistant.knowledge_blocks)) {
     const activeBlocks = assistant.knowledge_blocks.filter(b => b.is_active && b.content.trim())
     if (activeBlocks.length > 0) {
-      // Ordenar por bloque para mantener la jerarquía semántica solicitada
       const typeOrder = [
-        'general', 'services', 'pricing', 'hours', 
-        'location', 'faq', 'policies', 'promotions', 
+        'general', 'services', 'pricing', 'hours',
+        'location', 'faq', 'policies', 'promotions',
         'lead_capture', 'rules', 'custom'
       ]
-      
+
       const sortedBlocks = activeBlocks.sort((a, b) => {
         const orderA = typeOrder.indexOf(a.type) === -1 ? 99 : typeOrder.indexOf(a.type)
         const orderB = typeOrder.indexOf(b.type) === -1 ? 99 : typeOrder.indexOf(b.type)
@@ -197,7 +192,6 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
     }
   }
 
-  // Fallback a legacy si no hay bloques estructurados
   if (!structuredKnowledge) {
     structuredKnowledge = `Instrucciones generales:\n${instructions}\n`
     if (services) structuredKnowledge += `\nServicios/Productos ofrecidos:\n${services}\n`
@@ -205,7 +199,6 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
     if (faqs) structuredKnowledge += `\nPreguntas Frecuentes (FAQ):\n${faqs}\n`
   }
 
-  // 8. Ensamblar Prompt Final
   return `
 Eres el asistente virtual oficial de "${businessName}", que es un(a) ${businessType}.
 
