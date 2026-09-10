@@ -60,7 +60,9 @@ export const initialBuilderForm: BuilderFormData = {
     tone: 'profesional',
     goal: 'dar soporte',
     salesLevel: 'Medio',
-    responseStyle: 'Detalladas',
+    // "Equilibradas" is kept as the stored value for backwards compatibility.
+    // The prompt interprets it as the adaptive conversational mode.
+    responseStyle: 'Equilibradas',
     rules: {
       askName: true,
       askContact: false,
