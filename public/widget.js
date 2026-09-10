@@ -29,6 +29,9 @@
   let visitorId = localStorage.getItem('conversaai_visitor_id');
   let isChatBlocked = false;
   let quickQuestionsUsed = false;
+  let handoffStatus = 'ai';
+  let lastHumanMessageAt = null;
+  const seenHumanMessages = new Set();
   
   if (!visitorId) {
     visitorId = 'vis_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
@@ -401,6 +404,45 @@
         word-wrap: break-word;
         animation: cai-fade-in 0.3s ease;
       }
+      .conversaai-message-wrap {
+        display: flex;
+        flex-direction: column;
+        max-width: 85%;
+        animation: cai-fade-in 0.3s ease;
+      }
+      .conversaai-message-wrap.assistant { align-self: flex-start; }
+      .conversaai-message-wrap.user { align-self: flex-end; align-items: flex-end; }
+      .conversaai-message-wrap .conversaai-message { max-width: 100%; animation: none; }
+      .conversaai-message.human {
+        border-color: color-mix(in srgb, var(--cai-primary) 28%, var(--cai-border));
+        box-shadow: 0 5px 16px color-mix(in srgb, var(--cai-primary) 10%, transparent);
+      }
+      .conversaai-message-meta {
+        margin: 5px 6px 0;
+        color: var(--cai-muted);
+        font-size: 10px;
+        font-weight: 600;
+      }
+      .conversaai-widget-presence {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        min-height: 27px;
+        padding: 5px 12px;
+        background: color-mix(in srgb, var(--cai-primary) 7%, var(--cai-surface));
+        border-bottom: 1px solid var(--cai-border);
+        color: var(--cai-muted);
+        font-size: 11px;
+        font-weight: 600;
+      }
+      .conversaai-widget-presence-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #22c55e;
+        box-shadow: 0 0 0 3px rgba(34,197,94,.12);
+      }
       .conversaai-message.assistant {
         align-self: flex-start;
         background-color: var(--cai-assistant);
@@ -637,6 +679,17 @@
     messages.id = 'conversaai-messages';
     messages.setAttribute('aria-live', 'polite');
 
+    const presence = document.createElement('div');
+    presence.className = 'conversaai-widget-presence';
+    presence.id = 'conversaai-widget-presence';
+    const presenceDot = document.createElement('span');
+    presenceDot.className = 'conversaai-widget-presence-dot';
+    const presenceText = document.createElement('span');
+    presenceText.id = 'conversaai-widget-presence-text';
+    presenceText.textContent = 'Disponible para ayudarte';
+    presence.appendChild(presenceDot);
+    presence.appendChild(presenceText);
+
     const inputArea = document.createElement('div');
     inputArea.className = 'conversaai-widget-input-area';
 
@@ -662,6 +715,7 @@
     inputArea.appendChild(inputWrapper);
 
     panel.appendChild(header);
+    panel.appendChild(presence);
     panel.appendChild(messages);
     panel.appendChild(inputArea);
 
@@ -731,6 +785,7 @@
         setTimeout(() => input.focus(), 100);
         // Refresh config in case it was updated in the dashboard
         fetchConfig();
+        pollHumanMessages();
       }
     } else {
       panel.classList.remove('conversaai-open');
@@ -963,6 +1018,11 @@
         appendMessage('Lo siento, no pude procesar tu mensaje.', 'assistant');
       }
 
+      if (data.humanHandoff) {
+        handoffStatus = data.handoffStatus || 'waiting';
+        updatePresence();
+      }
+
     } catch (error) {
       console.error('[ConversaAI Widget] Send error:', error);
       removeTyping(typingId);
@@ -976,15 +1036,63 @@
     }
   }
 
-  function appendMessage(text, sender) {
+  function appendMessage(text, sender, senderType) {
     const messages = document.getElementById('conversaai-messages');
+    const wrap = document.createElement('div');
+    wrap.className = `conversaai-message-wrap ${sender}`;
     const msgDiv = document.createElement('div');
-    msgDiv.className = `conversaai-message ${sender}`;
+    msgDiv.className = `conversaai-message ${sender}${senderType === 'human' ? ' human' : ''}`;
     // Secure text injection
     msgDiv.textContent = text;
-    messages.appendChild(msgDiv);
+    const meta = document.createElement('span');
+    meta.className = 'conversaai-message-meta';
+    meta.textContent = `${sender === 'user' ? 'Tú' : senderType === 'human' ? 'Equipo' : 'Asistente'} · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+    wrap.appendChild(msgDiv);
+    wrap.appendChild(meta);
+    messages.appendChild(wrap);
     scrollToBottom();
   }
+
+  function updatePresence() {
+    const text = document.getElementById('conversaai-widget-presence-text');
+    const subtitle = document.getElementById('conversaai-widget-subtitle');
+    if (!text) return;
+    if (handoffStatus === 'human') {
+      text.textContent = 'Una persona del equipo está contigo';
+      if (subtitle) subtitle.textContent = 'Atención humana';
+    } else if (handoffStatus === 'waiting') {
+      text.textContent = 'Avisamos al equipo · puedes seguir escribiendo';
+      if (subtitle) subtitle.textContent = 'Esperando al equipo';
+    } else {
+      text.textContent = 'Disponible para ayudarte';
+      if (subtitle && config) subtitle.textContent = config.subtitle;
+    }
+  }
+
+  async function pollHumanMessages() {
+    if (!conversationId || isChatBlocked || document.hidden) return;
+    try {
+      const query = new URLSearchParams({ assistantId, conversationId, visitorId });
+      if (lastHumanMessageAt) query.set('after', lastHumanMessageAt);
+      const res = await fetch(`${baseUrl}/api/widget/messages?${query.toString()}`, { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      handoffStatus = data.handoffStatus || 'ai';
+      updatePresence();
+      (data.messages || []).forEach(message => {
+        if (seenHumanMessages.has(message.id)) return;
+        seenHumanMessages.add(message.id);
+        appendMessage(message.content, 'assistant', 'human');
+        lastHumanMessageAt = message.created_at;
+      });
+    } catch (error) {
+      console.warn('[ConversaAI Widget] No se pudieron actualizar las respuestas humanas.', error);
+    }
+  }
+
+  window.setInterval(() => {
+    if (isOpen) pollHumanMessages();
+  }, 4000);
 
   function showTyping() {
     const messages = document.getElementById('conversaai-messages');

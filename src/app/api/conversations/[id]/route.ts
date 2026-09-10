@@ -52,11 +52,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
 
-    const body = await readJsonBody<{ status?: unknown }>(request, 2_048)
-    const { status } = body
+    const body = await readJsonBody<{ status?: unknown, handoffAction?: unknown }>(request, 2_048)
+    const { status, handoffAction } = body
 
-    if (typeof status !== 'string' || !['open', 'pending', 'closed'].includes(status)) {
+    if (status !== undefined && (typeof status !== 'string' || !['open', 'pending', 'closed'].includes(status))) {
       return NextResponse.json({ error: 'Estado inválido' }, { status: 400 })
+    }
+    if (handoffAction !== undefined && !['take', 'return_to_ai'].includes(String(handoffAction))) {
+      return NextResponse.json({ error: 'Acción de derivación inválida' }, { status: 400 })
+    }
+    if (status === undefined && handoffAction === undefined) {
+      return NextResponse.json({ error: 'No hay cambios para aplicar' }, { status: 400 })
     }
 
     // Verify ownership via RLS select first
@@ -78,8 +84,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     // Update using admin because frontend cannot UPDATE directly based on our new max security RLS
-    const updates: Record<string, string> = {}
-    updates.status = status
+    const updates: Record<string, string | boolean | null> = {}
+    if (typeof status === 'string') updates.status = status
+    if (handoffAction === 'take') {
+      updates.ai_paused = true
+      updates.handoff_status = 'human'
+      updates.assigned_to = user.id
+      updates.assigned_at = new Date().toISOString()
+      updates.status = 'open'
+    } else if (handoffAction === 'return_to_ai') {
+      updates.ai_paused = false
+      updates.handoff_status = 'ai'
+      updates.assigned_to = null
+      updates.assigned_at = null
+      updates.status = 'open'
+    }
 
     if (Object.keys(updates).length > 0) {
       const { error: updateError } = await supabaseAdmin
@@ -91,7 +110,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (updateError) throw updateError
     }
 
-    return NextResponse.json({ success: true, status })
+    return NextResponse.json({ success: true, ...updates })
   } catch (error) {
     if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('[PATCH /api/conversations/[id]]', error)
