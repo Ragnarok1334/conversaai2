@@ -6,7 +6,7 @@ import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-statu
 import { logAuditEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 import { HttpInputError, readJsonBody } from '@/lib/http-security'
-import { BEHAVIOR_CHANNELS, BEHAVIOR_GOALS, BEHAVIOR_RESPONSE_STYLES, BEHAVIOR_SALES_LEVELS, BEHAVIOR_TONES, DEFAULT_BEHAVIOR, normalizeBehavior } from '@/lib/assistant/behavior'
+import { ASSISTANT_LANGUAGES, DEFAULT_BEHAVIOR, validateBehavior } from '@/lib/assistant/behavior'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,24 +63,29 @@ export async function POST(request: NextRequest) {
     const name = body.assistant_name || body.name || ''
     const businessName = body.business_name || body.businessName || ''
     const businessInfo = body.instructions || body.business_info || body.businessInfo || ''
-    const language = 'es'
+    const requestedLanguage = body.language ?? 'es'
+    if (!ASSISTANT_LANGUAGES.includes(requestedLanguage)) {
+      return NextResponse.json({ success: false, error: 'El idioma seleccionado no es válido.' }, { status: 400 })
+    }
+    const language = requestedLanguage
     const behaviorInput = body.behavior ?? {}
-    const behavior = normalizeBehavior({
+    if (!behaviorInput || typeof behaviorInput !== 'object' || Array.isArray(behaviorInput)) {
+      return NextResponse.json({ success: false, error: 'El campo behavior debe ser un objeto válido.' }, { status: 400 })
+    }
+    const behaviorCandidate = {
       ...behaviorInput,
-      initialChannel: behaviorInput.initialChannel || body.channel || DEFAULT_BEHAVIOR.initialChannel,
-      tone: behaviorInput.tone || body.tone || DEFAULT_BEHAVIOR.tone,
-      goal: behaviorInput.goal || body.main_goal || DEFAULT_BEHAVIOR.goal,
-    })
+      initialChannel: behaviorInput.initialChannel ?? body.channel ?? DEFAULT_BEHAVIOR.initialChannel,
+      tone: behaviorInput.tone ?? body.tone ?? DEFAULT_BEHAVIOR.tone,
+      goal: behaviorInput.goal ?? body.main_goal ?? DEFAULT_BEHAVIOR.goal,
+    }
+    const behaviorResult = validateBehavior(behaviorCandidate)
+    if (!behaviorResult.success) {
+      return NextResponse.json({ success: false, error: behaviorResult.error }, { status: 400 })
+    }
+    const behavior = behaviorResult.data
     const channel = behavior.initialChannel
     const tone = behavior.tone
     const mainGoal = behavior.goal
-    const salesLevel = behavior.salesLevel
-    const responseStyle = behavior.responseStyle
-    const rules = behavior.rules
-
-    if (!BEHAVIOR_TONES.includes(tone) || !BEHAVIOR_GOALS.includes(mainGoal) || !BEHAVIOR_SALES_LEVELS.includes(salesLevel) || !BEHAVIOR_RESPONSE_STYLES.includes(responseStyle) || !BEHAVIOR_CHANNELS.includes(channel)) {
-      return NextResponse.json({ success: false, error: 'La configuración de comportamiento seleccionada no es válida.' }, { status: 400 })
-    }
     if (!name.trim()) return NextResponse.json({ success: false, error: 'El nombre del asistente es obligatorio.' }, { status: 400 })
 
     const rawBlocks = body.knowledge_blocks || body.knowledgeBlocks
