@@ -7,6 +7,7 @@ import { logSecurityEvent } from '@/lib/audit'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { getClientIp, HttpInputError, isUuid, isVisitorId, readJsonBody, widgetCorsHeaders } from '@/lib/http-security'
+import { detectHumanHandoffRequest, HUMAN_HANDOFF_ACK, HUMAN_WAITING_MESSAGE } from '@/lib/handoff'
 
 interface WidgetMessageBody {
   assistantId?: unknown
@@ -118,7 +119,94 @@ export async function POST(request: NextRequest) {
     const planConfig = getPlanConfig(normalizedPlan)
     const effectiveLimit = planConfig.limits.messagesPerMonth
 
-    // 5. Consume credit atomically
+    // 5. Human handoff: persist messages without consuming AI credits.
+    const { data: existingConversation } = conversationId
+      ? await supabaseAdmin
+          .from('conversations')
+          .select('id, ai_paused, handoff_status')
+          .eq('id', conversationId)
+          .eq('assistant_id', assistantId)
+          .eq('visitor_id', visitorId)
+          .maybeSingle()
+      : { data: null }
+
+    const requestedHuman = detectHumanHandoffRequest(message)
+    if (existingConversation?.ai_paused || requestedHuman) {
+      const now = new Date().toISOString()
+      let handoffConversationId = existingConversation?.id || null
+      const currentHandoffStatus = existingConversation?.handoff_status || 'ai'
+
+      if (!handoffConversationId) {
+        const { data: created, error: createError } = await supabaseAdmin.from('conversations').insert({
+          user_id: ownerId,
+          assistant_id: assistantId,
+          channel: 'webchat',
+          visitor_id: visitorId,
+          status: 'pending',
+          ai_paused: true,
+          handoff_status: 'waiting',
+          handoff_reason: 'El visitante solicitó atención humana.',
+          human_requested_at: now,
+          last_message: message.slice(0, 100),
+          last_message_at: now,
+        }).select('id').single()
+        if (createError || !created) throw createError || new Error('No se pudo crear la conversación')
+        handoffConversationId = created.id
+      } else {
+        const updates: Record<string, string | boolean> = {
+          ai_paused: true,
+          status: currentHandoffStatus === 'human' ? 'open' : 'pending',
+          last_message: message.slice(0, 100),
+          last_message_at: now,
+        }
+        if (requestedHuman && currentHandoffStatus === 'ai') {
+          updates.handoff_status = 'waiting'
+          updates.handoff_reason = 'El visitante solicitó atención humana.'
+          updates.human_requested_at = now
+        }
+        await supabaseAdmin.from('conversations').update(updates).eq('id', handoffConversationId)
+      }
+
+      await supabaseAdmin.from('messages').insert({
+        conversation_id: handoffConversationId,
+        user_id: ownerId,
+        assistant_id: assistantId,
+        channel: 'webchat',
+        role: 'user',
+        sender_type: 'visitor',
+        content: message,
+      })
+
+      let reply: string | null = null
+      if (requestedHuman && currentHandoffStatus === 'ai') {
+        reply = HUMAN_HANDOFF_ACK
+        await supabaseAdmin.from('messages').insert({
+          conversation_id: handoffConversationId,
+          user_id: ownerId,
+          assistant_id: assistantId,
+          channel: 'webchat',
+          role: 'assistant',
+          sender_type: 'system',
+          content: reply,
+        })
+        await supabaseAdmin.from('notifications').insert({
+          user_id: ownerId,
+          title: 'Conversación esperando atención',
+          message: 'Un visitante solicitó hablar con una persona.',
+          type: 'conversation',
+          metadata: { assistantId, conversationId: handoffConversationId },
+        })
+      }
+
+      return NextResponse.json({
+        reply: reply || HUMAN_WAITING_MESSAGE,
+        conversationId: handoffConversationId,
+        humanHandoff: true,
+        handoffStatus: existingConversation?.handoff_status === 'human' ? 'human' : 'waiting',
+      }, { headers: corsHeaders })
+    }
+
+    // 6. Consume credit atomically
     const consumed = await consumeMessageCredit(ownerId, effectiveLimit)
     if (!consumed) {
       await logSecurityEvent({ userId: ownerId, eventType: 'message_limit_reached', severity: 'info', message: `Límite de mensajes alcanzado para asistente ${assistantId}`, req: request })
@@ -128,7 +216,7 @@ export async function POST(request: NextRequest) {
       }, { status: 403, headers: corsHeaders })
     }
 
-    // 6. Conversation Handling
+    // 7. Conversation Handling
     let currentConversationId = conversationId
 
     if (currentConversationId) {
@@ -211,10 +299,11 @@ export async function POST(request: NextRequest) {
       assistant_id: assistantId,
       channel: 'webchat',
       role: 'user',
+      sender_type: 'visitor',
       content: message
     })
 
-    // 7. Generate AI Reply
+    // 8. Generate AI Reply
     const config: AssistantConfig = {
       assistantName: assistant.assistant_name || '',
       businessName: assistant.business_name || '',
@@ -248,10 +337,11 @@ export async function POST(request: NextRequest) {
       assistant_id: assistantId,
       channel: 'webchat',
       role: 'assistant',
+      sender_type: 'ai',
       content: reply
     })
 
-    // 8. Detección Automática de Leads
+    // 9. Detección Automática de Leads
     const emailRegex = /[\w.-]+@[\w.-]+\.\w+/i
     const phoneRegexSimple = /\b\+?[0-9][0-9\s\-\(\)]{7,15}\b/
     const nameRegex = /(?:me llamo|soy|mi nombre es)\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+(?:\s+[A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)*)/i
@@ -306,7 +396,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 9. Return response
+    // 10. Return response
     return NextResponse.json({ reply, conversationId: currentConversationId }, { headers: corsHeaders })
 
   } catch (error) {
