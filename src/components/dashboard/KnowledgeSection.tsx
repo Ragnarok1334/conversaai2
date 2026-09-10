@@ -202,7 +202,7 @@ export function KnowledgeSection({ value, onChange }: KnowledgeSectionProps) {
   const [improveError, setImproveError] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const charCount = value.length
-  const charLimit = 5000
+  const charLimit = 3000
 
   const applyTemplate = (key: string) => {
     const tpl = TEMPLATES[key]

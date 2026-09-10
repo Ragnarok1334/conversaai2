@@ -187,7 +187,7 @@ export default async function AssistantDetailPage({
     }
   }
 
-  const activeBlocksCount = assistant.knowledge_blocks ? assistant.knowledge_blocks.filter((b: any) => b.is_active && (b.content?.trim()?.length || 0) >= 80).length : 0
+  const activeBlocksCount = assistant.knowledge_blocks ? assistant.knowledge_blocks.filter((b: any) => b.is_active && (b.content?.trim()?.length || 0) >= 60).length : 0
   const coreKnowledgeCount = [assistant.instructions, assistant.services, assistant.faqs, assistant.schedule].filter(value => (value || '').trim().length >= 40).length
   const blocksCount = activeBlocksCount + coreKnowledgeCount
 

@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
     const body = await readJsonBody<Record<string, unknown>>(request, 32_768)
     const { text, blockType, blockTitle, assistantName, businessType, activeTemplate, existingKnowledgeBlocks, instructionsLegacy } = body
 
-    if (typeof text !== 'string' || text.length > 5000) {
+    if (typeof text !== 'string' || text.length > 3000) {
       return NextResponse.json(
-        { error: 'El texto no puede exceder los 5000 caracteres.' },
+        { error: 'El texto no puede exceder los 3000 caracteres.' },
         { status: 400 }
       )
     }

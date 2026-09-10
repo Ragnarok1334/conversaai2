@@ -18,6 +18,7 @@ function getOpenAIClient(): OpenAI {
 }
 
 import { buildAssistantSystemPrompt, type Assistant } from './assistant/buildPrompt'
+import { normalizeBehavior } from './assistant/behavior'
 
 export interface AssistantConfig extends Partial<Assistant> {
   // Legacy fields for backward compatibility during transition
@@ -87,10 +88,13 @@ export async function generateAssistantReply(
     ? `\n\nCONTEXTO OPERATIVO DE ESTA CONVERSACIÓN:\n- Ya contamos con: ${knownFields.join(', ')}.${knownLead?.name ? ` El nombre del visitante es ${knownLead.name}.` : ''}\n- No vuelvas a solicitar ninguno de esos datos. Continúa desde el interés más reciente del visitante.\n- No repitas el correo o teléfono completo en tu respuesta; basta con confirmar que ya lo tienes.`
     : ''
   const systemPrompt = `${baseSystemPrompt}${sessionContext}`
+  const responseStyle = normalizeBehavior(config.behavior).responseStyle
+  const maxOutputTokens = responseStyle === 'Breves' ? 90 : responseStyle === 'Detalladas' ? 280 : 160
 
   const response = await getOpenAIClient().responses.create({
     model: model,
     instructions: systemPrompt,
+    max_output_tokens: maxOutputTokens,
     input: [
       ...history.map(message => ({ role: message.role, content: message.content })),
       { role: 'user' as const, content: userMessage },

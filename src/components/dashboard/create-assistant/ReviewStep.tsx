@@ -37,8 +37,8 @@ export function ReviewStep({
   mode = 'create',
 }: Props) {
   const router = useRouter()
-  const knowledgeReady = form.instructions.trim().length >= 80
-    || form.knowledgeBlocks.some(block => block.is_active && block.content.trim().length >= 80)
+  const knowledgeReady = form.instructions.trim().length >= 60
+    || form.knowledgeBlocks.some(block => block.is_active && block.content.trim().length >= 60)
   const enabledChannels = (Object.keys(form.channels) as Array<keyof BuilderFormData['channels']>)
     .filter(channel => form.channels[channel].enabled)
 

@@ -66,8 +66,8 @@ export function AssistantBuilder({ mode = 'create', assistantId, initialData, us
         isValid = false
       }
     } else if (step === 2) {
-      const hasLegacyContent = form.instructions.trim().length >= 80
-      const hasBlockContent = form.knowledgeBlocks?.some(b => b.is_active && b.content.trim().length >= 80)
+      const hasLegacyContent = form.instructions.trim().length >= 60
+      const hasBlockContent = form.knowledgeBlocks?.some(b => b.is_active && b.content.trim().length >= 60)
       if (!hasLegacyContent && !hasBlockContent) {
         errors.knowledge = 'Agrega al menos una sección de conocimiento con información real del negocio para que el asistente pueda responder correctamente.'
         isValid = false

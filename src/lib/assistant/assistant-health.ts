@@ -58,10 +58,10 @@ export function calculateAssistantHealth(
   const hasBlocks = blocks.length > 0
   
   const validChars = getValidContentLength(assistant.instructions)
-  const legacyComplete = validChars >= 80
+  const legacyComplete = validChars >= 60
 
   if (hasBlocks) {
-    const activeBlocks = blocks.filter(b => b.is_active && getValidContentLength(b.content) >= 80)
+    const activeBlocks = blocks.filter(b => b.is_active && getValidContentLength(b.content) >= 60)
     if (activeBlocks.length > 0) trainingScore += 20
     
     const hasServices = activeBlocks.some(b => b.type === 'services')

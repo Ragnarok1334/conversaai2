@@ -258,12 +258,12 @@ export function TrainingStep({ form, setForm, errors = {} }: Props) {
   const getBlockState = (text: string) => {
     const chars = text?.trim().length || 0
     if (chars === 0) return 'empty'
-    if (chars >= 80) return 'complete'
+    if (chars >= 60) return 'complete'
     return 'partial'
   }
 
   const handleTemplateClick = (templateName: string) => {
-    const hasContent = blocks.some(b => b.is_active && b.content.trim().length >= 80) || form.instructions.trim().length >= 80
+    const hasContent = blocks.some(b => b.is_active && b.content.trim().length >= 60) || form.instructions.trim().length >= 60
     if (hasContent) {
       setShowTemplateModal(templateName)
     } else {
@@ -307,7 +307,7 @@ export function TrainingStep({ form, setForm, errors = {} }: Props) {
   
   const currentText = isLegacyActive ? form.instructions : (activeBlock?.content || '')
   const charCount = currentText?.trim().length || 0
-  const isComplete = charCount >= 80
+  const isComplete = charCount >= 60
   const isEmpty = charCount === 0
 
   const handleUpdateBlock = (val: string) => {
@@ -569,12 +569,12 @@ export function TrainingStep({ form, setForm, errors = {} }: Props) {
                 placeholder="Evita pegar información desordenada. Usa frases claras y separa datos importantes."
                 rows={10}
                 className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-violet/50 focus:ring-1 focus:ring-brand-violet/20 transition-all resize-y"
-                maxLength={5000}
+                maxLength={3000}
               />
               
               <div className="flex items-center justify-between mt-3">
                 <span className={`text-xs font-medium ${isComplete ? 'text-brand-success' : !isEmpty ? 'text-amber-500' : 'text-slate-500'}`}>
-                  {charCount} / 5000 chars {isComplete ? '(Completo)' : !isEmpty ? `(Parcial, recomendado ≥80)` : '(Pendiente)'}
+                  {charCount} / 3000 caracteres {isComplete ? '(Completo)' : !isEmpty ? `(Parcial, mínimo 60)` : '(Pendiente)'}
                 </span>
                 
                 <div className="flex flex-col items-end gap-1 relative group">
