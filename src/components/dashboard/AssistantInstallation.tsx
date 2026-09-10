@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Copy, CheckCircle2, Globe, Send, MessageCircle, Clock,
+  Copy, CheckCircle2, Send, MessageCircle, Clock,
   ChevronRight, AlertCircle, Info, Plug, ArrowRight, RefreshCw
 } from 'lucide-react'
 import { AssistantDomainsPanel } from './AssistantDomainsPanel'
@@ -15,10 +15,11 @@ interface Domain {
   last_seen_at: string | null
 }
 
-type Platform = 'html' | 'wordpress' | 'shopify' | 'builder'
+type Platform = 'html' | 'nextjs' | 'wordpress' | 'shopify' | 'builder'
 
 const PLATFORMS: { id: Platform; label: string; color: string }[] = [
   { id: 'html',      label: 'HTML / CSS',   color: 'text-brand-cyan' },
+  { id: 'nextjs',    label: 'Next.js',      color: 'text-white' },
   { id: 'wordpress', label: 'WordPress',    color: 'text-brand-violet' },
   { id: 'shopify',   label: 'Shopify',      color: 'text-emerald-400' },
   { id: 'builder',   label: 'Constructor',  color: 'text-amber-400' },
@@ -30,7 +31,7 @@ export function AssistantInstallation({
   effectivePlanStatus
 }: {
   assistantId: string
-  planLimits: any
+  planLimits: unknown
   effectivePlanStatus: string
 }) {
   const [copied, setCopied] = useState(false)
@@ -56,13 +57,18 @@ export function AssistantInstallation({
     }
   }, [assistantId])
 
-  useEffect(() => { void loadDomains() }, [loadDomains])
+  useEffect(() => {
+    const timer = window.setTimeout(() => void loadDomains(), 0)
+    return () => window.clearTimeout(timer)
+  }, [loadDomains])
 
   const hasDomain = domains.length > 0
   const hasDetected = domains.some(d => d.last_seen_at !== null && d.is_verified)
 
   const origin = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://conversaai.store')
-  const snippet = `<script\n  src="${origin}/widget.js"\n  data-assistant-id="${assistantId}"\n  async\n></script>`
+  const htmlSnippet = `<script\n  src="${origin}/widget.js"\n  data-assistant-id="${assistantId}"\n  async\n></script>`
+  const nextSnippet = `import Script from 'next/script'\n\nexport default function RootLayout({ children }: { children: React.ReactNode }) {\n  return (\n    <html lang="es">\n      <body>\n        {children}\n\n        <Script\n          id="conversaai-webchat-${assistantId}"\n          src="${origin}/widget.js"\n          data-assistant-id="${assistantId}"\n          strategy="afterInteractive"\n        />\n      </body>\n    </html>\n  )\n}`
+  const installCode = platform === 'nextjs' ? nextSnippet : htmlSnippet
 
   const showToast = (msg: string) => {
     setToastMsg(msg)
@@ -71,7 +77,7 @@ export function AssistantInstallation({
 
   const handleCopy = async () => {
     try {
-      await navigator.clipboard.writeText(snippet)
+      await navigator.clipboard.writeText(installCode)
       setCopied(true)
       showToast('Script copiado correctamente.')
       setTimeout(() => setCopied(false), 2500)
@@ -123,6 +129,15 @@ export function AssistantInstallation({
         'Pega el script justo antes de esa etiqueta.',
         'Guarda y sube el archivo a tu servidor.',
       ],
+    },
+    nextjs: {
+      steps: [
+        'Si usas App Router, abre src/app/layout.tsx. Si usas Pages Router, abre src/pages/_app.tsx.',
+        'Importa Script desde next/script al inicio del archivo.',
+        'En App Router, pega el componente <Script /> después de {children} y antes de cerrar <body>.',
+        'Guarda, publica el proyecto y vuelve aquí para comprobar la detección.',
+      ],
+      note: 'Instálalo solamente en el sitio del cliente. No lo agregues al layout del panel de ConversaAI, porque aparecería dentro del dashboard.',
     },
     wordpress: {
       steps: [
@@ -223,16 +238,19 @@ export function AssistantInstallation({
 
         <div className="bg-card-bg/80 backdrop-blur-2xl border border-card-border rounded-3xl p-6 md:p-8 flex flex-col gap-5">
           <div>
-            <h3 className="text-base font-semibold text-white mb-1">Script de instalación</h3>
+            <h3 className="text-base font-semibold text-white mb-1">
+              {platform === 'nextjs' ? 'Componente para Next.js' : 'Script de instalación'}
+            </h3>
             <p className="text-sm text-slate-400">
-              Copia este código y pégalo en tu sitio web antes de la etiqueta{' '}
-              <code className="text-brand-cyan bg-brand-cyan/10 px-1 py-0.5 rounded text-xs">&lt;/body&gt;</code>.
+              {platform === 'nextjs'
+                ? <>Copia este ejemplo en <code className="text-brand-cyan bg-brand-cyan/10 px-1 py-0.5 rounded text-xs">src/app/layout.tsx</code> y conserva el contenido que ya tenga tu layout.</>
+                : <>Copia este código y pégalo en tu sitio web antes de la etiqueta <code className="text-brand-cyan bg-brand-cyan/10 px-1 py-0.5 rounded text-xs">&lt;/body&gt;</code>.</>}
             </p>
           </div>
 
           <div className="relative">
             <pre className="bg-[#050816] border border-white/10 rounded-2xl p-5 text-sm font-mono text-slate-300 overflow-x-auto leading-relaxed whitespace-pre-wrap">
-{snippet}
+{installCode}
             </pre>
             <button
               onClick={handleCopy}
@@ -246,7 +264,7 @@ export function AssistantInstallation({
               ) : (
                 <>
                   <Copy className="w-3.5 h-3.5" />
-                  Copiar script
+                  {platform === 'nextjs' ? 'Copiar componente' : 'Copiar script'}
                 </>
               )}
             </button>
@@ -306,6 +324,17 @@ export function AssistantInstallation({
             <div>
               <p className="text-xs text-slate-500 mb-2 font-semibold uppercase tracking-wider">Ejemplo visual:</p>
               <pre className="bg-[#050816] border border-white/[0.07] rounded-xl p-4 text-xs font-mono text-slate-400 overflow-x-auto whitespace-pre">{`<body>\n  <!-- Tu contenido -->\n\n  <!-- Script ConversaAI -->\n  <script\n    src="${origin}/widget.js"\n    data-assistant-id="${assistantId}"\n    async\n  ></script>\n</body>`}</pre>
+            </div>
+          )}
+
+          {platform === 'nextjs' && (
+            <div className="rounded-xl border border-brand-cyan/20 bg-brand-cyan/5 p-4">
+              <p className="dashboard-strong text-xs font-semibold">Importante para Next.js</p>
+              <p className="dashboard-muted mt-1.5 text-xs leading-relaxed">
+                No reemplaces todo tu archivo si ya contiene fuentes, metadata o providers. Agrega el import de
+                <code className="mx-1 rounded bg-black/10 px-1 py-0.5">next/script</code>
+                y coloca únicamente el componente <code className="rounded bg-black/10 px-1 py-0.5">&lt;Script /&gt;</code> dentro de <code className="rounded bg-black/10 px-1 py-0.5">&lt;body&gt;</code>.
+              </p>
             </div>
           )}
         </div>
