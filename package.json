@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "security:audit": "npm audit --audit-level=high",
-    "security:smoke": "node scripts/security-smoke.mjs"
+    "security:smoke": "node scripts/security-smoke.mjs",
+    "test:assistant": "node scripts/assistant-behavior-smoke.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

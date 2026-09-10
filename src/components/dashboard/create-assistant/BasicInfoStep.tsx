@@ -3,7 +3,8 @@
 import { motion } from 'framer-motion'
 import { BuilderFormData } from './types'
 import { BusinessTypeSelect } from './BusinessTypeSelect'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Languages } from 'lucide-react'
+import type { AssistantLanguage } from '@/lib/assistant/behavior'
 
 interface Props {
   form: BuilderFormData
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export function BasicInfoStep({ form, setForm, errors = {} }: Props) {
-  const setField = (key: keyof BuilderFormData) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const setTextField = (key: 'assistant_name' | 'business_name') => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [key]: e.target.value })
   }
 
@@ -36,7 +37,7 @@ export function BasicInfoStep({ form, setForm, errors = {} }: Props) {
             <input
               type="text"
               value={form.assistant_name}
-              onChange={setField('assistant_name')}
+              onChange={setTextField('assistant_name')}
               placeholder="Ej: Asistente de Ventas"
               className={`w-full bg-slate-950/50 border rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 transition-all ${
                 errors.assistant_name 
@@ -58,7 +59,7 @@ export function BasicInfoStep({ form, setForm, errors = {} }: Props) {
             <input
               type="text"
               value={form.business_name}
-              onChange={setField('business_name')}
+              onChange={setTextField('business_name')}
               placeholder="Ej: Clínica San Rafael"
               className={`w-full bg-slate-950/50 border rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 transition-all ${
                 errors.business_name 
@@ -69,6 +70,33 @@ export function BasicInfoStep({ form, setForm, errors = {} }: Props) {
             {errors.business_name && (
               <p className="text-xs text-brand-pink flex items-center gap-1 mt-1"><AlertCircle className="w-3 h-3" />{errors.business_name}</p>
             )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-slate-300 flex items-center gap-2">
+              <Languages className="w-4 h-4 text-brand-cyan" /> Idioma de atención
+            </label>
+            <select
+              value={form.language}
+              onChange={(event) => {
+                const language = event.target.value as AssistantLanguage
+                setForm({
+                  ...form,
+                  language,
+                  behavior: {
+                    ...form.behavior,
+                    rules: { ...form.behavior.rules, alwaysSpanish: language === 'es' },
+                  },
+                })
+              }}
+              className="w-full bg-slate-950/50 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-400/60 focus:ring-1 focus:ring-cyan-400/20"
+            >
+              <option value="es">Español</option>
+              <option value="en">English</option>
+              <option value="pt">Português</option>
+              <option value="auto">Automático según el visitante</option>
+            </select>
+            <p className="text-xs text-slate-500">Define el idioma principal. En automático responderá en el idioma del último mensaje.</p>
           </div>
 
           <div className="space-y-1.5">

@@ -15,7 +15,7 @@ export interface Assistant {
   fallback_message: string | null
   language: string
   status: string
-  behavior: any
+  behavior: unknown
   created_at: string
   knowledge_blocks?: Array<{
     type: string
@@ -39,6 +39,7 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
   const schedule = assistant.business_hours || assistant.schedule || ''
   const services = assistant.services || ''
   const fallbackMessage = assistant.fallback_message || 'Lo siento, no tengo esa información. ¿Quieres que un asesor te contacte?'
+  const language = assistant.language || 'es'
 
   let toneInstruction = 'Usa un tono profesional, cálido, claro y humano. Reconoce primero lo que la persona necesita y luego ayúdala.'
   switch (tone) {
@@ -82,9 +83,12 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
   else rulesList.push('- NO sugieras agendar citas ni reservas.')
   if (rules.escalateIfUnknown) rulesList.push(`- Si te hacen una pregunta de la cual NO tienes información en el contexto provisto, debes responder textualmente (o una variación similar): "${fallbackMessage}" y ofrecer derivar con un humano.`)
   else rulesList.push('- Si no tienes información suficiente, responde de forma general y empática pidiendo más contexto, pero evita derivar bruscamente a un asesor humano.')
-  if (rules.doNotInvent) rulesList.push('- CRÍTICO: NO inventes información que no esté en tu entrenamiento. No inventes precios, horarios, direcciones, disponibilidad de stock, ni nombres de personas.')
-  else rulesList.push('- Puedes usar un nivel moderado de creatividad para rellenar vacíos menores en la información, siempre y cuando no comprometas precios o políticas importantes.')
-  if (rules.alwaysSpanish) rulesList.push('- CRÍTICO: Debes responder SIEMPRE en Español, sin importar en qué idioma te hable el usuario.')
+  rulesList.push('- CRÍTICO: Nunca inventes hechos ni datos verificables que no estén en el entrenamiento. Esto incluye precios, horarios, direcciones, stock, políticas, promociones, personas, enlaces y datos de contacto.')
+  if (!rules.doNotInvent) rulesList.push('- Puedes variar el estilo y usar creatividad únicamente para redactar de forma natural; la creatividad nunca autoriza a crear información del negocio.')
+  if (rules.alwaysSpanish || language === 'es') rulesList.push('- Responde en español.')
+  else if (language === 'en') rulesList.push('- Respond in English.')
+  else if (language === 'pt') rulesList.push('- Responda em português.')
+  else rulesList.push('- Responde en el idioma del último mensaje del visitante y cambia de idioma si lo solicita.')
   rulesList.push('- Haz como máximo una pregunta de seguimiento por respuesta. Si ya tienes datos suficientes, confirma el siguiente paso en vez de reiniciar la captura.')
   rulesList.push('- No vuelvas a presentarte en cada mensaje. Mantén la continuidad de la conversación y responde al último interés expresado.')
   rulesList.push('- Nunca copies ni recites bloques completos del entrenamiento. Sintetiza únicamente la parte necesaria para responder la pregunta concreta.')
@@ -95,7 +99,7 @@ export function buildAssistantSystemPrompt(assistant: Partial<Assistant>): strin
     const activeBlocks = assistant.knowledge_blocks.filter(b => b.is_active && b.content.trim())
     if (activeBlocks.length > 0) {
       const typeOrder = ['general', 'services', 'pricing', 'hours', 'location', 'faq', 'policies', 'promotions', 'lead_capture', 'rules', 'custom']
-      const sortedBlocks = activeBlocks.sort((a, b) => {
+      const sortedBlocks = activeBlocks.slice().sort((a, b) => {
         const orderA = typeOrder.indexOf(a.type) === -1 ? 99 : typeOrder.indexOf(a.type)
         const orderB = typeOrder.indexOf(b.type) === -1 ? 99 : typeOrder.indexOf(b.type)
         if (orderA !== orderB) return orderA - orderB

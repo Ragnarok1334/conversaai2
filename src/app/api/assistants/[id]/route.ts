@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
-import { BEHAVIOR_CHANNELS, BEHAVIOR_GOALS, BEHAVIOR_RESPONSE_STYLES, BEHAVIOR_SALES_LEVELS, BEHAVIOR_TONES, normalizeBehavior } from '@/lib/assistant/behavior'
+import { ASSISTANT_LANGUAGES, BEHAVIOR_CHANNELS, BEHAVIOR_TONES, validateBehavior } from '@/lib/assistant/behavior'
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -87,22 +87,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     if ('behavior' in updates && updates.behavior !== null) {
-      if (typeof updates.behavior !== 'object' || Array.isArray(updates.behavior)) return NextResponse.json({ error: 'El campo behavior debe ser un objeto válido.' }, { status: 400 })
-      const b = updates.behavior as Record<string, any>
-      const normalized = normalizeBehavior(b)
-      if (b.initialChannel !== undefined && !BEHAVIOR_CHANNELS.includes(b.initialChannel)) return NextResponse.json({ error: 'El canal inicial de behavior no es válido.' }, { status: 400 })
-      if (b.tone !== undefined && !BEHAVIOR_TONES.includes(b.tone)) return NextResponse.json({ error: 'El tono de behavior no es válido.' }, { status: 400 })
-      if (b.goal !== undefined && !BEHAVIOR_GOALS.includes(b.goal)) return NextResponse.json({ error: 'El objetivo de behavior no es válido.' }, { status: 400 })
-      if (b.salesLevel !== undefined && !BEHAVIOR_SALES_LEVELS.includes(b.salesLevel)) return NextResponse.json({ error: 'El nivel comercial de behavior no es válido.' }, { status: 400 })
-      if (b.responseStyle !== undefined && !BEHAVIOR_RESPONSE_STYLES.includes(b.responseStyle)) return NextResponse.json({ error: 'El estilo de respuesta de behavior no es válido.' }, { status: 400 })
-      if (b.rules !== undefined) {
-        if (!b.rules || typeof b.rules !== 'object' || Array.isArray(b.rules)) return NextResponse.json({ error: 'Las reglas de behavior deben ser un objeto válido.' }, { status: 400 })
-        const allowedRules = Object.keys(normalized.rules)
-        for (const rule of Object.keys(b.rules)) {
-          if (!allowedRules.includes(rule) || typeof b.rules[rule] !== 'boolean') return NextResponse.json({ error: `La regla de behavior '${rule}' no es válida o no es boolean.` }, { status: 400 })
-        }
+      const behaviorResult = validateBehavior(updates.behavior)
+      if (!behaviorResult.success) {
+        return NextResponse.json({ error: behaviorResult.error }, { status: 400 })
       }
-      updates.behavior = normalized
+      updates.behavior = behaviorResult.data
+    }
+
+    if ('language' in updates && !ASSISTANT_LANGUAGES.includes(updates.language)) {
+      return NextResponse.json({ error: 'El idioma seleccionado no es válido.' }, { status: 400 })
     }
 
     if (Object.keys(updates).length === 1) return NextResponse.json({ error: 'No hay campos válidos para actualizar.' }, { status: 400 })
