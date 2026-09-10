@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MessageSquare, Globe, Send, MessageCircle, Search, Filter, CheckCircle2, Users, Mail, Phone, RefreshCw } from 'lucide-react'
+import { MessageSquare, Globe, Send, MessageCircle, Search, Filter, CheckCircle2, Users, Mail, Phone, RefreshCw, Bot, UserCheck, RotateCcw } from 'lucide-react'
 import Link from 'next/link'
 import ChannelConnectActions from '@/components/dashboard/ChannelConnectActions'
 import { ConvertLeadModal } from './ConvertLeadModal'
@@ -29,6 +29,8 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
   const [messages, setMessages] = useState<any[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [showConvertModal, setShowConvertModal] = useState(false)
+  const [replyText, setReplyText] = useState('')
+  const [sendingReply, setSendingReply] = useState(false)
   
   const [toastMsg, setToastMsg] = useState('')
   const showToast = (msg: string) => {
@@ -197,6 +199,54 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
       setConversations(previousConversations)
       setSelectedConv(previousSelected)
       showToast('Error al actualizar estado')
+    }
+  }
+
+  const handleHandoffAction = async (action: 'take' | 'return_to_ai') => {
+    if (!selectedConv) return
+    try {
+      const res = await fetch(`/api/conversations/${selectedConv.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handoffAction: action }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'No se pudo actualizar la atención')
+      const next = {
+        ...selectedConv,
+        ai_paused: action === 'take',
+        handoff_status: action === 'take' ? 'human' : 'ai',
+        status: 'open',
+      }
+      setSelectedConv(next)
+      setConversations(previous => previous.map(item => item.id === next.id ? { ...item, ...next } : item))
+      showToast(action === 'take' ? 'Ahora estás atendiendo esta conversación' : 'La IA retomó la conversación')
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'No se pudo actualizar la atención')
+    }
+  }
+
+  const handleSendHumanReply = async () => {
+    const content = replyText.trim()
+    if (!selectedConv || !content || sendingReply) return
+    setSendingReply(true)
+    try {
+      const res = await fetch(`/api/conversations/${selectedConv.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'No se pudo enviar el mensaje')
+      setReplyText('')
+      setMessages(previous => previous.some(item => item.id === data.message.id) ? previous : [...previous, data.message])
+      const next = { ...selectedConv, ai_paused: true, handoff_status: 'human', status: 'open', last_message: content, last_message_at: new Date().toISOString() }
+      setSelectedConv(next)
+      setConversations(previous => previous.map(item => item.id === next.id ? { ...item, ...next } : item))
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'No se pudo enviar el mensaje')
+    } finally {
+      setSendingReply(false)
     }
   }
 
@@ -422,6 +472,13 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                           {selectedConv.status === 'open' ? 'Abierta' : selectedConv.status === 'pending' ? 'Pendiente' : 'Cerrada'}
                         </span>
                       </p>
+                      <div className="mt-2 flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold ${selectedConv.handoff_status === 'human' ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-500' : selectedConv.handoff_status === 'waiting' ? 'border-amber-500/25 bg-amber-500/10 text-amber-500' : 'border-brand-cyan/20 bg-brand-cyan/10 text-brand-cyan'}`}>
+                          {selectedConv.handoff_status === 'human' ? <UserCheck className="h-3 w-3" /> : <Bot className="h-3 w-3" />}
+                          {selectedConv.handoff_status === 'human' ? 'Atención humana' : selectedConv.handoff_status === 'waiting' ? 'Esperando agente' : 'IA atendiendo'}
+                        </span>
+                        {selectedConv.handoff_reason && <span className="hidden 2xl:block truncate text-[10px] text-text-soft">{selectedConv.handoff_reason}</span>}
+                      </div>
                     </div>
                     <div className="shrink-0 w-36"><CustomSelect value={selectedConv.status} onChange={status => handleUpdateStatus(selectedConv.id, status)} options={[
                       { value: 'open', label: 'Abierta' }, { value: 'pending', label: 'Pendiente' }, { value: 'closed', label: 'Cerrada' },
@@ -444,15 +501,38 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                     ) : (
                       messages.map((msg: any) => (
                         <div key={msg.id} className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'self-end items-end ml-auto' : 'self-start items-start'}`}>
-                          <div className={`p-3.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-gradient-to-br from-brand-violet/30 to-brand-cyan/20 text-white rounded-br-sm border border-brand-violet/30 shadow-[0_4px_20px_rgba(124,58,237,0.1)]' : 'bg-white/[0.03] text-white/90 rounded-bl-sm border border-white/[0.05]'}`}>
+                          <div className={`p-3.5 rounded-2xl text-sm leading-relaxed ${msg.role === 'user' ? 'bg-gradient-to-br from-brand-violet/30 to-brand-cyan/20 text-white rounded-br-sm border border-brand-violet/30 shadow-[0_4px_20px_rgba(124,58,237,0.1)]' : msg.sender_type === 'human' ? 'bg-emerald-500/10 text-text-primary rounded-bl-sm border border-emerald-500/20' : 'bg-white/[0.03] text-text-primary rounded-bl-sm border border-white/[0.05]'}`}>
                             {msg.content}
                           </div>
                           <span className="text-[10px] text-text-soft mt-1.5 mx-1 font-medium">
+                            {msg.role !== 'user' && (msg.sender_type === 'human' ? 'Equipo · ' : 'IA · ')}
                             {new Date(msg.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
                       ))
                     )}
+                  </div>
+
+                  <div className="border-t border-card-border bg-card-bg/95 p-3 sm:p-4">
+                    {selectedConv.handoff_status === 'waiting' && (
+                      <button type="button" onClick={() => handleHandoffAction('take')} className="mb-3 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-brand-violet to-brand-cyan px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:brightness-110">
+                        <UserCheck className="h-4 w-4" /> Tomar conversación
+                      </button>
+                    )}
+                    {selectedConv.handoff_status === 'human' ? (
+                      <div className="space-y-2">
+                        <div className="flex items-end gap-2">
+                          <textarea value={replyText} onChange={event => setReplyText(event.target.value)} onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); handleSendHumanReply() } }} rows={1} maxLength={2000} placeholder="Escribe como agente humano…" className="max-h-28 min-h-11 flex-1 resize-none rounded-xl border border-card-border bg-white/[0.04] px-4 py-3 text-sm text-text-primary outline-none transition focus:border-brand-cyan/50" />
+                          <button type="button" onClick={handleSendHumanReply} disabled={!replyText.trim() || sendingReply} className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-xl bg-brand-cyan text-slate-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40" aria-label="Enviar respuesta"><Send className="h-4 w-4" /></button>
+                        </div>
+                        <div className="flex items-center justify-between gap-3 text-[11px] text-text-soft">
+                          <span>La IA está pausada. Enter para enviar, Shift + Enter para otra línea.</span>
+                          <button type="button" onClick={() => handleHandoffAction('return_to_ai')} className="inline-flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-brand-violet hover:underline"><RotateCcw className="h-3 w-3" /> Devolver a IA</button>
+                        </div>
+                      </div>
+                    ) : selectedConv.handoff_status !== 'waiting' ? (
+                      <button type="button" onClick={() => handleHandoffAction('take')} className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-card-border bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-text-primary transition hover:border-brand-violet/40 hover:bg-brand-violet/10"><UserCheck className="h-4 w-4" /> Intervenir y responder</button>
+                    ) : null}
                   </div>
                 </div>
 
