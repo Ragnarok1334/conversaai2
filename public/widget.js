@@ -1014,7 +1014,7 @@
 
       if (data.reply) {
         appendMessage(data.reply, 'assistant');
-      } else {
+      } else if (!data.humanHandoff) {
         appendMessage('Lo siento, no pude procesar tu mensaje.', 'assistant');
       }
 

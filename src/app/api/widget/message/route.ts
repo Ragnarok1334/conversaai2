@@ -7,7 +7,7 @@ import { logSecurityEvent } from '@/lib/audit'
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { getClientIp, HttpInputError, isUuid, isVisitorId, readJsonBody, widgetCorsHeaders } from '@/lib/http-security'
-import { detectHumanHandoffRequest, HUMAN_HANDOFF_ACK, HUMAN_WAITING_MESSAGE } from '@/lib/handoff'
+import { detectHumanHandoffRequest, HUMAN_HANDOFF_ACK } from '@/lib/handoff'
 
 interface WidgetMessageBody {
   assistantId?: unknown
@@ -199,7 +199,9 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({
-        reply: reply || HUMAN_WAITING_MESSAGE,
+        // Once a human owns or is waiting for the conversation, never generate
+        // an automatic chat bubble. The presence bar already confirms delivery.
+        reply,
         conversationId: handoffConversationId,
         humanHandoff: true,
         handoffStatus: existingConversation?.handoff_status === 'human' ? 'human' : 'waiting',

@@ -505,7 +505,7 @@ export default function ConversationsClient({ user, assistants, currentPlan, eff
                             {msg.content}
                           </div>
                           <span className="text-[10px] text-text-soft mt-1.5 mx-1 font-medium">
-                            {msg.role !== 'user' && (msg.sender_type === 'human' ? 'Equipo · ' : 'IA · ')}
+                            {msg.role !== 'user' && (msg.sender_type === 'human' ? 'Equipo · ' : msg.sender_type === 'system' ? 'Sistema · ' : 'IA · ')}
                             {new Date(msg.created_at).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
