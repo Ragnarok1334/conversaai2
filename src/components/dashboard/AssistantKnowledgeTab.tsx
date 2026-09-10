@@ -13,8 +13,8 @@ interface Props {
 
 const fields = [
   { key: 'instructions', label: 'Información principal', help: 'Qué hace el negocio, ubicación, condiciones y datos que nunca debe inventar.', icon: BookOpen, max: 2000, rows: 6 },
-  { key: 'services', label: 'Servicios, productos y precios', help: 'Describe claramente qué ofreces, valores, variantes y requisitos.', icon: ShoppingBag, max: 5000, rows: 6 },
-  { key: 'faqs', label: 'Preguntas frecuentes', help: 'Escribe preguntas reales y sus respuestas, una debajo de otra.', icon: HelpCircle, max: 5000, rows: 6 },
+  { key: 'services', label: 'Servicios, productos y precios', help: 'Describe claramente qué ofreces, valores, variantes y requisitos.', icon: ShoppingBag, max: 3000, rows: 6 },
+  { key: 'faqs', label: 'Preguntas frecuentes', help: 'Escribe preguntas reales y sus respuestas, una debajo de otra.', icon: HelpCircle, max: 3000, rows: 6 },
   { key: 'schedule', label: 'Horarios y disponibilidad', help: 'Incluye días, horas, feriados y reglas para reservas o atención.', icon: Clock, max: 2500, rows: 4 },
 ] as const
 

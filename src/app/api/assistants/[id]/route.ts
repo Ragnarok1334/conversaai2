@@ -4,6 +4,7 @@ import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 import { ASSISTANT_LANGUAGES, BEHAVIOR_CHANNELS, BEHAVIOR_TONES, validateBehavior } from '@/lib/assistant/behavior'
+import { MAX_KNOWLEDGE_BLOCK_CHARS, MAX_KNOWLEDGE_TOTAL_CHARS, MIN_KNOWLEDGE_CHARS, getKnowledgeTotalLength } from '@/lib/assistant/knowledge-limits'
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -64,7 +65,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         if (['assistant_name', 'name', 'business_name', 'channel', 'tone', 'objective'].includes(key) && val.length > 100) return NextResponse.json({ error: `El campo ${key} excede la longitud máxima permitida (100).` }, { status: 400 })
         if (['fallback_message', 'welcome_message'].includes(key) && val.length > 500) return NextResponse.json({ error: `El campo ${key} excede la longitud máxima permitida (500).` }, { status: 400 })
         if (key === 'instructions' && val.length > 2000) return NextResponse.json({ error: 'Las instrucciones exceden la longitud máxima permitida (2000).' }, { status: 400 })
-        const knowledgeLimits: Record<string, number> = { services: 5000, faqs: 5000, schedule: 2500 }
+        const knowledgeLimits: Record<string, number> = { services: MAX_KNOWLEDGE_BLOCK_CHARS, faqs: MAX_KNOWLEDGE_BLOCK_CHARS, schedule: 2500 }
         if (knowledgeLimits[key] && val.length > knowledgeLimits[key]) return NextResponse.json({ error: `El campo ${key} excede la longitud máxima permitida (${knowledgeLimits[key]}).` }, { status: 400 })
       }
       if (key === 'status' && !['active', 'inactive'].includes(val)) return NextResponse.json({ error: `El estado '${val}' no es válido.` }, { status: 400 })
@@ -74,8 +75,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           for (const block of val) {
             if (!block || typeof block.type !== 'string' || typeof block.title !== 'string' || typeof block.content !== 'string' || typeof block.is_active !== 'boolean') return NextResponse.json({ error: 'Formato inválido en bloque de conocimiento.' }, { status: 400 })
             if (block.title.length > 120) return NextResponse.json({ error: 'Título de bloque excede 120 caracteres.' }, { status: 400 })
-            if (block.content.length > 5000) return NextResponse.json({ error: 'Contenido de bloque excede 5000 caracteres.' }, { status: 400 })
+            if (block.content.length > MAX_KNOWLEDGE_BLOCK_CHARS) return NextResponse.json({ error: `Contenido de bloque excede ${MAX_KNOWLEDGE_BLOCK_CHARS} caracteres.` }, { status: 400 })
           }
+          if (getKnowledgeTotalLength(val) > MAX_KNOWLEDGE_TOTAL_CHARS) return NextResponse.json({ error: `El entrenamiento completo excede ${MAX_KNOWLEDGE_TOTAL_CHARS} caracteres.` }, { status: 400 })
         }
       }
       if (key === 'widget_config') {
@@ -109,8 +111,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         const finalFaqs = updates.faqs !== undefined ? updates.faqs : (currentAssistant.faqs || '')
         const finalSchedule = updates.schedule !== undefined ? updates.schedule : (currentAssistant.schedule || '')
         const knowledgeLength = [finalInstructions, finalServices, finalFaqs, finalSchedule].join(' ').trim().length
-        const hasValidBlock = (finalBlocks || []).some((b: any) => b.is_active && (b.content || '').trim().length >= 80)
-        if (knowledgeLength < 80 && !hasValidBlock) return NextResponse.json({ error: 'Agrega información mínima del negocio para entrenar el asistente.' }, { status: 400 })
+        const hasValidBlock = (finalBlocks || []).some((b: any) => b.is_active && (b.content || '').trim().length >= MIN_KNOWLEDGE_CHARS)
+        if (knowledgeLength < MIN_KNOWLEDGE_CHARS && !hasValidBlock) return NextResponse.json({ error: 'Agrega información mínima del negocio para entrenar el asistente.' }, { status: 400 })
       }
     }
 

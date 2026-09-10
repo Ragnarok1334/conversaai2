@@ -208,7 +208,7 @@ export function AssistantLivePreview({ form, onTestReal, isTestingReal }: Props)
         <span className="px-2 py-1 rounded bg-white/5 border border-white/5">Tono: <span className="capitalize text-slate-300">{form.behavior.tone}</span></span>
         <span className="px-2 py-1 rounded bg-white/5 border border-white/5">Objetivo: <span className="capitalize text-slate-300">{form.behavior.goal}</span></span>
         <span className="px-2 py-1 rounded bg-white/5 border border-white/5">
-          Entrenamiento: <span className="text-slate-300">{(form.knowledgeBlocks || []).filter(b => b.is_active && b.content.trim().length >= 80).length} bloques completos</span>
+          Entrenamiento: <span className="text-slate-300">{(form.knowledgeBlocks || []).filter(b => b.is_active && b.content.trim().length >= 60).length} bloques completos</span>
         </span>
         <span className="px-2 py-1 rounded bg-brand-success/10 border border-brand-success/20 text-brand-success">
           {Object.values(form.behavior.rules).filter(Boolean).length} reglas activas

@@ -7,6 +7,7 @@ import { logAuditEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 import { HttpInputError, readJsonBody } from '@/lib/http-security'
 import { ASSISTANT_LANGUAGES, DEFAULT_BEHAVIOR, validateBehavior } from '@/lib/assistant/behavior'
+import { MAX_KNOWLEDGE_BLOCK_CHARS, MAX_KNOWLEDGE_TOTAL_CHARS, MIN_KNOWLEDGE_CHARS, getKnowledgeTotalLength } from '@/lib/assistant/knowledge-limits'
 
 export const dynamic = 'force-dynamic'
 
@@ -97,7 +98,15 @@ export async function POST(request: NextRequest) {
       if (validBlocks.length > 0) finalKnowledgeBlocks = validBlocks
     }
 
-    if (businessInfo.trim().length < 80 && finalKnowledgeBlocks === null) {
+    if (finalKnowledgeBlocks?.some((block: { content: string }) => block.content.length > MAX_KNOWLEDGE_BLOCK_CHARS)) {
+      return NextResponse.json({ success: false, error: `Cada bloque puede contener hasta ${MAX_KNOWLEDGE_BLOCK_CHARS} caracteres.` }, { status: 400 })
+    }
+    if (getKnowledgeTotalLength(finalKnowledgeBlocks) > MAX_KNOWLEDGE_TOTAL_CHARS) {
+      return NextResponse.json({ success: false, error: `El entrenamiento completo puede contener hasta ${MAX_KNOWLEDGE_TOTAL_CHARS} caracteres.` }, { status: 400 })
+    }
+
+    const hasValidKnowledgeBlock = finalKnowledgeBlocks?.some((block: { content: string }) => block.content.trim().length >= MIN_KNOWLEDGE_CHARS) ?? false
+    if (businessInfo.trim().length < MIN_KNOWLEDGE_CHARS && !hasValidKnowledgeBlock) {
       return NextResponse.json({ success: false, error: 'Agrega información mínima del negocio para entrenar el asistente.' }, { status: 400 })
     }
 
