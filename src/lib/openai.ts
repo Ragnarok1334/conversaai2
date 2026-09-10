@@ -41,15 +41,24 @@ export interface AssistantConversationMessage {
   content: string
 }
 
+export interface AssistantRuntimeContext {
+  knownLead?: {
+    name?: string | null
+    hasEmail?: boolean
+    hasPhone?: boolean
+  }
+}
+
 // Se reemplazó buildSystemPrompt por buildAssistantSystemPrompt
 
 export async function generateAssistantReply(
   config: AssistantConfig,
   userMessage: string,
   model: string = DEFAULT_OPENAI_MODEL,
-  history: AssistantConversationMessage[] = []
+  history: AssistantConversationMessage[] = [],
+  runtimeContext: AssistantRuntimeContext = {}
 ): Promise<string> {
-  const systemPrompt = buildAssistantSystemPrompt({
+  const baseSystemPrompt = buildAssistantSystemPrompt({
     assistant_name: config.assistantName || config.assistant_name,
     business_name: config.businessName || config.business_name,
     business_type: config.businessType || config.business_type,
@@ -67,6 +76,17 @@ export async function generateAssistantReply(
       salesLevel: 'Medium'
     }
   })
+
+  const knownLead = runtimeContext.knownLead
+  const knownFields = [
+    knownLead?.name ? 'nombre' : null,
+    knownLead?.hasEmail ? 'correo electrónico' : null,
+    knownLead?.hasPhone ? 'teléfono' : null,
+  ].filter(Boolean)
+  const sessionContext = knownFields.length > 0
+    ? `\n\nCONTEXTO OPERATIVO DE ESTA CONVERSACIÓN:\n- Ya contamos con: ${knownFields.join(', ')}.${knownLead?.name ? ` El nombre del visitante es ${knownLead.name}.` : ''}\n- No vuelvas a solicitar ninguno de esos datos. Continúa desde el interés más reciente del visitante.\n- No repitas el correo o teléfono completo en tu respuesta; basta con confirmar que ya lo tienes.`
+    : ''
+  const systemPrompt = `${baseSystemPrompt}${sessionContext}`
 
   const response = await getOpenAIClient().responses.create({
     model: model,
