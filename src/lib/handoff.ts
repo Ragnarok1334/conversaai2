@@ -12,4 +12,3 @@ export function detectHumanHandoffRequest(message: string): boolean {
 }
 
 export const HUMAN_HANDOFF_ACK = 'Claro. Te comunicaré con una persona del equipo. Puedes seguir escribiendo aquí y te responderán en este mismo chat.'
-export const HUMAN_WAITING_MESSAGE = 'Tu mensaje fue enviado al equipo. Puedes seguir escribiendo mientras esperas una respuesta.'
