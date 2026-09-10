@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit'
 import { revalidatePath } from 'next/cache'
 import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
-import { ASSISTANT_LANGUAGES, validateBehavior } from '@/lib/assistant/behavior'
+import { ASSISTANT_LANGUAGES, BEHAVIOR_CHANNELS, BEHAVIOR_TONES, validateBehavior } from '@/lib/assistant/behavior'
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
