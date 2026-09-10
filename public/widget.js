@@ -716,6 +716,7 @@
 
   function toggleWidget() {
     isOpen = !isOpen;
+    const container = document.getElementById('conversaai-widget-container');
     const panel = document.getElementById('conversaai-widget-panel');
     const launcherBtn = document.getElementById('conversaai-launcher-btn');
     const input = document.getElementById('conversaai-input');
