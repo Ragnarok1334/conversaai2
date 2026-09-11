@@ -347,26 +347,31 @@ body::before {
 .light-trust-row svg { width: 16px; color: var(--light-primary); }
 .light-product-visual { position: relative; }
 .light-product-visual::before { content: ""; position: absolute; inset: 7% -9%; background: radial-gradient(circle,rgba(104,66,232,.2),transparent 68%); filter: blur(20px); }
-.light-chat-card { position: relative; padding: 20px; background: white; border: 1px solid #e3dcf0; border-radius: 30px; box-shadow: 0 30px 90px rgba(59,40,108,.16); }
-.light-chat-header { display: flex; align-items: center; gap: 12px; padding: 3px 2px 17px; border-bottom: 1px solid #eeeaf4; }
+.light-chat-card { position: relative; overflow: hidden; padding: 0; background: white; border: 1px solid #e3dcf0; border-radius: 28px; box-shadow: 0 30px 90px rgba(59,40,108,.16); }
+.light-chat-header { display: flex; align-items: center; gap: 12px; padding: 20px 22px 17px; background: #fff; }
 .light-chat-avatar { width: 46px; height: 46px; display: grid; place-items: center; color: #6842e8; background: #f0ebff; border-radius: 15px; }
 .light-chat-avatar svg { width: 22px; }
 .light-chat-header > div:nth-child(2) { flex: 1; display: grid; gap: 4px; }
 .light-chat-header strong { font-size: 14px; }
 .light-chat-header span { display: flex; align-items: center; gap: 5px; color: #4e8066; font-size: 12px; }
-.light-chat-header i { width: 7px; height: 7px; background: #19a262; border-radius: 50%; }
+.light-chat-header i { width: 7px; height: 7px; background: #19a262; border-radius: 50%; box-shadow: 0 0 0 4px rgba(25,162,98,.12); animation: light-presence 2s ease-in-out infinite; }
 .light-chat-badge { padding: 6px 10px; color: #166d47; background: #eafaf1; border-radius: 999px; font-size: 11px; font-weight: 800; }
-.light-chat-body { display: flex; flex-direction: column; gap: 12px; padding: 25px 3px; background-image: linear-gradient(#f4f1fa 1px,transparent 1px),linear-gradient(90deg,#f4f1fa 1px,transparent 1px); background-size: 32px 32px; }
-.light-bubble { max-width: 82%; margin: 0; padding: 13px 15px; border-radius: 18px; font-size: 13px; line-height: 1.55; box-shadow: 0 4px 16px rgba(44,26,74,.07); }
+.light-chat-body { display: flex; flex-direction: column; gap: 13px; margin: 0; padding: 24px 22px 21px; background-color: #f8f7fb; background-image: none !important; border-top: 1px solid #eeeaf4; }
+.light-message { display: flex; flex-direction: column; max-width: 84%; gap: 5px; }
+.light-message-user { align-self: flex-end; align-items: flex-end; }
+.light-message-bot { align-self: flex-start; align-items: flex-start; }
+.light-message small { padding: 0 5px; color: #81798d; font-size: 10px; }
+.light-bubble { margin: 0; padding: 13px 15px; border-radius: 18px; font-size: 13px; line-height: 1.55; box-shadow: 0 5px 18px rgba(44,26,74,.07); }
 .light-bubble-bot { background: #fff; border: 1px solid #eeeaf4; border-bottom-left-radius: 5px; }
-.light-bubble-user { align-self: flex-end; color: #fff; background: #6842e8; border-bottom-right-radius: 5px; }
-.light-lead-card { display: flex; align-items: center; gap: 12px; padding: 14px; background: #f2fcf6; border: 1px solid #d7f0e1; border-radius: 17px; }
+.light-bubble-user { color: #fff; background: linear-gradient(135deg,#6842e8,#7955ee); border-bottom-right-radius: 5px; }
+.light-lead-card { display: flex; align-items: center; gap: 12px; margin: 0; padding: 16px 22px; background: #f3fbf6; border: 0; border-top: 1px solid #cfe9da; border-radius: 0; }
 .light-lead-card > span { width: 35px; height: 35px; display: grid; place-items: center; color: white; background: #19a262; border-radius: 50%; }
 .light-lead-card > span svg { width: 18px; }
 .light-lead-card > div { flex: 1; display: grid; gap: 3px; }
 .light-lead-card strong { font-size: 13px; }
 .light-lead-card small { color: #718078; font-size: 11px; }
-.light-lead-card > svg { width: 20px; color: #19a262; }
+.light-lead-status { width: auto !important; height: auto !important; padding: 5px 9px; color: #167449 !important; background: #ddf6e8 !important; border-radius: 999px !important; font-size: 10px; font-weight: 800; }
+@keyframes light-presence { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
 .light-proof { background: #241c38; color: white; }
 .light-proof-grid { display: grid; grid-template-columns: repeat(4,1fr); padding: 29px 0; }
 .light-proof-grid > div { display: grid; grid-template-columns: auto auto; justify-content: center; align-items: center; column-gap: 10px; padding: 4px 18px; border-right: 1px solid rgba(255,255,255,.12); }
