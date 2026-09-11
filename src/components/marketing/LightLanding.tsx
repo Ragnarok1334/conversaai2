@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { PUBLIC_PAID_PLANS } from "@/lib/plans";
 
 const features = [
   { icon: MessageCircle, title: "Respuestas automáticas", text: "Atiende preguntas frecuentes con información real de cada negocio." },
@@ -29,12 +30,6 @@ const features = [
   { icon: BrainCircuit, title: "Asistentes personalizados", text: "Define servicios, productos, tono y reglas diferentes para cada asistente." },
   { icon: ShieldCheck, title: "Información controlada", text: "Reduce respuestas inventadas y deriva a una persona cuando falta información." },
   { icon: TrendingUp, title: "Seguimiento comercial", text: "Convierte conversaciones en oportunidades que tu equipo puede gestionar." },
-];
-
-const plans = [
-  { name: "Starter", price: "$9.990", description: "Para comenzar a atender y captar prospectos.", items: ["500 mensajes al mes", "1 asistente IA", "1 dominio", "Webchat y leads"] },
-  { name: "Pro", price: "$19.990", description: "Para negocios que reciben consultas todos los días.", items: ["2.500 mensajes al mes", "3 asistentes IA", "3 dominios", "Mini CRM e inbox"], featured: true },
-  { name: "Growth", price: "$39.990", description: "Para operaciones que necesitan más capacidad.", items: ["8.000 mensajes al mes", "8 asistentes IA", "10 dominios", "IA avanzada"] },
 ];
 
 const faqs = [
@@ -184,19 +179,21 @@ export function LightLanding() {
           <div className="light-heading">
             <span>PLANES PARA CRECER</span>
             <h2>Elige la capacidad que necesitas.</h2>
-            <p>Todos los planes incluyen configuración guiada y soporte. Valores mensuales en pesos chilenos.</p>
+            <p>Tres opciones claras para comenzar, vender y escalar. Valores mensuales en pesos chilenos.</p>
           </div>
           <div className="light-plan-grid">
-            {plans.map((plan) => (
-              <article className={`light-plan-card${plan.featured ? " light-plan-featured" : ""}`} key={plan.name}>
-                {plan.featured && <div className="light-plan-label">RECOMENDADO</div>}
-                <h3>{plan.name}</h3><p>{plan.description}</p>
-                <div className="light-price">{plan.price}<small> CLP/mes</small></div>
-                <ul>{plan.items.map((item) => <li key={item}><Check /> {item}</li>)}</ul>
-                <Link href={primaryHref} className={`light-plan-button${plan.featured ? " light-plan-button-filled" : ""}`}>Comenzar prueba</Link>
+            {PUBLIC_PAID_PLANS.map((plan) => (
+              <article className={`light-plan-card${plan.recommended ? " light-plan-featured" : ""}`} key={plan.key}>
+                {plan.recommended && <div className="light-plan-label">RECOMENDADO</div>}
+                <h3>{plan.label}</h3><p>{plan.description}</p>
+                <div className="light-price">{plan.priceLabelCLP.replace(" CLP", "")}<small> CLP/mes</small></div>
+                <ul>{plan.features.slice(0, 5).map((item) => <li key={item}><Check /> {item}</li>)}</ul>
+                {plan.futureFeatures.length > 0 && <p><strong>Próximamente:</strong> {plan.futureFeatures.join(", ")}.</p>}
+                <Link href={primaryHref} className={`light-plan-button${plan.recommended ? " light-plan-button-filled" : ""}`}>{plan.cta}</Link>
               </article>
             ))}
           </div>
+          <p className="light-pricing-note">Solo descuentan del límite las respuestas generadas por IA. Los mensajes del visitante y las respuestas de tu equipo no consumen respuestas de IA.</p>
         </div>
       </section>
 
