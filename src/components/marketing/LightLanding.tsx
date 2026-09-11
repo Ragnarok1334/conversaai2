@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PUBLIC_PAID_PLANS } from "@/lib/plans";
+import { ReviewsSection } from "@/components/ReviewsSection";
 
 const features = [
   { icon: MessageCircle, title: "Respuestas automáticas", text: "Atiende preguntas frecuentes con información real de cada negocio." },
@@ -196,6 +197,8 @@ export function LightLanding() {
           <p className="light-pricing-note">Solo descuentan del límite las respuestas generadas por IA. Los mensajes del visitante y las respuestas de tu equipo no consumen respuestas de IA.</p>
         </div>
       </section>
+
+      <ReviewsSection />
 
       <section id="preguntas" className="light-section light-section-soft">
         <div className="light-container light-faq-wrap">
