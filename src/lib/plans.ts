@@ -4,7 +4,7 @@ import { CONTACT_INFO } from './contact'
 const telegramBase = process.env.NEXT_PUBLIC_TELEGRAM_URL || CONTACT_INFO.telegram
 
 export type PlanKey = 'free' | 'trial' | 'starter' | 'pro' | 'growth' | 'business' | 'enterprise'
-export type ChannelKey = 'webchat' | 'telegram' | 'whatsapp'
+export type ChannelKey = 'webchat' | 'telegram' | 'whatsapp' | 'instagram' | 'facebook'
 export type PlanStatus = 'active' | 'cancelled' | 'past_due'
 export type PaymentCurrency = 'CLP' | 'USD'
 
@@ -40,6 +40,8 @@ export interface PlanConfig {
     webchat: boolean
     telegram: boolean
     whatsapp: boolean
+    instagram: boolean
+    facebook: boolean
   }
   features: string[]
   futureFeatures: string[]
@@ -67,7 +69,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     aiSubtitle: 'Prueba disponible manualmente',
     purchaseMode: 'placeholder',
     limits: { assistants: 0, messagesPerMonth: 0, domains: 0, users: 1 },
-    channels: { webchat: false, telegram: false, whatsapp: false },
+    channels: { webchat: false, telegram: false, whatsapp: false, instagram: false, facebook: false },
     features: [
       'Panel de cuenta',
       'Acceso a facturación',
@@ -92,12 +94,12 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     aiSubtitle: 'IA básica para probar',
     purchaseMode: 'trial',
     limits: { assistants: 1, messagesPerMonth: 100, domains: 1, users: 1 },
-    channels: { webchat: true, telegram: false, whatsapp: false },
+    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
     features: [
-      '100 mensajes al mes',
+      '100 respuestas de IA',
       '1 asistente IA',
       '1 dominio autorizado',
-      'Web Chat demo básica',
+      'Web Chat completo',
       'Entrenamiento inicial'
     ],
     futureFeatures: [],
@@ -108,81 +110,86 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
   },
   starter: {
     key: 'starter',
-    label: 'Starter',
-    priceCLP: 9990,
-    prices: { CLP: 9990, USD: 999 },
-    priceLabel: '$9.990 CLP',
-    priceLabelCLP: '$9.990 CLP',
-    priceLabelUSD: '$9.99 USD',
+    label: 'Emprende',
+    priceCLP: 18990,
+    prices: { CLP: 18990, USD: 1900 },
+    priceLabel: '$18.990 CLP',
+    priceLabelCLP: '$18.990 CLP',
+    priceLabelUSD: '$19 USD',
     period: '/mes',
     description: 'Para negocios pequeños que quieren atender su sitio web con un asistente útil y comenzar a captar prospectos.',
     aiSubtitle: 'IA estándar para atención simple',
     purchaseMode: 'checkout',
-    limits: { assistants: 1, messagesPerMonth: 500, domains: 1, users: 1 },
-    channels: { webchat: true, telegram: false, whatsapp: false },
+    limits: { assistants: 1, messagesPerMonth: 1000, domains: 1, users: 1 },
+    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
     features: [
-      '500 mensajes al mes',
+      '1.000 respuestas de IA',
       '1 asistente IA',
       '1 dominio autorizado',
       'Canal Web Chat',
-      'Leads básicos'
+      'Leads y conversaciones',
+      'Derivación y respuesta humana'
     ],
     futureFeatures: [],
     supportLevel: 'Soporte estándar',
-    cta: 'Comprar Starter',
+    cta: 'Elegir Emprende',
     href: '',
     highlighted: false,
   },
   pro: {
     key: 'pro',
-    label: 'Pro',
-    priceCLP: 19990,
-    prices: { CLP: 19990, USD: 1999 },
-    priceLabel: '$19.990 CLP',
-    priceLabelCLP: '$19.990 CLP',
-    priceLabelUSD: '$19.99 USD',
+    label: 'Negocio',
+    priceCLP: 38990,
+    prices: { CLP: 38990, USD: 3900 },
+    priceLabel: '$38.990 CLP',
+    priceLabelCLP: '$38.990 CLP',
+    priceLabelUSD: '$39 USD',
     period: '/mes',
     description: 'Para negocios que necesitan varios asistentes, más conversaciones y herramientas para dar seguimiento comercial.',
     aiSubtitle: 'IA mejorada para vender y captar leads',
     purchaseMode: 'checkout',
-    limits: { assistants: 3, messagesPerMonth: 2500, domains: 3, users: 1 },
-    channels: { webchat: true, telegram: false, whatsapp: false },
+    recommended: true,
+    limits: { assistants: 3, messagesPerMonth: 4000, domains: 3, users: 1 },
+    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
     features: [
-      '2.500 mensajes al mes',
+      '4.000 respuestas de IA',
       '3 asistentes IA',
       '3 dominios autorizados',
       'Web Chat + leads',
-      'Mini CRM e Inbox'
+      'Inbox, leads y derivación humana',
+      'Exportación de leads'
     ],
-    futureFeatures: [],
-    supportLevel: 'Soporte estándar',
-    cta: 'Comprar Pro',
+    futureFeatures: ['WhatsApp incluido al habilitarse'],
+    supportLevel: 'Soporte prioritario',
+    cta: 'Elegir Negocio',
     href: '',
-    highlighted: false,
+    highlighted: true,
+    badge: 'Recomendado',
   },
   growth: {
     key: 'growth',
     label: 'Growth',
-    priceCLP: 39990,
-    prices: { CLP: 39990, USD: 3999 },
-    priceLabel: '$39.990 CLP',
-    priceLabelCLP: '$39.990 CLP',
-    priceLabelUSD: '$39.99 USD',
+    priceCLP: 88990,
+    prices: { CLP: 88990, USD: 8900 },
+    priceLabel: '$88.990 CLP',
+    priceLabelCLP: '$88.990 CLP',
+    priceLabelUSD: '$89 USD',
     period: '/mes',
     description: 'Para negocios en crecimiento que necesitan más volumen, más dominios, mejor IA y automatización progresiva.',
     aiSubtitle: 'IA avanzada para escalar conversaciones',
     purchaseMode: 'checkout',
-    recommended: true,
-    limits: { assistants: 8, messagesPerMonth: 8000, domains: 10, users: null },
-    channels: { webchat: true, telegram: false, whatsapp: false },
+    limits: { assistants: 8, messagesPerMonth: 10000, domains: 10, users: null },
+    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
     features: [
-      '8.000 mensajes al mes',
+      '10.000 respuestas de IA',
       '8 asistentes IA',
       '10 dominios autorizados',
       'Web Chat escalable',
-      'IA avanzada para escalar conversaciones'
+      'IA avanzada y atención humana',
+      'Soporte prioritario'
     ],
     futureFeatures: [
+      'WhatsApp, Instagram y Facebook',
       'Canal Telegram',
       'Reportes semanales',
       'Automatizaciones'
@@ -190,8 +197,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     supportLevel: 'Soporte prioritario',
     cta: 'Comprar Growth',
     href: '',
-    highlighted: true,
-    badge: 'Recomendado',
+    highlighted: false,
   },
   business: {
     key: 'business',
@@ -206,7 +212,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     aiSubtitle: 'IA avanzada prioritaria para operaciones',
     purchaseMode: 'checkout',
     limits: { assistants: 20, messagesPerMonth: 20000, domains: 25, users: null },
-    channels: { webchat: true, telegram: false, whatsapp: false },
+    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
     features: [
       '20.000 mensajes al mes',
       '20 asistentes IA',
@@ -236,7 +242,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     aiSubtitle: 'IA personalizada / dedicada',
     purchaseMode: 'contact',
     limits: { assistants: null, messagesPerMonth: null, domains: null, users: null },
-    channels: { webchat: true, telegram: false, whatsapp: false },
+    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
     features: [
       'Asistentes ilimitados',
       'Mensajes personalizados',
@@ -254,6 +260,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     highlighted: false,
   },
 }
+
+/** Catálogo comercial visible. Las claves se conservan por compatibilidad con pagos existentes. */
+export const PUBLIC_PLAN_KEYS = ['starter', 'pro', 'growth'] as const
+export const PUBLIC_PAID_PLANS = PUBLIC_PLAN_KEYS.map((key) => PLAN_CONFIGS[key])
 
 export interface UserSubscription {
   id: string
@@ -370,7 +380,9 @@ export function getChannelLabel(channel: string): string {
   const map: Record<string, string> = {
     webchat: 'Web Chat',
     telegram: 'Telegram',
-    whatsapp: 'WhatsApp'
+    whatsapp: 'WhatsApp',
+    instagram: 'Instagram',
+    facebook: 'Facebook Messenger'
   }
   return map[channel] || channel
 }

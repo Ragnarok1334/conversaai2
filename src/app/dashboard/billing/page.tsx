@@ -6,10 +6,9 @@ import { PlanComparison } from '@/components/dashboard/PlanComparison'
 import { PaymentHistory } from '@/components/dashboard/PaymentHistory'
 import { SubscriptionManager } from '@/components/dashboard/SubscriptionManager'
 import { PlanValidityCard } from '@/components/dashboard/PlanValidityCard'
-import { PLAN_CONFIGS, normalizePlan, getPlanConfig, getPlanLimits } from '@/lib/plans'
+import { PLAN_CONFIGS, PUBLIC_PLAN_KEYS, normalizePlan, getPlanConfig, getPlanLimits } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
-import { Check, Lock, Sparkles, Receipt, CreditCard, Shield, Clock, Zap } from 'lucide-react'
-import Link from 'next/link'
+import { Check, Lock, Sparkles, CreditCard, Shield, Clock, Zap } from 'lucide-react'
 
 interface BillingPageProps {
   searchParams: Promise<{ payment?: string }>
@@ -74,7 +73,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
     assistantsPercentage,
   }
 
-  const plans = Object.values(PLAN_CONFIGS)
+  const plans = [PLAN_CONFIGS.trial, ...PUBLIC_PLAN_KEYS.map((key) => PLAN_CONFIGS[key])]
   const trialUsed = profile?.trial_used ?? false
 
   return (
@@ -146,7 +145,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
         </h2>
         <PlanUsageCard plan={planProp} usage={usageProp} />
         <p className="text-xs text-text-soft flex justify-end">
-          El uso de mensajes se reinicia el primer día de cada ciclo de facturación.
+          Solo las respuestas de IA consumen el límite; se reinicia al comenzar cada ciclo.
         </p>
       </section>
 

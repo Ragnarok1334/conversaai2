@@ -403,6 +403,7 @@ body::before {
 .light-plan-card ul { display: grid; gap: 12px; padding: 0; margin: 25px 0 28px; list-style: none; }
 .light-plan-card li { display: flex; align-items: center; gap: 8px; font-size: 14px; }
 .light-plan-card li svg { width: 17px; color: var(--light-primary); }
+.light-pricing-note { max-width: 760px; margin: 26px auto 0; padding: 14px 18px; border: 1px solid #d9ccff; border-radius: 14px; background: #f7f3ff; color: #4b3f64; text-align: center; font-size: 14px; line-height: 1.55; }
 .light-plan-button { margin-top: auto; padding: 13px; text-align: center; border: 1px solid #dcd5e6; border-radius: 999px; font-size: 14px; font-weight: 760; }
 .light-plan-button-filled { color: white !important; background: var(--light-primary); border-color: var(--light-primary); }
 .light-faq-wrap { max-width: 830px; }
