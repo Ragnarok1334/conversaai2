@@ -2,9 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { Check, Sparkles, Shield, Zap, Clock, Building2 } from 'lucide-react'
-import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { PLAN_CONFIGS } from '@/lib/plans'
+import { PLAN_CONFIGS, PUBLIC_PAID_PLANS } from '@/lib/plans'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { BorderBeam } from '@/components/magicui/border-beam'
@@ -15,8 +14,6 @@ import { BlurFade } from '@/components/magicui/blur-fade'
 export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [trialUsed, setTrialUsed] = useState(false)
-  const [startingTrial, setStartingTrial] = useState(false)
-  const [trialError, setTrialError] = useState<string | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -36,23 +33,17 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
     })
   }, [])
 
-  const corePlans = [
-    PLAN_CONFIGS.starter,
-    PLAN_CONFIGS.pro,
-    PLAN_CONFIGS.growth,
-    PLAN_CONFIGS.business
-  ]
-  const trialPlan = PLAN_CONFIGS.trial
+  const corePlans = PUBLIC_PAID_PLANS
   const enterprisePlan = PLAN_CONFIGS.enterprise
 
   const hasPaidPlan = currentPlanId && !['trial', 'free'].includes(currentPlanId)
   
   const handleStartTrial = () => {
     if (!isLoggedIn) {
-      window.location.href = '/register'
+      router.push('/register')
       return
     }
-    window.location.href = '/dashboard/billing'
+    router.push('/dashboard/billing')
   }
 
   return (
@@ -135,7 +126,7 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
         )}
 
         {/* CORE PLANS GRID */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto items-stretch mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch mb-8">
           {corePlans.map((plan, index) => {
             const isCurrentPlan = currentPlanId === plan.key;
             
@@ -221,6 +212,9 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
             )
           })}
         </div>
+        <p className="mx-auto mb-12 max-w-3xl rounded-xl border border-brand-cyan/15 bg-brand-cyan/5 px-5 py-4 text-center text-sm text-brand-cyan/90">
+          Solo las respuestas generadas por IA descuentan del límite. Los mensajes de visitantes y las respuestas humanas no consumen respuestas de IA.
+        </p>
 
         {/* ENTERPRISE BLOCK */}
         <BlurFade delay={0.8} yOffset={30} className="max-w-4xl mx-auto">
