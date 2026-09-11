@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-[#050816] text-slate-300 font-sans selection:bg-brand-violet/30 selection:text-white relative">
+    <main className="public-light-page legal-page min-h-screen bg-[#f8f8fc] text-[#494253] font-sans selection:bg-brand-violet/20 relative">
       {/* Background Glows */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-[1000px] h-[500px] bg-brand-violet/10 blur-[150px] pointer-events-none rounded-full" />
       
@@ -43,7 +43,7 @@ export default function PrivacyPage() {
         </header>
 
         {/* Content Card */}
-        <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[2rem] p-8 md:p-12 shadow-2xl prose prose-invert prose-slate max-w-none">
+        <div className="legal-card bg-white backdrop-blur-2xl border border-[#e5e1ed] rounded-[2rem] p-8 md:p-12 shadow-2xl prose prose-slate max-w-none">
           
           <p className="lead text-slate-300 text-lg mb-10">
             En ConversaAI respetamos tu privacidad y nos comprometemos a proteger la información personal de nuestros usuarios, clientes y visitantes. Esta Política de Privacidad explica qué información recopilamos, cómo la usamos, cómo la protegemos y qué derechos tienes sobre tus datos.

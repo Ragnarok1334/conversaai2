@@ -3,7 +3,7 @@ import { Footer } from "@/components/Footer"
 import { ContactForm } from "@/components/contact/ContactForm"
 import { ContactInfo } from "@/components/contact/ContactInfo"
 import { ParticlesBackground } from "@/components/ParticlesBackground"
-import { MessageCircle, Send, Mail } from "lucide-react"
+import { Send, Mail } from "lucide-react"
 import Link from "next/link"
 import { CONTACT_INFO } from "@/lib/contact"
 
@@ -14,14 +14,14 @@ export const metadata = {
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-[#050816] flex flex-col font-sans">
+    <div className="public-light-page min-h-screen bg-[#f8f8fc] flex flex-col font-sans">
       <Header />
 
-      <main className="flex-1 relative pt-32 pb-24 overflow-hidden">
-        <ParticlesBackground />
+      <main className="public-light-main flex-1 relative pt-32 pb-24 overflow-hidden">
+        <div className="opacity-20"><ParticlesBackground /></div>
         
         {/* Background Effects */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.15),transparent_32%),radial-gradient(circle_at_80%_30%,rgba(6,182,212,0.12),transparent_30%),linear-gradient(135deg,#050816_0%,#0B1026_45%,#111C44_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(124,58,237,0.09),transparent_32%),radial-gradient(circle_at_80%_30%,rgba(6,182,212,0.08),transparent_30%),linear-gradient(135deg,#ffffff_0%,#f8f7fc_48%,#f1f8fb_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:72px_72px] [mask-image:linear-gradient(to_bottom,black,transparent)]" />
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#7C3AED]/20 rounded-full blur-[120px]" />
 
