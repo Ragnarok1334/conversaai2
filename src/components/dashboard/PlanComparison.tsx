@@ -1,553 +1,91 @@
 'use client'
 
 import { useState } from 'react'
-import { Check, X, Clock, Building2 } from 'lucide-react'
+import { Bot, Check, Globe2, MessageCircle, Sparkles } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import type { PlanConfig } from '@/lib/plans'
 import { PAYMENT_PROVIDERS, type PaymentProvider } from '@/lib/payment-providers'
 import { PaymentProviderSelector } from './PaymentProviderSelector'
-import { useRouter } from 'next/navigation'
 
-interface PlanComparisonProps {
-  plans: PlanConfig[]
-  currentPlan: string
-  trialUsed: boolean
-  trialEndsAt?: string | null
-}
+interface Props { plans: PlanConfig[]; currentPlan: string; trialUsed: boolean; trialEndsAt?: string | null }
+const limit = (value: number | null) => value === null ? 'Sin límite' : value.toLocaleString('es-CL')
 
-export function PlanComparison({ plans, currentPlan, trialUsed, trialEndsAt }: PlanComparisonProps) {
+export function PlanComparison({ plans, currentPlan, trialUsed, trialEndsAt }: Props) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [startingTrial, setStartingTrial] = useState(false)
   const [showTrialModal, setShowTrialModal] = useState(false)
-  const [trialSuccess, setTrialSuccess] = useState(false)
   const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('flow')
   const router = useRouter()
+  const provider = PAYMENT_PROVIDERS[selectedProvider]
+  const paidPlans = plans.filter((plan) => ['starter', 'pro', 'growth'].includes(plan.key))
+  const hasPaidPlan = !['trial', 'free'].includes(currentPlan)
 
-  const providerConfig = PAYMENT_PROVIDERS[selectedProvider]
-
-  const handleCheckout = async (planKey: string) => {
-    // Guard: don't call unavailable providers
-    if (!providerConfig.available) {
-      setError(`${providerConfig.label} estará disponible próximamente.`)
-      return
-    }
-
-    setLoadingPlan(planKey)
-    setError(null)
+  const checkout = async (planKey: string) => {
+    if (!provider.available) return setError(`${provider.label} estará disponible próximamente.`)
+    setLoadingPlan(planKey); setError(null)
     try {
-      const res = await fetch(providerConfig.checkoutEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: planKey, provider: selectedProvider })
-      })
-
-      const contentType = res.headers.get("content-type") || ""
-      if (!contentType.includes("application/json")) {
-        throw new Error("El servidor devolvió una respuesta inválida (No es JSON).")
-      }
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        let finalError = data.error || 'No se pudo iniciar el pago. Intenta nuevamente.'
-        if (data.details) finalError = `${finalError} ${data.details}`
-        throw new Error(finalError)
-      }
-
-      if (data.url) {
-        window.location.assign(data.url)
-      }
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
-      setLoadingPlan(null)
+      const response = await fetch(provider.checkoutEndpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: planKey, provider: selectedProvider }) })
+      if (!(response.headers.get('content-type') || '').includes('application/json')) throw new Error('El servidor devolvió una respuesta inválida.')
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'No se pudo iniciar el pago.')
+      if (data.url) window.location.assign(data.url)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo iniciar el pago.'); setLoadingPlan(null)
     }
   }
 
-  const handleStartTrialClick = () => {
-    setShowTrialModal(true)
-  }
-
-  const executeTrialStart = async () => {
-    setStartingTrial(true)
-    setError(null)
+  const startTrial = async () => {
+    setStartingTrial(true); setError(null)
     try {
-      const res = await fetch('/api/billing/trial/start', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Error al iniciar prueba')
-      
-      setShowTrialModal(false)
-      setTrialSuccess(true)
-      setTimeout(() => {
-        router.refresh()
-      }, 2500)
-    } catch (err: any) {
-      setError(err.message)
-      setStartingTrial(false)
+      const response = await fetch('/api/billing/trial/start', { method: 'POST' })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'No se pudo iniciar la prueba.')
+      setShowTrialModal(false); router.refresh()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo iniciar la prueba.'); setStartingTrial(false)
     }
   }
 
-  const corePlans = plans.filter(p => ['starter', 'pro', 'growth', 'business'].includes(p.key))
-  const trialPlan = plans.find(p => p.key === 'trial')!
-  const enterprisePlan = plans.find(p => p.key === 'enterprise')!
+  return <div className="space-y-8 pt-4">
+    {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">{error}</div>}
 
-  const hasPaidPlan = currentPlan !== 'trial' && currentPlan !== 'free'
-
-  return (
-    <div className="space-y-12 pt-4">
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* MODAL TRIAL */}
-      {showTrialModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-          <div className="bg-card-bg border border-card-border p-6 md:p-8 rounded-3xl max-w-md w-full shadow-2xl relative">
-            <h3 className="text-2xl font-bold text-white mb-2">Activar prueba gratis</h3>
-            <p className="text-[#94A3B8] text-sm mb-6">
-              Tu prueba gratuita comenzará ahora. Tendrás 7 días para probar ConversaAI. Los días empezarán a contar desde este momento.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 justify-end">
-              <button 
-                onClick={() => setShowTrialModal(false)}
-                disabled={startingTrial}
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all bg-white/5 border border-white/10 text-white hover:bg-white/10"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={executeTrialStart}
-                disabled={startingTrial}
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold transition-all bg-brand-cyan/20 border border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/30"
-              >
-                {startingTrial ? 'Activando...' : 'Activar prueba'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TRIAL BLOCK */}
-      {!hasPaidPlan && (
-        <div className="relative rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden backdrop-blur-2xl bg-white/[0.03] border border-brand-cyan/20 shadow-[0_0_40px_rgba(6,182,212,0.06)]">
-          <div className="absolute inset-0 bg-gradient-to-br from-[#06B6D4]/5 to-transparent opacity-60 pointer-events-none" />
-          <div className="relative z-10 flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-2xl font-bold text-white">
-                {currentPlan === 'trial' ? 'Prueba activa' : trialUsed ? 'Prueba finalizada' : 'Prueba ConversaAI cuando estés listo'}
-              </h3>
-              {currentPlan === 'trial' && (
-                <span className="bg-brand-cyan/20 text-brand-cyan text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-full">7 días</span>
-              )}
-            </div>
-            <p className="text-[#94A3B8] text-sm max-w-lg mb-2">
-              {currentPlan === 'trial' 
-                ? `Disfruta de ConversaAI. Tu prueba termina el ${trialEndsAt ? new Date(trialEndsAt).toLocaleDateString('es-CL') : 'pronto'}. No olvides elegir un plan antes de que termine.` 
-                : trialUsed 
-                  ? 'Tu prueba ha finalizado. Elige un plan pagado para continuar usando ConversaAI.' 
-                  : 'Activa tu prueba gratuita solo cuando quieras comenzar a probar asistentes, Web Chat y captura de leads. No empezaremos a contar los días hasta que la actives.'}
-            </p>
-            <p className="text-xs text-brand-cyan/80 font-medium">
-              La prueba gratuita dura 7 días exactos y solo puede activarse una vez.
-            </p>
-          </div>
-          <div className="relative z-10 shrink-0 w-full md:w-auto">
-            {trialSuccess ? (
-              <span className="inline-block px-8 py-3 rounded-xl text-sm font-semibold bg-brand-success/20 border border-brand-success/30 text-brand-success">
-                Prueba activada correctamente
-              </span>
-            ) : currentPlan === 'trial' ? (
-              <button disabled className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold bg-white/5 border border-white/10 text-white/50 cursor-not-allowed">
-                Plan activo
-              </button>
-            ) : trialUsed ? (
-              <button disabled className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold bg-white/5 border border-white/10 text-white/50 cursor-not-allowed">
-                Elegir plan
-              </button>
-            ) : (
-              <button 
-                onClick={handleStartTrialClick}
-                disabled={startingTrial}
-                className="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-semibold transition-all duration-300 text-center bg-brand-cyan/10 border border-brand-cyan/30 text-brand-cyan hover:bg-brand-cyan/20 hover:scale-[1.02]"
-              >
-                {startingTrial ? 'Activando...' : 'Activar prueba gratis'}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* PAYMENT PROVIDER SELECTOR */}
-      <PaymentProviderSelector
-        selected={selectedProvider}
-        onChange={(p) => { setSelectedProvider(p); setError(null) }}
-      />
-
-      {/* CORE PLANS */}
-      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {corePlans.map((plan) => {
-          const isCurrent = currentPlan === plan.key
-          const isLoading = loadingPlan === plan.key
-
-          return (
-            <div 
-              key={plan.key}
-              className={`relative rounded-[2rem] p-6 flex flex-col transition-all overflow-hidden ${
-                plan.highlighted 
-                  ? 'border border-[#7C3AED]/50 bg-white/[0.04] shadow-[0_0_30px_rgba(124,58,237,0.15)]' 
-                  : 'bg-card-bg border border-card-border hover:border-white/20'
-              }`}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-[#7C3AED]/5 via-transparent to-[#06B6D4]/5 opacity-60 pointer-events-none" />
-              {plan.badge && (
-                <div className="absolute -top-0 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-b-lg shadow-md">
-                  {plan.badge}
-                </div>
-              )}
-              {isCurrent && !plan.badge && (
-                <div className="absolute -top-0 left-1/2 -translate-x-1/2 bg-white/10 border border-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-b-lg shadow-md">
-                  Plan actual
-                </div>
-              )}
-              
-              <div className="relative z-10 flex-1 flex flex-col">
-                <h3 className="text-xl font-bold mb-2 mt-4">{plan.label}</h3>
-                <div className="mb-2 flex items-baseline gap-1">
-                  <span className={`font-bold ${plan.priceLabelCLP.length > 8 ? 'text-2xl' : 'text-3xl'}`}>
-                    {selectedProvider === 'flow' ? plan.priceLabelCLP : plan.priceLabelUSD}
-                  </span>
-                  <span className="text-text-soft text-sm">{plan.period}</span>
-                </div>
-                {selectedProvider !== 'flow' && (
-                  <p className="text-[11px] text-text-soft mb-4">
-                    Equiv. aprox. {plan.priceLabelCLP} con Flow Chile
-                  </p>
-                )}
-                
-                <p className="text-sm font-semibold text-brand-cyan mb-2">
-                  {plan.aiSubtitle}
-                </p>
-                
-                <p className="text-xs text-[#94A3B8] mb-4 min-h-[48px]">
-                  {plan.description}
-                </p>
-                
-                <ul className="space-y-3 flex-1 mb-6">
-                  {plan.features.map((f, i) => (
-                    <li key={i} className="flex items-start gap-2 text-sm text-text-secondary">
-                      <Check className="w-4 h-4 text-brand-success shrink-0 mt-0.5" />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                {plan.futureFeatures && plan.futureFeatures.length > 0 && (
-                  <div className="mb-6 pt-4 border-t border-white/5 flex flex-wrap gap-2">
-                    {plan.futureFeatures.map((feature, fIndex) => (
-                      <span key={fIndex} className="bg-white/5 border border-white/10 text-brand-violet/80 text-[10px] uppercase font-bold tracking-wider py-1 px-2 rounded-md">
-                        {feature} <span className="opacity-60 ml-1">(Próximamente)</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-
-                {isCurrent ? (
-                  <button disabled className="w-full py-3 mt-auto rounded-xl text-sm font-semibold border border-white/10 bg-white/[0.02] text-text-soft opacity-60 cursor-not-allowed">
-                    Plan activo
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => handleCheckout(plan.key)}
-                    disabled={!!loadingPlan}
-                    className={`w-full py-3 mt-auto rounded-xl text-sm font-semibold transition-all duration-300 text-center inline-flex items-center justify-center gap-2 ${
-                      plan.highlighted
-                        ? 'bg-gradient-to-r from-[#7C3AED] via-[#2563EB] to-[#06B6D4] text-white hover:opacity-90 disabled:opacity-70'
-                        : 'bg-white/[0.06] border border-white/10 text-white hover:bg-white/10 disabled:opacity-50'
-                    }`}
-                  >
-                    {isLoading ? 'Conectando...' : plan.cta}
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        })}
+    {!hasPaidPlan && <section className="rounded-3xl border border-brand-cyan/20 bg-card-bg/80 p-6 md:p-8">
+      <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
+        <div><div className="mb-2 flex items-center gap-3"><h2 className="text-xl font-bold">{currentPlan === 'trial' ? 'Tu prueba está activa' : trialUsed ? 'Tu prueba terminó' : 'Prueba ConversaAI gratis'}</h2><span className="rounded-full bg-brand-cyan/10 px-3 py-1 text-xs font-bold text-brand-cyan">7 días</span></div>
+          <p className="max-w-2xl text-sm text-text-soft">{currentPlan === 'trial' ? `Incluye 1 asistente, Web Chat y 100 respuestas de IA${trialEndsAt ? ` hasta el ${new Date(trialEndsAt).toLocaleDateString('es-CL')}` : ''}.` : trialUsed ? 'Elige uno de los tres planes para seguir atendiendo.' : 'Incluye 1 asistente, Web Chat y 100 respuestas de IA. No solicita tarjeta.'}</p></div>
+        {!trialUsed && currentPlan !== 'trial' && <button onClick={() => setShowTrialModal(true)} className="cursor-pointer rounded-xl border border-brand-cyan/30 bg-brand-cyan/10 px-6 py-3 text-sm font-semibold text-brand-cyan hover:bg-brand-cyan/20">Activar prueba</button>}
       </div>
+    </section>}
 
-      {/* ENTERPRISE BLOCK */}
-      <div className="relative rounded-[2rem] p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden backdrop-blur-2xl bg-gradient-to-r from-brand-violet/5 via-brand-cyan/5 to-transparent border border-white/10 shadow-[0_0_40px_rgba(124,58,237,0.06)]">
-        <div className="relative z-10 flex-1">
-          <div className="flex items-center gap-3 mb-4">
-            <Building2 className="w-8 h-8 text-brand-violet" />
-            <h3 className="text-3xl font-bold text-white">{enterprisePlan.label}</h3>
+    <div className="rounded-2xl border border-card-border bg-card-bg/70 p-4"><p className="mb-3 text-sm font-semibold">¿Cómo quieres pagar?</p><PaymentProviderSelector selected={selectedProvider} onChange={(value) => { setSelectedProvider(value); setError(null) }} /></div>
+
+    <section><div className="mb-5"><h2 className="text-2xl font-bold">Elige un plan</h2><p className="mt-1 text-sm text-text-soft">Tres opciones claras. Puedes cambiar cuando tu negocio lo necesite.</p></div>
+      <div className="grid gap-5 lg:grid-cols-3">{paidPlans.map((plan) => {
+        const isCurrent = currentPlan === plan.key
+        const price = selectedProvider === 'flow' ? plan.priceLabelCLP : plan.priceLabelUSD
+        return <article id={`plan-${plan.key}`} key={plan.key} className={`relative flex flex-col rounded-3xl border p-6 ${plan.recommended ? 'border-brand-violet bg-brand-violet/[0.06] shadow-[0_14px_50px_rgba(124,58,237,0.13)]' : 'border-card-border bg-card-bg/80'}`}>
+          {plan.recommended && <span className="absolute right-5 top-5 rounded-full bg-brand-violet px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-white">Recomendado</span>}
+          <h3 className="text-xl font-bold">{plan.label}</h3><p className="mt-2 min-h-16 text-sm leading-6 text-text-soft">{plan.description}</p>
+          <div className="my-5"><strong className="text-3xl">{price}</strong><span className="text-sm text-text-soft"> / mes</span></div>
+          <div className="mb-5 grid grid-cols-3 gap-2">
+            <Metric icon={<Bot />} value={limit(plan.limits.assistants)} label="asistentes" />
+            <Metric icon={<MessageCircle />} value={limit(plan.limits.messagesPerMonth)} label="respuestas IA" />
+            <Metric icon={<Globe2 />} value={limit(plan.limits.domains)} label="dominios" />
           </div>
-          <p className="text-[#94A3B8] text-base mb-6 max-w-lg">
-            {enterprisePlan.description}
-          </p>
-        </div>
-        <div className="relative z-10 shrink-0 w-full md:w-auto text-center md:text-right">
-          <div className="text-[#94A3B8] text-sm mb-2">A partir de</div>
-          <div className="text-3xl font-bold text-white mb-6">{enterprisePlan.priceLabel}</div>
-          <a
-            href={enterprisePlan.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full md:w-auto inline-block px-8 py-3.5 rounded-xl text-sm font-bold transition-all duration-300 text-center bg-white text-black hover:bg-white/90 hover:scale-[1.02]"
-          >
-            {enterprisePlan.cta}
-          </a>
-        </div>
-      </div>
+          <ul className="mb-6 flex-1 space-y-3">{plan.features.slice(3).map((feature) => <li key={feature} className="flex gap-2 text-sm text-text-secondary"><Check className="mt-0.5 h-4 w-4 shrink-0 text-brand-success"/>{feature}</li>)}</ul>
+          {plan.futureFeatures.length > 0 && <div className="mb-5 rounded-xl border border-brand-cyan/15 bg-brand-cyan/5 p-3 text-xs text-text-soft"><Sparkles className="mr-1 inline h-3.5 w-3.5 text-brand-cyan"/><strong>Próximamente:</strong> {plan.futureFeatures.join(', ')}.</div>}
+          <button onClick={() => checkout(plan.key)} disabled={isCurrent || Boolean(loadingPlan)} className={`w-full rounded-xl py-3 text-sm font-bold transition ${isCurrent ? 'cursor-not-allowed border border-card-border text-text-soft' : plan.recommended ? 'cursor-pointer bg-gradient-to-r from-brand-violet to-brand-cyan text-white hover:opacity-90' : 'cursor-pointer border border-card-border hover:bg-card-bg'}`}>{isCurrent ? 'Plan actual' : loadingPlan === plan.key ? 'Conectando…' : plan.cta}</button>
+        </article>
+      })}</div>
+    </section>
 
-      {/* COPY COMERCIAL */}
-      <div className="pt-16 pb-8 text-center max-w-3xl mx-auto">
-        <h3 className="text-3xl font-bold mb-4 text-white">Compara qué desbloquea cada plan</h3>
-        <p className="text-slate-400 text-lg">
-          Los planes superiores no solo aumentan límites: agregan más control, más asistentes, más dominios y herramientas para convertir conversaciones en clientes.
-        </p>
-        
-        <div className="mt-6 bg-white/[0.03] border border-white/10 rounded-xl p-4 inline-block text-left max-w-2xl">
-          <p className="text-sm text-brand-cyan/90 font-medium mb-2">
-            Los planes pagados tienen una vigencia de 30 días. Después del vencimiento, cuentas con 2 días de gracia para renovar antes de perder acceso a funciones premium.
-          </p>
-          <p className="text-sm text-slate-400">
-            Planes mensuales. Puedes cancelar cuando quieras. La cancelación no genera devolución del periodo ya pagado y el acceso se mantiene hasta el final del ciclo vigente.
-          </p>
-        </div>
-      </div>
+    <div className="rounded-2xl border border-brand-cyan/15 bg-brand-cyan/5 p-5 text-sm text-text-secondary"><strong>Uso transparente:</strong> solo cuentan las respuestas generadas por IA. Los mensajes del visitante y las respuestas de una persona desde el panel no consumen el límite.</div>
 
-      {/* DETAILED COMPARISON TABLE */}
-      <div className="overflow-x-auto pb-6">
-        <table className="w-full text-left border-collapse min-w-[1000px]">
-          <thead>
-            <tr className="border-b border-white/10">
-              <th className="py-6 px-4 text-slate-400 font-medium w-[22%] align-bottom">Característica</th>
-              <th className="py-6 px-4 w-[15.6%] align-bottom">
-                <div className="font-bold text-lg text-white mb-1">Trial</div>
-                <div className="text-xs text-slate-500 font-medium mb-3">Para probar</div>
-                <div className="text-[10px] text-slate-600 leading-tight border-t border-white/5 pt-2">&nbsp;</div>
-              </th>
-              <th className="py-6 px-4 w-[15.6%] align-bottom">
-                <div className="font-bold text-lg text-white mb-1">Starter</div>
-                <div className="text-xs text-slate-400 font-medium mb-3">Para negocios pequeños</div>
-                <div className="text-[10px] text-slate-500 leading-tight border-t border-white/5 pt-2">Empieza con atención básica</div>
-              </th>
-              <th className="py-6 px-4 w-[15.6%] align-bottom">
-                <div className="font-bold text-lg text-white mb-1">Pro</div>
-                <div className="text-xs text-brand-violet font-medium mb-3">Para vender más</div>
-                <div className="text-[10px] text-slate-400 leading-tight border-t border-white/5 pt-2">Agrega más asistentes, CRM y exportación</div>
-              </th>
-              <th className="py-6 px-4 w-[15.6%] align-bottom relative">
-                <div className="absolute inset-0 bg-brand-cyan/5 rounded-t-2xl border-t border-x border-brand-cyan/20 -z-10" />
-                <div className="font-bold text-lg text-brand-cyan mb-1 flex items-center gap-2">Growth <span className="text-[9px] bg-brand-cyan/20 px-2 py-0.5 rounded-full uppercase tracking-wider text-brand-cyan">Recomendado</span></div>
-                <div className="text-xs text-brand-cyan/80 font-medium mb-3">Escala atención</div>
-                <div className="text-[10px] text-brand-cyan/60 leading-tight border-t border-brand-cyan/10 pt-2">Escala conversaciones, dominios y automatizaciones</div>
-              </th>
-              <th className="py-6 px-4 w-[15.6%] align-bottom">
-                <div className="font-bold text-lg text-amber-500 mb-1">Business</div>
-                <div className="text-xs text-amber-500/80 font-medium mb-3">Para operación seria</div>
-                <div className="text-[10px] text-amber-500/60 leading-tight border-t border-amber-500/10 pt-2">Control avanzado para operaciones más grandes</div>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="text-sm">
-            {/* A. Capacidad */}
-            <tr className="bg-white/[0.02]">
-              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white">A. Capacidad</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Mensajes al mes</td>
-              <td className="py-4 px-4 font-semibold">100</td>
-              <td className="py-4 px-4 font-semibold text-white">500</td>
-              <td className="py-4 px-4 font-semibold text-white">2.500</td>
-              <td className="py-4 px-4 font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">8.000</td>
-              <td className="py-4 px-4 font-bold text-amber-500">20.000</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Asistentes IA</td>
-              <td className="py-4 px-4">1</td>
-              <td className="py-4 px-4">1</td>
-              <td className="py-4 px-4 font-medium text-white">3</td>
-              <td className="py-4 px-4 font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">8</td>
-              <td className="py-4 px-4 font-bold text-amber-500">20</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Dominios permitidos</td>
-              <td className="py-4 px-4">1</td>
-              <td className="py-4 px-4">1</td>
-              <td className="py-4 px-4 font-medium text-white">3</td>
-              <td className="py-4 px-4 font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">10</td>
-              <td className="py-4 px-4 font-bold text-amber-500">25</td>
-            </tr>
+    {showTrialModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-3xl border border-card-border bg-page-bg p-7 shadow-2xl"><h3 className="text-xl font-bold">Activar prueba gratis</h3><p className="my-4 text-sm leading-6 text-text-soft">Los 7 días comienzan ahora. Tendrás 1 asistente, Web Chat y 100 respuestas de IA.</p><div className="flex justify-end gap-3"><button onClick={() => setShowTrialModal(false)} disabled={startingTrial} className="cursor-pointer rounded-xl border border-card-border px-5 py-2.5 text-sm">Cancelar</button><button onClick={startTrial} disabled={startingTrial} className="cursor-pointer rounded-xl bg-brand-violet px-5 py-2.5 text-sm font-bold text-white">{startingTrial ? 'Activando…' : 'Activar prueba'}</button></div></div></div>}
+  </div>
+}
 
-            {/* B. Captación y atención */}
-            <tr className="bg-white/[0.02]">
-              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white mt-4 border-t border-transparent">B. Captación y atención</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Canal Web Chat</td>
-              <td className="py-4 px-4 text-xs">Demo básica</td>
-              <td className="py-4 px-4 text-xs text-white">Básico</td>
-              <td className="py-4 px-4 text-xs font-medium text-white">Web Chat + leads</td>
-              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Web Chat escalable</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Web Chat avanzado</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Mini CRM e Inbox</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-xs text-white">Básico</td>
-              <td className="py-4 px-4 text-xs font-medium text-white">Completo</td>
-              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Avanzado</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzado + operación</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Exportar Leads CSV</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-brand-violet bg-brand-violet/10 px-2 py-1 rounded">Incluido</span></td>
-              <td className="py-4 px-4 bg-brand-cyan/[0.02] border-x border-brand-cyan/10"><span className="text-[10px] uppercase font-bold text-brand-cyan bg-brand-cyan/10 px-2 py-1 rounded">Incluido</span></td>
-              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Incluido</span></td>
-            </tr>
-
-            {/* C. Inteligencia IA */}
-            <tr className="bg-white/[0.02]">
-              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white mt-4 border-t border-transparent">C. Inteligencia IA</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Calidad de IA</td>
-              <td className="py-4 px-4 text-xs">Básica</td>
-              <td className="py-4 px-4 text-xs text-white">Estándar</td>
-              <td className="py-4 px-4 text-xs font-medium text-white">Mejorada</td>
-              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Avanzada</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzada prioritaria</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Contexto del asistente</td>
-              <td className="py-4 px-4 text-xs">Limitado</td>
-              <td className="py-4 px-4 text-xs text-white">Básico</td>
-              <td className="py-4 px-4 text-xs font-medium text-white">Ampliado</td>
-              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Alto</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Máximo</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Mejora de entrenamiento con IA</td>
-              <td className="py-4 px-4 text-xs text-slate-500">Limitada</td>
-              <td className="py-4 px-4 text-xs text-white">Básica</td>
-              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-brand-violet bg-brand-violet/10 px-2 py-1 rounded">Incluida</span></td>
-              <td className="py-4 px-4 bg-brand-cyan/[0.02] border-x border-brand-cyan/10"><span className="text-[10px] uppercase font-bold text-brand-cyan bg-brand-cyan/10 px-2 py-1 rounded">Avanzada</span></td>
-              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Avanzada + prioridad</span></td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Análisis de conversaciones</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-xs text-slate-400">Básico (Próx)</td>
-              <td className="py-4 px-4 text-xs font-semibold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Avanzado (Próx)</td>
-              <td className="py-4 px-4 text-xs font-semibold text-amber-500">Avanzado (Próx)</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Optimización para ventas/leads</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-xs text-white">Básica</td>
-              <td className="py-4 px-4 text-xs font-medium text-white">Mejorada</td>
-              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Avanzada</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzada</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Prioridad de respuesta IA</td>
-              <td className="py-4 px-4 text-xs">Normal</td>
-              <td className="py-4 px-4 text-xs">Normal</td>
-              <td className="py-4 px-4 text-xs font-medium text-white">Mejorada</td>
-              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Alta</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Máxima</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Escalamiento inteligente de modelo</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-xs text-white">Parcial</td>
-              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-brand-cyan bg-brand-cyan/10 px-2 py-1 rounded">Incluido</span></td>
-              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Incluido</span></td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Plantillas por industria</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-brand-violet bg-brand-violet/10 px-2 py-1 rounded">Incluido</span></td>
-              <td className="py-4 px-4 bg-brand-cyan/[0.02] border-x border-brand-cyan/10"><span className="text-[10px] uppercase font-bold text-brand-cyan bg-brand-cyan/10 px-2 py-1 rounded">Incluido</span></td>
-              <td className="py-4 px-4"><span className="text-[10px] uppercase font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded">Incluido</span></td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Automatizaciones / Reglas</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-xs text-brand-cyan/70 font-medium bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Próximamente</td>
-              <td className="py-4 px-4 text-xs text-amber-500/70 font-medium">Próximamente</td>
-            </tr>
-
-            {/* D. Canales */}
-            <tr className="bg-white/[0.02]">
-              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white mt-4 border-t border-transparent">D. Canales</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Telegram</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-xs text-slate-500">Próximamente</td>
-              <td className="py-4 px-4 text-xs text-slate-400">Próximamente</td>
-              <td className="py-4 px-4 text-xs font-semibold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Próx. prioritario</td>
-              <td className="py-4 px-4 text-xs font-semibold text-amber-500">Próx. prioritario</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">WhatsApp</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-xs text-slate-400">Próximamente</td>
-              <td className="py-4 px-4 text-xs font-semibold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Próx. prioritario</td>
-              <td className="py-4 px-4 text-xs font-semibold text-amber-500">Próx. prioritario</td>
-            </tr>
-
-            {/* E. Gestión y soporte */}
-            <tr className="bg-white/[0.02]">
-              <td colSpan={6} className="py-3 px-4 text-xs font-bold uppercase tracking-wider text-white mt-4 border-t border-transparent">E. Gestión y soporte</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Diagnóstico de cuenta</td>
-              <td className="py-4 px-4 text-xs">Básico</td>
-              <td className="py-4 px-4 text-xs text-white">Básico</td>
-              <td className="py-4 px-4 text-xs font-medium text-white">Completo</td>
-              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Completo</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzado</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Soporte</td>
-              <td className="py-4 px-4 text-xs">Autoayuda</td>
-              <td className="py-4 px-4 text-xs text-white">Estándar</td>
-              <td className="py-4 px-4 text-xs font-medium text-white">Estándar</td>
-              <td className="py-4 px-4 text-xs font-bold text-brand-cyan bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Prioritario</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Prioritario</td>
-            </tr>
-            <tr className="border-b border-white/5">
-              <td className="py-4 px-4 text-slate-400">Seguridad / Auditoría</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-slate-600">—</td>
-              <td className="py-4 px-4 text-xs text-white">Básico</td>
-              <td className="py-4 px-4 text-xs font-medium text-white bg-brand-cyan/[0.02] border-x border-brand-cyan/10">Básico</td>
-              <td className="py-4 px-4 text-xs font-bold text-amber-500">Avanzado</td>
-            </tr>
-            <tr>
-              <td className="py-2"></td>
-              <td className="py-2"></td>
-              <td className="py-2"></td>
-              <td className="py-2"></td>
-              <td className="py-2 bg-brand-cyan/[0.02] border-x border-b border-brand-cyan/10 rounded-b-2xl"></td>
-              <td className="py-2"></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-    </div>
-  )
+function Metric({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {
+  return <div className="min-w-0 rounded-xl bg-page-bg/60 p-3"><span className="mb-2 block h-4 w-4 text-brand-cyan [&>svg]:h-4 [&>svg]:w-4">{icon}</span><strong className="block truncate text-sm">{value}</strong><span className="text-[10px] text-text-soft">{label}</span></div>
 }
