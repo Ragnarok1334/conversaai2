@@ -14,6 +14,7 @@ import { BlurFade } from '@/components/magicui/blur-fade'
 export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [trialUsed, setTrialUsed] = useState(false)
+  const [trialEligible, setTrialEligible] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
@@ -21,6 +22,8 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
     supabase.auth.getSession().then(async ({ data }) => {
       if (data.session) {
         setIsLoggedIn(true)
+        const createdAt = Date.parse(data.session.user.created_at)
+        setTrialEligible(Number.isFinite(createdAt) && Date.now() - createdAt <= 7 * 24 * 60 * 60 * 1000)
         const { data: profile } = await supabase
           .from('profiles')
           .select('trial_used')
@@ -88,17 +91,17 @@ export function Pricing({ currentPlanId }: { currentPlanId?: string }) {
         </BlurFade>
 
         {/* TRIAL BLOCK */}
-        {!hasPaidPlan && (
+        {!hasPaidPlan && trialEligible && (
           <BlurFade delay={0.3} yOffset={30} className="max-w-4xl mx-auto mb-12">
             <div className="relative rounded-2xl p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden backdrop-blur-2xl bg-white/[0.03] border border-brand-cyan/20 shadow-[0_0_40px_rgba(6,182,212,0.06)]">
               <div className="absolute inset-0 bg-gradient-to-br from-[#06B6D4]/5 to-transparent opacity-60 pointer-events-none" />
               <div className="relative z-10 flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <h3 className="text-2xl font-bold text-white">Prueba Gratis</h3>
+                  <h3 className="text-2xl font-bold text-white">Prueba de 7 días</h3>
                   <span className="bg-brand-cyan/20 text-brand-cyan text-xs font-bold uppercase tracking-wider py-1 px-3 rounded-full">7 días</span>
                 </div>
                 <p className="text-[#94A3B8] text-sm max-w-lg">
-                  Crea tu primer asistente y prueba el poder de ConversaAI sin ingresar tarjeta de crédito.
+                  Disponible para cuentas nuevas: 1 asistente, Web Chat y 50 respuestas generadas por IA.
                 </p>
               </div>
               <div className="relative z-10 shrink-0 w-full md:w-auto">

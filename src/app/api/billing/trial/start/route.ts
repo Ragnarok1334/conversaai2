@@ -3,13 +3,20 @@ import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
 import { getPlanConfig } from '@/lib/plans';
 
-export async function POST(req: Request) {
+const NEW_ACCOUNT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+export async function POST() {
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Debes iniciar sesión para activar la prueba gratis.' }, { status: 401 });
+      return NextResponse.json({ error: 'Debes iniciar sesión para activar la prueba.' }, { status: 401 });
+    }
+
+    const accountCreatedAt = Date.parse(user.created_at);
+    if (!Number.isFinite(accountCreatedAt) || Date.now() - accountCreatedAt > NEW_ACCOUNT_WINDOW_MS) {
+      return NextResponse.json({ error: 'La prueba de 7 días está disponible durante los primeros 7 días desde el registro.' }, { status: 403 });
     }
 
     const supabaseAdmin = createSupabaseAdmin();
@@ -26,7 +33,7 @@ export async function POST(req: Request) {
     }
 
     if (profile.trial_used) {
-      return NextResponse.json({ error: 'La prueba gratis ya ha sido utilizada.' }, { status: 400 });
+      return NextResponse.json({ error: 'La prueba ya ha sido utilizada.' }, { status: 400 });
     }
 
     // 2. Fetch current subscription
@@ -37,7 +44,7 @@ export async function POST(req: Request) {
       .single();
 
     if (subscription && subscription.status === 'active' && subscription.plan !== 'trial' && subscription.plan !== 'free') {
-      return NextResponse.json({ error: 'Ya tienes un plan activo. La prueba gratis solo está disponible para nuevos usuarios sin plan.' }, { status: 400 });
+      return NextResponse.json({ error: 'Ya tienes un plan activo. La prueba solo está disponible para cuentas nuevas sin plan.' }, { status: 400 });
     }
 
     const trialConfig = getPlanConfig('trial');
@@ -89,10 +96,10 @@ export async function POST(req: Request) {
       if (subInsertError) throw subInsertError;
     }
 
-    return NextResponse.json({ success: true, message: 'Prueba gratis activada correctamente.' });
+    return NextResponse.json({ success: true, message: 'Prueba de 7 días activada correctamente.' });
 
   } catch (error: unknown) {
     console.error('Trial Start Error:', error);
-    return NextResponse.json({ error: 'Ocurrió un error al activar la prueba gratis.' }, { status: 500 });
+    return NextResponse.json({ error: 'Ocurrió un error al activar la prueba.' }, { status: 500 });
   }
 }

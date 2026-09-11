@@ -73,7 +73,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     features: [
       'Panel de cuenta',
       'Acceso a facturación',
-      'Prueba gratis disponible'
+      'Prueba de 7 días disponible'
     ],
     futureFeatures: [],
     supportLevel: 'Sin soporte',
@@ -83,7 +83,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
   },
   trial: {
     key: 'trial',
-    label: 'Prueba Gratis',
+    label: 'Prueba de 7 días',
     priceCLP: 0,
     prices: { CLP: 0, USD: 0 },
     priceLabel: '$0',
@@ -93,10 +93,10 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     description: 'Ideal para conocer ConversaAI y probar un flujo básico antes de contratar.',
     aiSubtitle: 'IA básica para probar',
     purchaseMode: 'trial',
-    limits: { assistants: 1, messagesPerMonth: 100, domains: 1, users: 1 },
+    limits: { assistants: 1, messagesPerMonth: 50, domains: 1, users: 1 },
     channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
     features: [
-      '100 respuestas de IA',
+      '50 respuestas de IA durante la prueba',
       '1 asistente IA',
       '1 dominio autorizado',
       'Web Chat completo',

@@ -75,6 +75,10 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
 
   const plans = [PLAN_CONFIGS.trial, ...PUBLIC_PLAN_KEYS.map((key) => PLAN_CONFIGS[key])]
   const trialUsed = profile?.trial_used ?? false
+  const accountCreatedAt = Date.parse(user.created_at)
+  // Server-rendered eligibility is intentionally evaluated at request time.
+  // eslint-disable-next-line react-hooks/purity
+  const trialEligible = !trialUsed && Number.isFinite(accountCreatedAt) && Date.now() - accountCreatedAt <= 7 * 24 * 60 * 60 * 1000
 
   return (
     <div className="max-w-6xl mx-auto space-y-10">
@@ -180,7 +184,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
       />
 
       {/* Plan Comparison */}
-      <PlanComparison plans={plans} currentPlan={currentPlan} trialUsed={trialUsed} trialEndsAt={profile?.trial_ends_at} />
+      <PlanComparison plans={plans} currentPlan={currentPlan} trialUsed={trialUsed} trialEligible={trialEligible} trialEndsAt={profile?.trial_ends_at} />
 
     </div>
   )

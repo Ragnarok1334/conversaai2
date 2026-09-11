@@ -69,7 +69,7 @@ export function LightLanding() {
               {isLoggedIn ? "Ir al panel" : "Iniciar sesión"}
             </Link>
             <Link href={primaryHref} className="light-button light-button-small">
-              {isLoggedIn ? "Mis asistentes" : "Comenzar gratis"}
+              {isLoggedIn ? "Mis asistentes" : "Crear cuenta"}
             </Link>
           </div>
           <button className="light-menu-button" type="button" aria-label="Abrir menú" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
@@ -82,7 +82,7 @@ export function LightLanding() {
             <a href="#como-funciona" onClick={() => setMenuOpen(false)}>Cómo funciona</a>
             <a href="#precios" onClick={() => setMenuOpen(false)}>Precios</a>
             <a href="#preguntas" onClick={() => setMenuOpen(false)}>Preguntas</a>
-            <Link href={primaryHref}>{isLoggedIn ? "Ir al panel" : "Comenzar gratis"}</Link>
+            <Link href={primaryHref}>{isLoggedIn ? "Ir al panel" : "Crear cuenta"}</Link>
           </nav>
         )}
       </header>
@@ -100,9 +100,9 @@ export function LightLanding() {
               <a href="#como-funciona" className="light-button light-button-secondary">Ver cómo funciona</a>
             </div>
             <div className="light-trust-row">
-              <span><Check /> Prueba gratis por 7 días</span>
-              <span><Check /> Sin tarjeta</span>
-              <span><Check /> Configuración guiada</span>
+              <span><Check /> Prueba de 7 días para cuentas nuevas</span>
+              <span><Check /> 50 respuestas de IA</span>
+              <span><Check /> Cancela cuando quieras</span>
             </div>
           </div>
 
@@ -215,8 +215,8 @@ export function LightLanding() {
           <div className="light-cta-card">
             <div className="light-cta-logo"><Image src="/logo.png" alt="" width={58} height={58} /></div>
             <h2>Empieza a convertir mensajes en oportunidades.</h2>
-            <p>Crea tu primer asistente y prueba ConversaAI durante 7 días.</p>
-            <Link href={primaryHref} className="light-button light-button-white">Comenzar gratis <ArrowRight /></Link>
+            <p>Las cuentas nuevas pueden activar 7 días de prueba con 1 asistente, Web Chat y 50 respuestas de IA.</p>
+            <Link href={primaryHref} className="light-button light-button-white">Probar durante 7 días <ArrowRight /></Link>
           </div>
         </div>
       </section>
