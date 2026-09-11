@@ -80,7 +80,7 @@ export function PlanUsageCard({ plan, usage }: Props) {
         {/* Channels */}
         <div className="flex flex-wrap gap-2 mb-6">
           {Object.entries(plan.channels)
-            .filter(([_, enabled]) => enabled)
+            .filter(([, enabled]) => enabled)
             .map(([c]) => (
             <span key={c} className="text-xs px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.08] text-text-secondary">
               {getChannelLabel(c)}
@@ -99,7 +99,7 @@ export function PlanUsageCard({ plan, usage }: Props) {
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-1.5 text-text-secondary text-xs font-medium whitespace-nowrap">
                   <MessageSquare className="w-3.5 h-3.5 shrink-0" />
-                  Mensajes del ciclo
+                  Respuestas de IA
                 </div>
                 <span className={`text-xs font-semibold whitespace-nowrap ${messagesLimit && messagesPct >= 90 ? 'text-brand-pink' : messagesLimit && messagesPct >= 80 ? 'text-amber-400' : 'text-white'}`}>
                   {messagesUsed.toLocaleString()}
@@ -140,11 +140,11 @@ export function PlanUsageCard({ plan, usage }: Props) {
           <div className="sm:ml-6 shrink-0 mt-2 sm:mt-0">
             {plan.key === 'trial' ? (
               <Link
-                href="/dashboard/billing#plan-business"
+                href="/dashboard/billing#plan-pro"
                 className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-brand-violet to-brand-blue text-white text-sm font-semibold shadow-[0_0_15px_rgba(124,58,237,0.4)] hover:shadow-[0_0_25px_rgba(124,58,237,0.6)] hover:scale-[1.02] transition-all duration-200 whitespace-nowrap border-0 w-full sm:w-auto"
               >
                 <Zap className="w-4 h-4 shrink-0" />
-                Mejorar a Business
+                Ver plan Negocio
               </Link>
             ) : plan.key === 'enterprise' ? (
               <Link href="/contact" className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl bg-white/[0.04] border border-white/10 hover:bg-white/[0.08] transition-colors text-sm font-medium text-text-secondary whitespace-nowrap w-full sm:w-auto">
