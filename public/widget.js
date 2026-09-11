@@ -23,10 +23,21 @@
   const url = new URL(src, window.location.href);
   const baseUrl = url.origin;
 
+  const conversationStorageKey = `conversaai_conversation_${assistantId}`;
+  const visitorStorageKey = `conversaai_visitor_${assistantId}`;
+  const activityStorageKey = `conversaai_activity_${assistantId}`;
+  const sessionTtlMs = 30 * 60 * 1000;
+  const lastActivity = Number(sessionStorage.getItem(activityStorageKey) || 0);
+
+  if (!lastActivity || Date.now() - lastActivity > sessionTtlMs) {
+    sessionStorage.removeItem(conversationStorageKey);
+    sessionStorage.removeItem(visitorStorageKey);
+  }
+
   let config = null;
   let isOpen = false;
-  let conversationId = localStorage.getItem(`conversaai_conversation_${assistantId}`) || null;
-  let visitorId = localStorage.getItem('conversaai_visitor_id');
+  let conversationId = sessionStorage.getItem(conversationStorageKey) || null;
+  let visitorId = sessionStorage.getItem(visitorStorageKey);
   let isChatBlocked = false;
   let quickQuestionsUsed = false;
   let handoffStatus = 'ai';
@@ -35,7 +46,12 @@
   
   if (!visitorId) {
     visitorId = 'vis_' + Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
-    localStorage.setItem('conversaai_visitor_id', visitorId);
+    sessionStorage.setItem(visitorStorageKey, visitorId);
+  }
+  sessionStorage.setItem(activityStorageKey, Date.now().toString());
+
+  function touchSession() {
+    sessionStorage.setItem(activityStorageKey, Date.now().toString());
   }
 
   // Icons
@@ -899,7 +915,7 @@
           const btn = document.createElement('button');
           btn.className = 'conversaai-quick-question-btn';
           btn.textContent = q;
-          btn.onclick = () => handleQuickQuestion(q, btn);
+          btn.onclick = () => handleQuickQuestion(q);
           qqContainer.appendChild(btn);
         });
         
@@ -933,7 +949,7 @@
     }
   }
 
-  function handleQuickQuestion(text, btnElement) {
+  function handleQuickQuestion(text) {
     if (isChatBlocked || quickQuestionsUsed) return;
     quickQuestionsUsed = true;
     
@@ -962,6 +978,7 @@
     const sendBtn = document.getElementById('conversaai-send-btn');
     const text = input.value.trim();
     if (!text) return;
+    touchSession();
 
     input.value = '';
     input.disabled = true;
@@ -1009,7 +1026,7 @@
       const data = await res.json();
       if (data.conversationId) {
         conversationId = data.conversationId;
-        localStorage.setItem(`conversaai_conversation_${assistantId}`, conversationId);
+        sessionStorage.setItem(conversationStorageKey, conversationId);
       }
 
       if (data.reply) {
