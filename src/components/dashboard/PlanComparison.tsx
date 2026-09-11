@@ -7,10 +7,10 @@ import type { PlanConfig } from '@/lib/plans'
 import { PAYMENT_PROVIDERS, type PaymentProvider } from '@/lib/payment-providers'
 import { PaymentProviderSelector } from './PaymentProviderSelector'
 
-interface Props { plans: PlanConfig[]; currentPlan: string; trialUsed: boolean; trialEndsAt?: string | null }
+interface Props { plans: PlanConfig[]; currentPlan: string; trialUsed: boolean; trialEligible: boolean; trialEndsAt?: string | null }
 const limit = (value: number | null) => value === null ? 'Sin límite' : value.toLocaleString('es-CL')
 
-export function PlanComparison({ plans, currentPlan, trialUsed, trialEndsAt }: Props) {
+export function PlanComparison({ plans, currentPlan, trialUsed, trialEligible, trialEndsAt }: Props) {
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [startingTrial, setStartingTrial] = useState(false)
@@ -50,10 +50,10 @@ export function PlanComparison({ plans, currentPlan, trialUsed, trialEndsAt }: P
   return <div className="space-y-8 pt-4">
     {error && <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-500">{error}</div>}
 
-    {!hasPaidPlan && <section className="rounded-3xl border border-brand-cyan/20 bg-card-bg/80 p-6 md:p-8">
+    {!hasPaidPlan && (currentPlan === 'trial' || trialEligible) && <section className="rounded-3xl border border-brand-cyan/20 bg-card-bg/80 p-6 md:p-8">
       <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
-        <div><div className="mb-2 flex items-center gap-3"><h2 className="text-xl font-bold">{currentPlan === 'trial' ? 'Tu prueba está activa' : trialUsed ? 'Tu prueba terminó' : 'Prueba ConversaAI gratis'}</h2><span className="rounded-full bg-brand-cyan/10 px-3 py-1 text-xs font-bold text-brand-cyan">7 días</span></div>
-          <p className="max-w-2xl text-sm text-text-soft">{currentPlan === 'trial' ? `Incluye 1 asistente, Web Chat y 100 respuestas de IA${trialEndsAt ? ` hasta el ${new Date(trialEndsAt).toLocaleDateString('es-CL')}` : ''}.` : trialUsed ? 'Elige uno de los tres planes para seguir atendiendo.' : 'Incluye 1 asistente, Web Chat y 100 respuestas de IA. No solicita tarjeta.'}</p></div>
+        <div><div className="mb-2 flex items-center gap-3"><h2 className="text-xl font-bold">{currentPlan === 'trial' ? 'Tu prueba está activa' : trialUsed ? 'Tu prueba terminó' : 'Prueba ConversaAI durante 7 días'}</h2><span className="rounded-full bg-brand-cyan/10 px-3 py-1 text-xs font-bold text-brand-cyan">7 días</span></div>
+          <p className="max-w-2xl text-sm text-text-soft">{currentPlan === 'trial' ? `Incluye 1 asistente, Web Chat y 50 respuestas de IA${trialEndsAt ? ` hasta el ${new Date(trialEndsAt).toLocaleDateString('es-CL')}` : ''}.` : trialUsed ? 'Elige uno de los tres planes para seguir atendiendo.' : 'Disponible durante los primeros 7 días desde tu registro. Incluye 1 asistente, Web Chat y 50 respuestas de IA.'}</p></div>
         {!trialUsed && currentPlan !== 'trial' && <button onClick={() => setShowTrialModal(true)} className="cursor-pointer rounded-xl border border-brand-cyan/30 bg-brand-cyan/10 px-6 py-3 text-sm font-semibold text-brand-cyan hover:bg-brand-cyan/20">Activar prueba</button>}
       </div>
     </section>}
@@ -82,7 +82,7 @@ export function PlanComparison({ plans, currentPlan, trialUsed, trialEndsAt }: P
 
     <div className="rounded-2xl border border-brand-cyan/15 bg-brand-cyan/5 p-5 text-sm text-text-secondary"><strong>Uso transparente:</strong> solo cuentan las respuestas generadas por IA. Los mensajes del visitante y las respuestas de una persona desde el panel no consumen el límite.</div>
 
-    {showTrialModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-3xl border border-card-border bg-page-bg p-7 shadow-2xl"><h3 className="text-xl font-bold">Activar prueba gratis</h3><p className="my-4 text-sm leading-6 text-text-soft">Los 7 días comienzan ahora. Tendrás 1 asistente, Web Chat y 100 respuestas de IA.</p><div className="flex justify-end gap-3"><button onClick={() => setShowTrialModal(false)} disabled={startingTrial} className="cursor-pointer rounded-xl border border-card-border px-5 py-2.5 text-sm">Cancelar</button><button onClick={startTrial} disabled={startingTrial} className="cursor-pointer rounded-xl bg-brand-violet px-5 py-2.5 text-sm font-bold text-white">{startingTrial ? 'Activando…' : 'Activar prueba'}</button></div></div></div>}
+    {showTrialModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"><div className="w-full max-w-md rounded-3xl border border-card-border bg-page-bg p-7 shadow-2xl"><h3 className="text-xl font-bold">Activar prueba de 7 días</h3><p className="my-4 text-sm leading-6 text-text-soft">Los 7 días comienzan ahora. Tendrás 1 asistente, Web Chat y 50 respuestas de IA.</p><div className="flex justify-end gap-3"><button onClick={() => setShowTrialModal(false)} disabled={startingTrial} className="cursor-pointer rounded-xl border border-card-border px-5 py-2.5 text-sm">Cancelar</button><button onClick={startTrial} disabled={startingTrial} className="cursor-pointer rounded-xl bg-brand-violet px-5 py-2.5 text-sm font-bold text-white">{startingTrial ? 'Activando…' : 'Activar prueba'}</button></div></div></div>}
   </div>
 }
 
