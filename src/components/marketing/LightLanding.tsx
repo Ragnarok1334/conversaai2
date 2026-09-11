@@ -111,19 +111,31 @@ export function LightLanding() {
             <div className="light-chat-card">
               <div className="light-chat-header">
                 <div className="light-chat-avatar"><Bot /></div>
-                <div><strong>Asistente ConversaAI</strong><span><i /> En línea</span></div>
-                <div className="light-chat-badge">24/7</div>
+                <div><strong>Asistente de reservas</strong><span><i /> En línea · responde al instante</span></div>
+                <div className="light-chat-badge">Activo</div>
               </div>
               <div className="light-chat-body">
-                <p className="light-bubble light-bubble-user">Hola, ¿qué servicios ofrecen?</p>
-                <p className="light-bubble light-bubble-bot">¡Hola! Puedo mostrarte los servicios, precios y horarios del negocio. ¿Qué necesitas conocer?</p>
-                <p className="light-bubble light-bubble-user">Quiero que me contacten.</p>
-                <p className="light-bubble light-bubble-bot">Perfecto. Comencemos con tu nombre y luego registraré tu solicitud.</p>
+                <div className="light-message light-message-user">
+                  <p className="light-bubble light-bubble-user">Hola, necesito una cita mañana por la tarde.</p>
+                  <small>Tú · 10:24</small>
+                </div>
+                <div className="light-message light-message-bot">
+                  <p className="light-bubble light-bubble-bot">Claro. Hay disponibilidad a las 16:30 y 18:00. ¿Cuál horario prefieres?</p>
+                  <small>Asistente · ahora</small>
+                </div>
+                <div className="light-message light-message-user">
+                  <p className="light-bubble light-bubble-user">A las 16:30. Soy Camila y pueden confirmarme por WhatsApp.</p>
+                  <small>Entregado</small>
+                </div>
+                <div className="light-message light-message-bot">
+                  <p className="light-bubble light-bubble-bot">Perfecto, Camila. Registré tu solicitud y el equipo te confirmará por WhatsApp.</p>
+                  <small>Asistente · ahora</small>
+                </div>
               </div>
               <div className="light-lead-card">
                 <span><Check /></span>
-                <div><strong>Nuevo prospecto</strong><small>Registrado hace un momento</small></div>
-                <TrendingUp />
+                <div><strong>Solicitud lista para confirmar</strong><small>Camila · Mañana, 16:30 · WhatsApp</small></div>
+                <span className="light-lead-status">Nuevo lead</span>
               </div>
             </div>
           </div>
