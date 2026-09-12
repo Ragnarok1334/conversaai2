@@ -28,6 +28,8 @@ interface UserSettings {
   product_updates: boolean
   email_notifications: boolean
   dashboard_notifications: boolean
+  chat_sound_enabled: boolean
+  notification_sound_enabled: boolean
   telegram_notifications: boolean
   dashboard_density: 'comfortable' | 'compact'
   default_dashboard_page: string
@@ -1279,6 +1281,22 @@ export function SettingsClient({ userName, email, joinDate, assistantCount }: Pr
                         checked={!!settings.dashboard_notifications}
                         loading={togglingKey === 'dashboard_notifications'}
                         onChange={(v) => toggleSetting('dashboard_notifications', v)}
+                      />
+                      <SettingSwitch
+                        label="Sonido de mensajes"
+                        description="Reproduce un aviso suave cuando un cliente escribe en Web Chat o WhatsApp"
+                        checked={!!settings.chat_sound_enabled}
+                        loading={togglingKey === 'chat_sound_enabled'}
+                        onChange={(v) => toggleSetting('chat_sound_enabled', v)}
+                        disabled={!settings.dashboard_notifications}
+                      />
+                      <SettingSwitch
+                        label="Sonido de alertas"
+                        description="Avisa sobre nuevos leads, derivaciones y eventos importantes"
+                        checked={!!settings.notification_sound_enabled}
+                        loading={togglingKey === 'notification_sound_enabled'}
+                        onChange={(v) => toggleSetting('notification_sound_enabled', v)}
+                        disabled={!settings.dashboard_notifications}
                       />
                       <SettingSwitch
                         label="Correo electrónico"

@@ -8,6 +8,7 @@ import { getModelForPlan } from '@/lib/ai/model-router'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { getClientIp, HttpInputError, isUuid, isVisitorId, readJsonBody, widgetCorsHeaders } from '@/lib/http-security'
 import { detectHumanHandoffRequest, HUMAN_HANDOFF_ACK } from '@/lib/handoff'
+import { createUserNotification } from '@/lib/notifications'
 
 interface WidgetMessageBody {
   assistantId?: unknown
@@ -176,6 +177,12 @@ export async function POST(request: NextRequest) {
         sender_type: 'visitor',
         content: message,
       })
+      await createUserNotification({
+        userId: ownerId,
+        title: requestedHuman ? 'Web Chat solicita atención humana' : 'Nuevo mensaje de Web Chat',
+        message: message.slice(0, 160), category: 'conversation', actionUrl: '/dashboard/conversations',
+        metadata: { assistantId, conversationId: handoffConversationId, channel: 'webchat' },
+      })
 
       let reply: string | null = null
       if (requestedHuman && currentHandoffStatus === 'ai') {
@@ -188,13 +195,6 @@ export async function POST(request: NextRequest) {
           role: 'assistant',
           sender_type: 'system',
           content: reply,
-        })
-        await supabaseAdmin.from('notifications').insert({
-          user_id: ownerId,
-          title: 'Conversación esperando atención',
-          message: 'Un visitante solicitó hablar con una persona.',
-          type: 'conversation',
-          metadata: { assistantId, conversationId: handoffConversationId },
         })
       }
 
@@ -304,6 +304,11 @@ export async function POST(request: NextRequest) {
       sender_type: 'visitor',
       content: message
     })
+    await createUserNotification({
+      userId: ownerId, title: 'Nuevo mensaje de Web Chat', message: message.slice(0, 160),
+      category: 'conversation', actionUrl: '/dashboard/conversations',
+      metadata: { assistantId, conversationId: currentConversationId, channel: 'webchat' },
+    })
 
     // 8. Generate AI Reply
     const config: AssistantConfig = {
@@ -384,12 +389,10 @@ export async function POST(request: NextRequest) {
 
         if (newLead) {
           try {
-            await supabaseAdmin.from('notifications').insert({
-              user_id: ownerId,
-              title: 'Nuevo lead capturado',
-              message: 'Un visitante dejó sus datos desde Web Chat.',
-              type: 'lead',
-              metadata: { leadId: newLead.id, assistantId, conversationId: currentConversationId }
+            await createUserNotification({
+              userId: ownerId, title: 'Nuevo lead capturado', message: 'Un visitante dejó sus datos desde Web Chat.',
+              category: 'lead', actionUrl: '/dashboard/leads',
+              metadata: { leadId: newLead.id, assistantId, conversationId: currentConversationId },
             })
           } catch {
             // ignorar error de notificaciones

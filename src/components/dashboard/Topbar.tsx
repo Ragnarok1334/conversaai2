@@ -34,7 +34,7 @@ export function Topbar({ onMenuClick, theme, onThemeToggle }: TopbarProps) {
     || (pathname.startsWith('/dashboard/assistants/') ? 'Detalle del asistente' : 'Dashboard')
 
   return (
-    <header className="dashboard-topbar sticky top-0 z-10 backdrop-blur-xl">
+    <header className="dashboard-topbar sticky top-0 z-[100] backdrop-blur-xl">
       <div className="flex items-center justify-between px-4 md:px-8 h-16">
         {/* Mobile menu */}
         <button onClick={onMenuClick} className="lg:hidden text-text-soft hover:text-white transition-colors p-2 -ml-2 rounded-lg hover:bg-white/5">

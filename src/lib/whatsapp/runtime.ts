@@ -7,7 +7,9 @@ import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-statu
 import { getModelForPlan } from '@/lib/ai/model-router'
 import { getPlanConfig, normalizePlan } from '@/lib/plans'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
+import { createUserNotification } from '@/lib/notifications'
 import { sendWhatsAppText } from './client'
+import { isInsideBusinessHours, normalizeWhatsAppConfig } from './config'
 
 type IncomingMessage = {
   id: string
@@ -40,6 +42,7 @@ export type WhatsAppWebhookPayload = {
 type WhatsAppChannelRow = {
   id: string; user_id: string; assistant_id: string; phone_number_id: string; business_account_id: string
   encrypted_access_token?: string | null
+  config?: unknown
 }
 type AssistantRow = {
   assistant_name?: string | null; business_name?: string | null; business_type?: string | null; tone?: string | null
@@ -122,9 +125,9 @@ async function upsertConversationAndLead(channel: WhatsAppChannelRow, sender: st
       user_id: channel.user_id, assistant_id: channel.assistant_id, conversation_id: conversation.id,
       name: contactName, phone: sender, source: 'whatsapp', status: 'new', metadata: { wa_id: sender },
     }).select('id').single()
-    if (created) await admin.from('notifications').insert({
-      user_id: channel.user_id, title: 'Nuevo lead desde WhatsApp', message: `${contactName || 'Un nuevo contacto'} inició una conversación.`,
-      type: 'lead', metadata: { leadId: created.id, assistantId: channel.assistant_id, conversationId: conversation.id },
+    if (created) await createUserNotification({
+      userId: channel.user_id, title: 'Nuevo lead desde WhatsApp', message: `${contactName || 'Un nuevo contacto'} inició una conversación.`,
+      category: 'lead', actionUrl: '/dashboard/leads', metadata: { leadId: created.id, assistantId: channel.assistant_id, conversationId: conversation.id },
     })
   } else if (!lead.name && contactName) await admin.from('leads').update({ name: contactName }).eq('id', lead.id)
   return { conversation, lead }
@@ -157,14 +160,30 @@ async function processMessage(channel: WhatsAppChannelRow, message: IncomingMess
     if (inboundError) throw inboundError
 
     const requestedHuman = detectHumanHandoffRequest(text)
-    if (conversation.ai_paused || requestedHuman) {
+    const channelConfig = normalizeWhatsAppConfig(channel.config)
+    await createUserNotification({
+      userId: channel.user_id,
+      title: requestedHuman ? 'WhatsApp solicita atención humana' : 'Nuevo mensaje de WhatsApp',
+      message: `${contactName || 'Un contacto'}: ${text.slice(0, 140)}`,
+      category: 'conversation', actionUrl: '/dashboard/conversations',
+      metadata: { assistantId: channel.assistant_id, conversationId: conversation.id, channel: 'whatsapp' },
+    })
+    if (conversation.ai_paused || (channelConfig.handoffEnabled && requestedHuman)) {
       if (requestedHuman && conversation.handoff_status === 'ai') {
         const now = new Date().toISOString()
         await admin.from('conversations').update({ ai_paused: true, handoff_status: 'waiting', status: 'pending', handoff_reason: 'El contacto solicitó atención humana por WhatsApp.', human_requested_at: now }).eq('id', conversation.id)
-        const sent = await sendWhatsAppText(channel, message.from, HUMAN_HANDOFF_ACK, message.id)
-        if (sent.messages?.[0]?.id) await storeOutbound(channel, conversation.id, HUMAN_HANDOFF_ACK, 'system', sent.messages[0].id)
-        await admin.from('notifications').insert({ user_id: channel.user_id, title: 'WhatsApp espera atención humana', message: `${contactName || 'Un contacto'} pidió hablar con una persona.`, type: 'conversation', metadata: { assistantId: channel.assistant_id, conversationId: conversation.id } })
+        const handoffMessage = channelConfig.handoffMessage || HUMAN_HANDOFF_ACK
+        const sent = await sendWhatsAppText(channel, message.from, handoffMessage, message.id)
+        if (sent.messages?.[0]?.id) await storeOutbound(channel, conversation.id, handoffMessage, 'system', sent.messages[0].id)
       }
+      await finishEvent(eventId, 'processed')
+      return
+    }
+
+    if (!isInsideBusinessHours(channelConfig)) {
+      const sent = await sendWhatsAppText(channel, message.from, channelConfig.awayMessage, message.id)
+      if (sent.messages?.[0]?.id) await storeOutbound(channel, conversation.id, channelConfig.awayMessage, 'system', sent.messages[0].id)
+      await admin.from('conversations').update({ status: 'pending', last_message: channelConfig.awayMessage.slice(0, 100), last_message_at: new Date().toISOString() }).eq('id', conversation.id)
       await finishEvent(eventId, 'processed')
       return
     }
@@ -186,9 +205,10 @@ async function processMessage(channel: WhatsAppChannelRow, message: IncomingMess
     const history = (historyRows || []).slice().reverse().map(item => ({ role: item.role as 'user' | 'assistant', content: String(item.content).slice(0, 2000) }))
     // The current inbound message is already the last history item.
     if (history.at(-1)?.role === 'user' && history.at(-1)?.content === text) history.pop()
-    const reply = await generateAssistantReply(assistantConfig(assistant as AssistantRow), text, getModelForPlan(plan, 'webchat_message', { messageLength: text.length }), history, {
+    let reply = await generateAssistantReply(assistantConfig(assistant as AssistantRow), text, getModelForPlan(plan, 'webchat_message', { messageLength: text.length }), history, {
       knownLead: { name: knownLead?.name || contactName, hasEmail: Boolean(knownLead?.email), hasPhone: true },
     })
+    if (channelConfig.welcomeEnabled && history.length === 0) reply = `${channelConfig.welcomeMessage}\n\n${reply}`
     const sent = await sendWhatsAppText(channel, message.from, reply, message.id)
     if (sent.messages?.[0]?.id) await storeOutbound(channel, conversation.id, reply, 'ai', sent.messages[0].id)
     await admin.from('conversations').update({ last_message: reply.slice(0, 100), last_message_at: new Date().toISOString() }).eq('id', conversation.id)
