@@ -11,7 +11,6 @@ interface Props {
 }
 
 const futureChannels = [
-  { key: 'whatsapp', name: 'WhatsApp', detail: 'Atención, seguimiento y captación desde WhatsApp Business.', icon: MessageCircle, color: 'text-emerald-500 bg-emerald-500/10', group: 'Meta' },
   { key: 'instagram', name: 'Instagram', detail: 'Respuestas a mensajes directos de la cuenta comercial.', icon: Camera, color: 'text-pink-500 bg-pink-500/10', group: 'Meta' },
   { key: 'facebook', name: 'Facebook', detail: 'Atención automatizada para mensajes de Messenger.', icon: MessagesSquare, color: 'text-blue-500 bg-blue-500/10', group: 'Meta' },
   { key: 'telegram', name: 'Telegram', detail: 'Conexión mediante un bot administrado por el negocio.', icon: Send, color: 'text-sky-500 bg-sky-500/10', group: 'Bot API' },
@@ -43,8 +42,12 @@ export function ChannelsStep({ form }: Props) {
         </div>
 
         <div className="mb-3">
-          <h3 className="text-sm font-semibold text-white">Próximas integraciones</h3>
-          <p className="text-xs text-slate-400 mt-1">Se muestran para explicar cómo crecerá el asistente; todavía no pueden activarse.</p>
+          <h3 className="text-sm font-semibold text-white">Canales adicionales</h3>
+          <p className="text-xs text-slate-400 mt-1">WhatsApp se conecta después de crear el asistente. Los demás canales siguen en preparación.</p>
+        </div>
+
+        <div className="mb-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4">
+          <div className="flex items-start gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500"><MessageCircle className="h-4.5 w-4.5" /></div><div><div className="flex flex-wrap items-center gap-2"><h4 className="text-sm font-semibold text-white">WhatsApp Business</h4><span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[9px] font-bold text-emerald-500">PLAN NEGOCIO O SUPERIOR</span></div><p className="mt-1 text-xs leading-relaxed text-slate-400">Usa el mismo entrenamiento para responder mensajes, capturar leads y derivar a una persona.</p></div></div>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-3">

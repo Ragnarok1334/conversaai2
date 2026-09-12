@@ -100,7 +100,7 @@ export function Hero() {
                 </Link>
               </div>
               <div className="mt-4 text-sm text-[#94A3B8] max-w-xl">
-                <p>Web Chat listo para instalar. Telegram disponible según configuración. WhatsApp próximamente.</p>
+                <p>Web Chat listo para instalar. Telegram y WhatsApp Business disponibles según tu plan.</p>
               </div>
             </BlurFade>
 

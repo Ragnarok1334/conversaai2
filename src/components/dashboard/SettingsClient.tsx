@@ -322,7 +322,7 @@ function EditCompanyModal({
 
   const channelOptions = [
     { value: 'webchat', label: 'Web Chat en mi sitio' },
-    { value: 'whatsapp', label: 'WhatsApp', badge: 'Próximamente' },
+    { value: 'whatsapp', label: 'WhatsApp Business' },
     { value: 'instagram', label: 'Instagram', badge: 'Próximamente' },
     { value: 'facebook', label: 'Facebook Messenger', badge: 'Próximamente' },
     { value: 'telegram', label: 'Telegram', badge: 'Próximamente' }

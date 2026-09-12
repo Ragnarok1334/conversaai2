@@ -19,7 +19,7 @@ export function FAQ() {
     {
       question: "¿Puedo usarlo con WhatsApp?",
       answer:
-        "ConversaAI ya incluye Web Chat para instalar en tu sitio web y Telegram según tu plan. La integración con WhatsApp estará disponible próximamente.",
+        "ConversaAI incluye Web Chat y, según tu plan, también Telegram y WhatsApp Business.",
     },
     {
       question: "¿Puedo personalizar las respuestas?",

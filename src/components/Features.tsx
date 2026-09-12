@@ -34,7 +34,7 @@ export function Features() {
       icon: <Share2 className="w-6 h-6 text-[#EC4899]" />,
       title: "Integración multicanal",
       description:
-        "Conecta tu asistente en tu sitio web y Telegram fácilmente (WhatsApp próximamente).",
+        "Conecta tu asistente en tu sitio web, Telegram y WhatsApp Business según tu plan.",
     },
     {
       icon: <BarChart3 className="w-6 h-6 text-[#22C55E]" />,

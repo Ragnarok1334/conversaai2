@@ -21,12 +21,28 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const admin = createSupabaseAdmin()
     const { data: conversation } = await admin
       .from('conversations')
-      .select('id, assistant_id, channel')
+      .select('id, assistant_id, channel, external_chat_id')
       .eq('id', id)
       .eq('user_id', user.id)
       .maybeSingle()
 
     if (!conversation) return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
+
+    let providerMessageId: string | null = null
+    if (conversation.channel === 'whatsapp') {
+      if (!conversation.external_chat_id) return NextResponse.json({ error: 'La conversación no tiene un destinatario de WhatsApp válido.' }, { status: 409 })
+      const { data: whatsappChannel } = await admin.from('whatsapp_channels').select('*')
+        .eq('assistant_id', conversation.assistant_id).eq('user_id', user.id).eq('status', 'connected').maybeSingle()
+      if (!whatsappChannel) return NextResponse.json({ error: 'El canal de WhatsApp está desconectado.' }, { status: 409 })
+      try {
+        const { sendWhatsAppText } = await import('@/lib/whatsapp/client')
+        const sent = await sendWhatsAppText(whatsappChannel, conversation.external_chat_id, content)
+        providerMessageId = sent.messages?.[0]?.id || null
+      } catch (error) {
+        console.error('[WhatsApp human reply]', error instanceof Error ? error.message : 'unknown')
+        return NextResponse.json({ error: 'Meta no pudo entregar el mensaje. Revisa la conexión de WhatsApp.' }, { status: 502 })
+      }
+    }
 
     const now = new Date().toISOString()
     const { data: message, error: messageError } = await admin.from('messages').insert({
@@ -37,6 +53,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       role: 'assistant',
       sender_type: 'human',
       content,
+      provider_message_id: providerMessageId,
+      metadata: providerMessageId ? { delivery_status: 'accepted' } : {},
     }).select().single()
 
     if (messageError) throw messageError

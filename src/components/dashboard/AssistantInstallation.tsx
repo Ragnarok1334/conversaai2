@@ -190,7 +190,7 @@ export function AssistantInstallation({
         </p>
         <p className="text-xs text-slate-500 mt-2 flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5 shrink-0" />
-          El Web Chat es el único canal disponible actualmente. Telegram y WhatsApp estarán disponibles próximamente.
+          Esta sección instala el Web Chat. Telegram y WhatsApp se conectan desde sus propias pestañas del asistente.
         </p>
       </div>
 

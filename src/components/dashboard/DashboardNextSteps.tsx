@@ -133,21 +133,25 @@ export function DashboardNextSteps({ assistantCount, leadCount, planKey, channel
     })
   }
 
-  // 7. WhatsApp coming soon info card (don't add CTA if 0 other steps)
+  // 7. Offer WhatsApp setup when the active plan includes it.
   const whatsappStep: Step = {
-    id: 'whatsapp-soon',
+    id: 'setup-whatsapp',
     icon: MessageCircle,
     iconColor: 'text-brand-success/50',
     iconBg: 'bg-brand-success/5',
-    title: 'WhatsApp — Próximamente',
-    description: 'Estamos trabajando en la integración con WhatsApp Business. Estarás entre los primeros en saberlo.',
-    cta: 'Ver planes',
-    href: '/precios',
+    title: channels.whatsapp === 'locked' ? 'Activa WhatsApp en tu plan' : 'Conecta WhatsApp Business',
+    description: channels.whatsapp === 'locked'
+      ? 'WhatsApp está disponible desde el plan Negocio.'
+      : 'Vincula tu número empresarial para recibir conversaciones y leads en el mismo panel.',
+    cta: channels.whatsapp === 'locked' ? 'Ver planes' : 'Configurar',
+    href: channels.whatsapp === 'locked'
+      ? '/dashboard/billing'
+      : firstAssistantId ? `/dashboard/assistants/${firstAssistantId}?tab=whatsapp` : '/dashboard/assistants',
   }
 
-  // Only show whatsapp step if fewer than 2 other steps
+  // Keep the dashboard concise: add this recommendation only while setup is pending.
   const displaySteps = steps.slice(0, 3)
-  if (displaySteps.length < 3) displaySteps.push(whatsappStep)
+  if (channels.whatsapp !== 'connected' && displaySteps.length < 3) displaySteps.push(whatsappStep)
 
   if (displaySteps.length === 0) return null
 

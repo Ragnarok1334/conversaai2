@@ -23,7 +23,7 @@ import { TurnstileWidget } from '@/components/auth/TurnstileWidget'
 const CHANNELS = [
   { key: 'webchat', label: 'Web Chat', icon: Globe, available: true, badge: 'Recomendado para empezar' },
   { key: 'telegram', label: 'Telegram', icon: Send, available: false, badge: 'Próximamente' },
-  { key: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, available: false, badge: 'Próximamente' },
+  { key: 'whatsapp', label: 'WhatsApp Business', icon: MessageCircle, available: true, badge: 'Plan Negocio' },
 ]
 
 const GOALS = [

@@ -26,7 +26,6 @@ interface SubscriptionData {
   usage: { assistantsUsed: number; messagesUsed: number }
 }
 
-// Ocultamos WhatsApp por ahora ya que es "Próximamente"
 const FILTER_STATUSES = ['todos', 'activos', 'configuracion', 'atencion']
 const STATUS_LABEL: Record<string, string> = {
   todos: 'Todos',

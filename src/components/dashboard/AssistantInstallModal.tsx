@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Globe, MessageCircle, Send, CheckCircle2, ChevronRight, Lock, Loader2 } from 'lucide-react'
+import { X, Globe, MessageCircle, Send, CheckCircle2, Lock } from 'lucide-react'
 import Link from 'next/link'
 import type { PlanKey } from '@/lib/plans'
 
@@ -8,12 +8,12 @@ interface AssistantInstallModalProps {
   onClose: () => void
   assistantId: string
   plan: PlanKey
-  planLimits: any
-  assistantChannels: any[] // e.g. [{ channel: 'webchat' }, ...]
+  planLimits: { channels: { whatsapp: boolean; telegram: boolean } }
+  assistantChannels: Array<{ channel: string }>
 }
 
 export function AssistantInstallModal({
-  open, onClose, assistantId, plan, planLimits, assistantChannels
+  open, onClose, assistantId, planLimits, assistantChannels
 }: AssistantInstallModalProps) {
   if (!open) return null
 
@@ -132,27 +132,30 @@ export function AssistantInstallModal({
             </div>
 
             {/* WHATSAPP */}
-            <div className="p-5 rounded-2xl bg-white/[0.01] border border-white/[0.03] opacity-80">
+            <div className="p-5 rounded-2xl bg-white/[0.02] border border-white/[0.05]">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-brand-success/5 border border-brand-success/10 flex items-center justify-center shrink-0 grayscale opacity-50">
+                  <div className="w-10 h-10 rounded-xl bg-brand-success/10 border border-brand-success/20 flex items-center justify-center shrink-0">
                     <MessageCircle className="w-5 h-5 text-brand-success" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-text-soft flex items-center gap-2">
+                    <h4 className="font-semibold text-white flex items-center gap-2">
                       WhatsApp
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.06] text-text-soft font-medium">
-                        Próximamente
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-success/10 text-brand-success font-medium">
+                        {planLimits.channels.whatsapp ? 'Disponible' : 'Plan Negocio'}
                       </span>
-                      {!planLimits.channels.whatsapp && planLimits.channels.telegram && (
-                        <span className="text-[10px] text-text-soft/60">
-                          (Disponible desde Business)
-                        </span>
-                      )}
                     </h4>
-                    <p className="text-sm text-text-soft mt-1">La integración con WhatsApp estará disponible pronto.</p>
+                    <p className="text-sm text-text-soft mt-1">Conecta un número de WhatsApp Business y atiende desde ConversaAI.</p>
                   </div>
                 </div>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Link
+                  href={planLimits.channels.whatsapp ? `/dashboard/assistants/${assistantId}?tab=whatsapp` : '/dashboard/billing'}
+                  className="px-4 py-2 rounded-xl bg-brand-success/10 text-brand-success text-sm font-semibold hover:bg-brand-success/20 transition-colors"
+                >
+                  {planLimits.channels.whatsapp ? 'Configurar WhatsApp' : 'Ver planes'}
+                </Link>
               </div>
             </div>
 

@@ -13,7 +13,7 @@ PLANES ACTUALES:
 - Business: 20 asistentes, 50,000 mensajes
 - Enterprise: personalizado, sin límites, SLA garantizado
 
-CANALES COMPATIBLES: Webchat, Telegram (WhatsApp próximamente)
+CANALES COMPATIBLES: Webchat, Telegram y WhatsApp Business (según el plan)
 
 FUNCIONES PRINCIPALES:
 - Crear asistentes de IA personalizados
