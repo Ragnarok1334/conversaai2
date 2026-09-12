@@ -7,6 +7,7 @@ import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-statu
 import { getPlanConfig, normalizePlan } from '@/lib/plans'
 import { encryptWhatsAppToken } from '@/lib/whatsapp/crypto'
 import { inspectWhatsAppNumber, subscribeWhatsAppApp } from '@/lib/whatsapp/client'
+import { normalizeWhatsAppConfig } from '@/lib/whatsapp/config'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -103,6 +104,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('[POST WhatsApp connection]', error instanceof Error ? error.message : 'unknown')
     return NextResponse.json({ error: error instanceof Error && error.message.startsWith('Meta ') ? error.message : 'No se pudo validar la conexión con Meta.' }, { status: 502 })
+  }
+}
+
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params
+    if (!isUuid(id)) return NextResponse.json({ error: 'ID inválido.' }, { status: 400 })
+    const context = await ownedContext(id, true)
+    if ('error' in context) return context.error
+    if (!await checkRateLimit(`whatsapp-config-${context.user.id}`, 'whatsapp-config', 20, 600)) {
+      return NextResponse.json({ error: 'Demasiados cambios. Espera unos minutos.' }, { status: 429 })
+    }
+    const body = await readJsonBody<{ config?: unknown }>(request, 10_000)
+    const config = normalizeWhatsAppConfig(body.config)
+    const { data, error } = await context.admin.from('whatsapp_channels').update({
+      config, updated_at: new Date().toISOString(),
+    }).eq('assistant_id', id).eq('user_id', context.user.id).eq('status', 'connected')
+      .select('id,assistant_id,business_account_id,phone_number_id,display_phone_number,verified_name,status,connected_at,last_webhook_at,last_error,config,updated_at').maybeSingle()
+    if (error) return NextResponse.json({ error: 'No se pudo guardar la configuración.' }, { status: 500 })
+    if (!data) return NextResponse.json({ error: 'Conecta WhatsApp antes de personalizarlo.' }, { status: 409 })
+    return NextResponse.json({ channel: data, message: 'Personalización guardada.' })
+  } catch (error) {
+    if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Configuración inválida.' }, { status: 400 })
   }
 }
 

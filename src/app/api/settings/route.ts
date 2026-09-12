@@ -29,6 +29,8 @@ export async function GET() {
         product_updates: false,
         email_notifications: false,
         dashboard_notifications: true,
+        chat_sound_enabled: true,
+        notification_sound_enabled: true,
         telegram_notifications: false,
         dashboard_density: 'comfortable',
         default_dashboard_page: 'dashboard',
@@ -60,7 +62,7 @@ export async function PATCH(req: NextRequest) {
       'weekly_summary', 'lead_alerts', 'conversation_alerts',
       'usage_limit_alerts', 'billing_alerts', 'security_alerts',
       'product_updates', 'email_notifications', 'dashboard_notifications',
-      'telegram_notifications'
+      'telegram_notifications', 'chat_sound_enabled', 'notification_sound_enabled'
     ]
     const patch: Record<string, unknown> = {}
     

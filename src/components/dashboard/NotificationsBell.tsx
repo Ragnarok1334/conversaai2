@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { Bell, CheckCircle2, X } from 'lucide-react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { Bell, CheckCircle2, ExternalLink, Volume2, VolumeX, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createClient } from '@/lib/supabase/client'
 
@@ -11,14 +11,48 @@ type Notification = {
   message: string
   is_read: boolean
   created_at: string
+  type: string
+  action_url?: string | null
+  metadata?: Record<string, unknown> | null
 }
+
+type SoundPreferences = { dashboard: boolean; chat: boolean; alerts: boolean }
 
 export function NotificationsBell() {
   const [isOpen, setIsOpen] = useState(false)
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
+  const [sounds, setSounds] = useState<SoundPreferences>({ dashboard: true, chat: true, alerts: true })
+  const soundsRef = useRef(sounds)
+  const audioReady = useRef(false)
+
+  useEffect(() => { soundsRef.current = sounds }, [sounds])
+
+  const playSound = useCallback((type: string) => {
+    const preferences = soundsRef.current
+    if (!preferences.dashboard || (type === 'conversation' ? !preferences.chat : !preferences.alerts)) return
+    try {
+      const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+      if (!AudioContextClass) return
+      const context = new AudioContextClass()
+      if (context.state === 'suspended' && !audioReady.current) { void context.close(); return }
+      const gain = context.createGain(); const oscillator = context.createOscillator()
+      oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(type === 'conversation' ? 660 : 520, context.currentTime)
+      oscillator.frequency.exponentialRampToValueAtTime(type === 'conversation' ? 880 : 700, context.currentTime + 0.14)
+      gain.gain.setValueAtTime(0.0001, context.currentTime); gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.02); gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.24)
+      oscillator.connect(gain); gain.connect(context.destination); oscillator.start(); oscillator.stop(context.currentTime + 0.25)
+      oscillator.addEventListener('ended', () => void context.close())
+    } catch { /* Browsers may block audio before the first interaction. */ }
+  }, [])
+
+  useEffect(() => {
+    const unlock = () => { audioReady.current = true }
+    window.addEventListener('pointerdown', unlock, { once: true })
+    window.addEventListener('keydown', unlock, { once: true })
+    return () => { window.removeEventListener('pointerdown', unlock); window.removeEventListener('keydown', unlock) }
+  }, [])
 
   useEffect(() => {
     // Cerrar al hacer click fuera
@@ -33,10 +67,17 @@ export function NotificationsBell() {
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel>
+    let refreshTimer: number | undefined
 
     const loadNotifications = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
+
+      const settingsResponse = await fetch('/api/settings', { cache: 'no-store' }).catch(() => null)
+      if (settingsResponse?.ok) {
+        const value = await settingsResponse.json()
+        setSounds({ dashboard: value.dashboard_notifications !== false, chat: value.chat_sound_enabled !== false, alerts: value.notification_sound_enabled !== false })
+      }
 
       // Fetch inicial
       const { data } = await supabase
@@ -63,8 +104,10 @@ export function NotificationsBell() {
           },
           (payload) => {
             const newNotif = payload.new as Notification
-            setNotifications(prev => [newNotif, ...prev])
+            setNotifications(prev => prev.some(item => item.id === newNotif.id) ? prev : [newNotif, ...prev].slice(0, 20))
             setUnreadCount(prev => prev + 1)
+            playSound(newNotif.type)
+            if (document.hidden) document.title = `● ${newNotif.title} · ConversaAI`
           }
         )
         .on(
@@ -88,14 +131,28 @@ export function NotificationsBell() {
           }
         )
         .subscribe()
+
+      const refresh = async () => {
+        const { data: latest } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20)
+        if (latest) {
+          setNotifications(latest)
+          setUnreadCount(latest.filter(item => !item.is_read).length)
+        }
+      }
+      refreshTimer = window.setInterval(() => void refresh(), 30_000)
+      window.addEventListener('focus', refresh)
+      return () => window.removeEventListener('focus', refresh)
     }
 
-    loadNotifications()
+    let removeFocus: (() => void) | undefined
+    void loadNotifications().then(cleanup => { removeFocus = cleanup })
 
     return () => {
       if (channel) supabase.removeChannel(channel)
+      if (refreshTimer) window.clearInterval(refreshTimer)
+      removeFocus?.()
     }
-  }, [supabase])
+  }, [playSound, supabase])
 
   const markAsRead = async (id: string) => {
     // Update local first for instant feedback
@@ -103,11 +160,12 @@ export function NotificationsBell() {
     setUnreadCount(prev => Math.max(0, prev - 1))
 
     try {
-      await fetch('/api/notifications/read', {
+      const response = await fetch('/api/notifications/read', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       })
+      if (!response.ok) throw new Error('No se pudo guardar')
     } catch (err) {
       console.error('Failed to mark notification as read:', err)
     }
@@ -156,10 +214,10 @@ export function NotificationsBell() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute right-0 mt-3 w-[340px] sm:w-[380px] bg-[#080e22] border border-white/[0.14] rounded-2xl shadow-[0_16px_48px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.04)] overflow-hidden z-50 origin-top-right"
+            className="fixed right-3 top-16 z-[10000] w-[calc(100vw-1.5rem)] max-w-[390px] overflow-hidden rounded-2xl border border-card-border bg-card-bg shadow-[0_18px_60px_rgba(0,0,0,0.3)] origin-top-right"
           >
-            <div className="px-4 py-3.5 border-b border-white/[0.1] flex items-center justify-between bg-white/[0.03]">
-              <h3 className="font-semibold flex items-center gap-2">
+            <div className="flex items-center justify-between border-b border-card-border bg-black/[0.025] px-4 py-3.5">
+              <h3 className="dashboard-strong flex items-center gap-2 font-semibold">
                 Notificaciones
                 {unreadCount > 0 && (
                   <span className="px-2 py-0.5 rounded-full bg-brand-violet/20 text-brand-violet text-xs">
@@ -186,11 +244,11 @@ export function NotificationsBell() {
                   <p className="text-text-soft text-sm">No tienes notificaciones por ahora.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-white/[0.05]">
+                <div className="divide-y divide-card-border">
                   {notifications.map((notif) => (
                     <div 
                       key={notif.id} 
-                    className={`p-4 transition-colors hover:bg-white/[0.05] ${!notif.is_read ? 'bg-brand-violet/[0.06]' : ''}`}
+                    className={`p-4 transition-colors hover:bg-brand-violet/[0.04] ${!notif.is_read ? 'bg-brand-violet/[0.06]' : ''}`}
                     >
                       <div className="flex gap-3">
                         <div className="flex-shrink-0 mt-0.5">
@@ -202,7 +260,7 @@ export function NotificationsBell() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <p className={`text-sm font-medium ${!notif.is_read ? 'text-white' : 'text-[#94A3B8]'}`}>
+                            <p className={`dashboard-strong text-sm font-medium ${notif.is_read ? 'opacity-70' : ''}`}>
                               {notif.title}
                             </p>
                             <span className="text-[10px] text-text-soft whitespace-nowrap">
@@ -212,6 +270,7 @@ export function NotificationsBell() {
                           <p className="text-xs text-text-soft leading-relaxed break-words">
                             {notif.message}
                           </p>
+                          {notif.action_url && <a href={notif.action_url} onClick={() => void markAsRead(notif.id)} className="mt-2 inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-brand-violet">Ver detalle <ExternalLink className="h-3 w-3" /></a>}
                           {!notif.is_read && (
                             <button 
                               onClick={() => markAsRead(notif.id)}
@@ -228,10 +287,11 @@ export function NotificationsBell() {
               )}
             </div>
             
-            <div className="p-2 border-t border-white/[0.08] bg-white/[0.01]">
+            <div className="flex items-center gap-2 border-t border-card-border bg-black/[0.02] p-2">
+              <a href="/dashboard/settings" className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg p-2 text-xs text-text-soft transition-colors hover:bg-brand-violet/[0.05] hover:text-brand-violet">{sounds.chat || sounds.alerts ? <Volume2 className="h-3 w-3" /> : <VolumeX className="h-3 w-3" />} Configurar avisos</a>
               <button 
                 onClick={() => setIsOpen(false)}
-                className="w-full p-2 text-xs text-text-soft hover:text-text-main hover:bg-white/[0.04] rounded-lg transition-colors flex items-center justify-center gap-1"
+                className="flex flex-1 cursor-pointer items-center justify-center gap-1 rounded-lg p-2 text-xs text-text-soft transition-colors hover:bg-black/[0.04] hover:text-text-main"
               >
                 <X className="w-3 h-3" />
                 Cerrar
