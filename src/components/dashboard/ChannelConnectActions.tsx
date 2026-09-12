@@ -1,6 +1,6 @@
-import { Globe, Send, MessageCircle, Plus } from 'lucide-react'
+import { Globe, Send, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
-import { normalizePlan, getPlanConfig, PlanKey } from '@/lib/plans'
+import { normalizePlan, getPlanConfig } from '@/lib/plans'
 
 type Assistant = {
   id: string
@@ -101,24 +101,19 @@ export default function ChannelConnectActions({ assistants, currentPlan }: Chann
         </div>
 
         {/* WhatsApp */}
-        <div className="bg-card-bg/50 border border-card-border p-5 rounded-2xl flex flex-col items-start gap-3 transition-colors opacity-70">
+        <div className="bg-card-bg/50 border border-card-border p-5 rounded-2xl flex flex-col items-start gap-3 transition-colors hover:bg-white/[0.02]">
           <div className="w-10 h-10 rounded-xl bg-[#25D366]/10 flex items-center justify-center border border-[#25D366]/20">
             <MessageCircle className="w-5 h-5 text-[#25D366]" />
           </div>
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h4 className="font-semibold text-sm text-white">WhatsApp</h4>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-text-soft border border-white/10">Próximamente</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded-full border ${config.channels.whatsapp ? 'bg-brand-success/10 text-brand-success border-brand-success/20' : 'bg-brand-violet/10 text-brand-violet border-brand-violet/20'}`}>{config.channels.whatsapp ? 'Disponible' : 'Desde plan Negocio'}</span>
             </div>
-            <p className="text-xs text-text-soft">La integración con WhatsApp estará disponible próximamente.</p>
+            <p className="text-xs text-text-soft">Conecta WhatsApp Business Cloud API al mismo asistente e inbox.</p>
           </div>
           <div className="mt-auto pt-4 w-full">
-            <button 
-              disabled
-              className="block w-full text-center px-4 py-2 rounded-lg bg-white/[0.02] border border-white/[0.05] text-text-soft text-xs font-medium cursor-not-allowed"
-            >
-              Próximamente
-            </button>
+            {config.channels.whatsapp && primaryAssistant ? <Link href={`/dashboard/assistants/${primaryAssistant.id}?tab=whatsapp`} className="block w-full rounded-lg border border-[#25D366]/25 bg-[#25D366]/10 px-4 py-2 text-center text-xs font-medium text-[#159447] hover:bg-[#25D366]/15">Configurar WhatsApp</Link> : <Link href={primaryAssistant ? '/dashboard/billing' : '/dashboard/create-assistant'} className="block w-full rounded-lg bg-brand-violet px-4 py-2 text-center text-xs font-medium text-white hover:opacity-90">{primaryAssistant ? 'Mejorar plan' : 'Crear asistente'}</Link>}
           </div>
         </div>
 

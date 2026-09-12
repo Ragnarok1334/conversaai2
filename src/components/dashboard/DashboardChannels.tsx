@@ -8,7 +8,7 @@ interface Props {
   channels: {
     webchat: string   // 'connected' | 'pending'
     telegram: string  // 'connected' | 'pending' | 'locked'
-    whatsapp: string  // always 'coming_soon'
+    whatsapp: string  // 'connected' | 'pending' | 'locked'
   }
   planKey: string
   firstAssistantId?: string
@@ -29,7 +29,7 @@ interface ChannelConfig {
   disabled?: boolean
 }
 
-export function DashboardChannels({ channels, planKey, firstAssistantId }: Props) {
+export function DashboardChannels({ channels, firstAssistantId }: Props) {
   const channelList: ChannelConfig[] = [
     {
       key: 'webchat',
@@ -100,13 +100,23 @@ export function DashboardChannels({ channels, planKey, firstAssistantId }: Props
       key: 'whatsapp',
       name: 'WhatsApp',
       icon: MessageCircle,
-      iconColor: 'text-slate-500',
-      description: 'Integración con WhatsApp Business en desarrollo.',
-      status: 'coming_soon',
-      statusLabel: 'Próximamente',
-      statusColor: 'text-slate-500',
-      statusIcon: Clock,
-      disabled: true,
+      iconColor: channels.whatsapp === 'locked' ? 'text-slate-500' : 'text-[#25D366]',
+      description: channels.whatsapp === 'locked'
+        ? 'Disponible desde el plan Negocio.'
+        : 'Conecta un número de WhatsApp Business.',
+      status: channels.whatsapp,
+      statusLabel: channels.whatsapp === 'connected'
+        ? 'Conectado'
+        : channels.whatsapp === 'locked' ? 'No incluido en tu plan' : 'Pendiente de configurar',
+      statusColor: channels.whatsapp === 'connected'
+        ? 'text-brand-success'
+        : channels.whatsapp === 'locked' ? 'text-slate-500' : 'text-amber-400',
+      statusIcon: channels.whatsapp === 'connected' ? CheckCircle2 : channels.whatsapp === 'locked' ? Lock : Clock,
+      ctaLabel: channels.whatsapp === 'locked' ? 'Ver planes' : channels.whatsapp === 'connected' ? 'Ver configuración' : 'Configurar',
+      ctaHref: channels.whatsapp === 'locked'
+        ? '/dashboard/billing'
+        : firstAssistantId ? `/dashboard/assistants/${firstAssistantId}?tab=whatsapp` : '/dashboard/assistants',
+      disabled: channels.whatsapp === 'locked',
     },
   ]
 
@@ -145,7 +155,7 @@ export function DashboardChannels({ channels, planKey, firstAssistantId }: Props
                     {ch.ctaLabel} <ExternalLink className="w-2.5 h-2.5" />
                   </Link>
                 )}
-                {ch.ctaHref && ch.disabled && ch.key === 'telegram' && (
+                {ch.ctaHref && ch.disabled && (ch.key === 'telegram' || ch.key === 'whatsapp') && (
                   <Link
                     href={ch.ctaHref}
                     className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-slate-300 transition-colors ml-1 border border-white/10 rounded-md px-2 py-1"

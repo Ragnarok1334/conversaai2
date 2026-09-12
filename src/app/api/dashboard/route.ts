@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { normalizePlan, getPlanConfig, getPlanLimits, getUsagePercentage, formatLimit } from '@/lib/plans'
+import { normalizePlan, getPlanConfig, getPlanLimits, formatLimit } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 
 export const dynamic = 'force-dynamic'
@@ -38,7 +38,8 @@ export async function GET() {
       leadsResult,
       newLeadsResult,
       assistantChannelsResult,
-      notificationsResult,
+      whatsappChannelsResult,
+      _notificationsResult,
       recentAssistantsResult,
       recentConversationsResult,
       recentLeadsResult,
@@ -55,6 +56,7 @@ export async function GET() {
       supabase.from('leads').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       // Never load channel credentials/config into a response-producing route.
       supabase.from('assistant_channels').select('channel, is_enabled, assistant_id').eq('user_id', user.id).eq('is_enabled', true).limit(50),
+      supabase.from('whatsapp_channels').select('status, assistant_id').eq('user_id', user.id).limit(50),
       supabase.from('notifications').select('id, title, message, type, created_at, metadata').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       supabase.from('assistants').select('id, assistant_name, business_name, channel, status, created_at, tone').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('conversations').select('id, created_at, status, last_message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -132,11 +134,14 @@ export async function GET() {
     const hasTelegramActive = channelRows.some((r) => r.channel === 'telegram' && r.is_enabled === true)
     const telegramAllowed = activePlanConfig.channels.telegram
     const telegramStatus = !telegramAllowed ? 'locked' : hasTelegramActive ? 'connected' : 'pending'
+    const whatsappAllowed = activePlanConfig.channels.whatsapp
+    const hasWhatsAppConnected = (whatsappChannelsResult.data ?? []).some((row) => row.status === 'connected')
+    const whatsappStatus = !whatsappAllowed ? 'locked' : hasWhatsAppConnected ? 'connected' : 'pending'
 
     const channels = {
       webchat: webchatObj.status,
       telegram: telegramStatus,
-      whatsapp: 'coming_soon',
+      whatsapp: whatsappStatus,
     }
 
     const hasAssistant = assistantsUsed > 0
@@ -269,17 +274,17 @@ export async function GET() {
         switch (log.action) {
           case 'lead_status_updated':
             title = 'Estado de Lead actualizado'
-            description = `El lead cambió al estado ${(log.details as any)?.new_status || ''}.`
+            description = `El lead cambió al estado ${(log.details as Record<string, unknown> | null)?.new_status || ''}.`
             href = '/dashboard/leads'
             break
           case 'assistant_created':
             title = 'Asistente creado'
-            description = `Se creó el asistente ${(log.details as any)?.assistant_name || ''}.`
+            description = `Se creó el asistente ${(log.details as Record<string, unknown> | null)?.assistant_name || ''}.`
             href = '/dashboard/assistants'
             break
           case 'domain_verified':
             title = 'Web Chat detectado'
-            description = `Se verificó el dominio ${(log.details as any)?.domain || ''}.`
+            description = `Se verificó el dominio ${(log.details as Record<string, unknown> | null)?.domain || ''}.`
             href = '/dashboard/assistants'
             break
           case 'profile_updated':

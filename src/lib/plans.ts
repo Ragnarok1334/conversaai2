@@ -150,16 +150,16 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     purchaseMode: 'checkout',
     recommended: true,
     limits: { assistants: 3, messagesPerMonth: 4000, domains: 3, users: 1 },
-    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
+    channels: { webchat: true, telegram: false, whatsapp: true, instagram: false, facebook: false },
     features: [
       '4.000 respuestas de IA',
       '3 asistentes IA',
       '3 dominios autorizados',
-      'Web Chat + leads',
+      'Web Chat + WhatsApp',
       'Inbox, leads y derivación humana',
       'Exportación de leads'
     ],
-    futureFeatures: ['WhatsApp incluido al habilitarse'],
+    futureFeatures: [],
     supportLevel: 'Soporte prioritario',
     cta: 'Elegir Negocio',
     href: '',
@@ -179,17 +179,17 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     aiSubtitle: 'IA avanzada para escalar conversaciones',
     purchaseMode: 'checkout',
     limits: { assistants: 8, messagesPerMonth: 10000, domains: 10, users: null },
-    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
+    channels: { webchat: true, telegram: false, whatsapp: true, instagram: false, facebook: false },
     features: [
       '10.000 respuestas de IA',
       '8 asistentes IA',
       '10 dominios autorizados',
-      'Web Chat escalable',
+      'Web Chat + WhatsApp',
       'IA avanzada y atención humana',
       'Soporte prioritario'
     ],
     futureFeatures: [
-      'WhatsApp, Instagram y Facebook',
+      'Instagram y Facebook',
       'Canal Telegram',
       'Reportes semanales',
       'Automatizaciones'
@@ -212,12 +212,12 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     aiSubtitle: 'IA avanzada prioritaria para operaciones',
     purchaseMode: 'checkout',
     limits: { assistants: 20, messagesPerMonth: 20000, domains: 25, users: null },
-    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
+    channels: { webchat: true, telegram: false, whatsapp: true, instagram: false, facebook: false },
     features: [
       '20.000 mensajes al mes',
       '20 asistentes IA',
       '25 dominios autorizados',
-      'Web Chat avanzado',
+      'Web Chat + WhatsApp',
       'CRM completo y Analytics'
     ],
     futureFeatures: [
@@ -242,7 +242,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
     aiSubtitle: 'IA personalizada / dedicada',
     purchaseMode: 'contact',
     limits: { assistants: null, messagesPerMonth: null, domains: null, users: null },
-    channels: { webchat: true, telegram: false, whatsapp: false, instagram: false, facebook: false },
+    channels: { webchat: true, telegram: false, whatsapp: true, instagram: false, facebook: false },
     features: [
       'Asistentes ilimitados',
       'Mensajes personalizados',
@@ -250,7 +250,7 @@ export const PLAN_CONFIGS: Record<PlanKey, PlanConfig> = {
       'Onboarding guiado',
     ],
     futureFeatures: [
-      'WhatsApp y Telegram',
+      'Canal Telegram',
       'Roles y permisos',
     ],
     supportLevel: 'Soporte dedicado SLA',

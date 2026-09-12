@@ -666,7 +666,7 @@ export function AssistantForm({ hasReachedLimit = false, currentUsage = 0, planL
                   PRÓXIMAMENTE
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-2">WhatsApp</h3>
-                <p className="text-sm text-slate-400 max-w-sm">La integración con WhatsApp estará disponible pronto. Mientras tanto puedes usar Web Chat y Telegram.</p>
+                <p className="text-sm text-slate-400 max-w-sm">Guarda el asistente y conecta WhatsApp Business desde la pestaña WhatsApp. Disponible desde el plan Negocio.</p>
                 <div className="mt-4 bg-white/[0.02] border border-white/5 rounded-xl p-4 space-y-3 text-left w-full max-w-md">
                   <p className="text-sm text-white">En WhatsApp lo más recomendable es usar un solo número y enrutar la conversación según la intención del cliente.</p>
                   <div className="space-y-2">

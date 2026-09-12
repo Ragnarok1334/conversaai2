@@ -5,13 +5,14 @@ import { isUuid } from '@/lib/http-security'
 import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
 import { getPlanLimits, normalizePlan } from '@/lib/plans'
 import { calculateAssistantHealth } from '@/lib/assistant/assistant-health'
-import { Bot, MessageCircle, Send, Calendar, CheckCircle2, ArrowLeft, Pencil, Settings, Play, Info, Activity, Users, Plug, Target, Lock, Palette, Globe } from 'lucide-react'
+import { ArrowLeft, Pencil, Settings, Play, Info, Lock, Palette, MessageCircle } from 'lucide-react'
 import Link from 'next/link'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { AssistantBuilder } from '@/components/dashboard/create-assistant/AssistantBuilder'
 import { AssistantWebChatTab } from '@/components/dashboard/AssistantWebChatTab'
 import { AssistantKnowledgeTab } from '@/components/dashboard/AssistantKnowledgeTab'
 import { AssistantOverview } from '@/components/dashboard/AssistantOverview'
+import { AssistantWhatsAppTab } from '@/components/dashboard/AssistantWhatsAppTab'
 
 export default async function AssistantDetailPage({
   params,
@@ -159,22 +160,9 @@ export default async function AssistantDetailPage({
     { id: 'overview', label: 'Resumen', icon: <Info className="w-4 h-4" /> },
     { id: 'knowledge', label: 'Conocimiento', icon: <Settings className="w-4 h-4" /> },
     { id: 'webchat', label: 'Web Chat', icon: <Palette className="w-4 h-4" /> },
+    { id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-4 h-4" /> },
     { id: 'test', label: 'Prueba', icon: <Play className="w-4 h-4" /> },
   ]
-
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-  }
-
-  const getScoreColor = (level: string) => {
-    switch (level) {
-      case 'Excelente': return 'text-brand-success'
-      case 'Bueno': return 'text-brand-cyan'
-      case 'Medio': return 'text-amber-500'
-      case 'Bajo': return 'text-brand-pink'
-      default: return 'text-slate-400'
-    }
-  }
 
   const getBaseStateColor = (state: string) => {
     switch (state) {
@@ -187,15 +175,17 @@ export default async function AssistantDetailPage({
     }
   }
 
-  const activeBlocksCount = assistant.knowledge_blocks ? assistant.knowledge_blocks.filter((b: any) => b.is_active && (b.content?.trim()?.length || 0) >= 60).length : 0
+  const knowledgeBlocks = Array.isArray(assistant.knowledge_blocks)
+    ? assistant.knowledge_blocks as Array<{ is_active?: boolean; content?: string }>
+    : []
+  const activeBlocksCount = knowledgeBlocks.filter(block => block.is_active && (block.content?.trim()?.length || 0) >= 60).length
   const coreKnowledgeCount = [assistant.instructions, assistant.services, assistant.faqs, assistant.schedule].filter(value => (value || '').trim().length >= 40).length
   const blocksCount = activeBlocksCount + coreKnowledgeCount
 
   // Derive explicit publication state for the Overview map
   const isCustomized = Boolean(assistant.widget_config && Object.keys(assistant.widget_config).length > 0)
   const hasDomain = domains.length > 0
-  const isDetected = domains.some((d: any) => d.last_seen_at !== null)
-  const hasConversations = conversationsCount > 0
+  const isDetected = domains.some(domain => domain.last_seen_at !== null)
 
   return (
     <div className="max-w-7xl mx-auto space-y-8">
@@ -327,6 +317,8 @@ export default async function AssistantDetailPage({
           initialFocus={initialFocus}
         />
       )}
+
+      {tab === 'whatsapp' && <AssistantWhatsAppTab assistantId={assistant.id} />}
 
       {/* TAB CONTENT: SETTINGS (EDIT) */}
       {(tab === 'settings' || tab === 'edit') && (
