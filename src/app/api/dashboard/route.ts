@@ -39,6 +39,7 @@ export async function GET() {
       newLeadsResult,
       assistantChannelsResult,
       whatsappChannelsResult,
+      facebookChannelsResult,
       _notificationsResult,
       recentAssistantsResult,
       recentConversationsResult,
@@ -57,6 +58,7 @@ export async function GET() {
       // Never load channel credentials/config into a response-producing route.
       supabase.from('assistant_channels').select('channel, is_enabled, assistant_id').eq('user_id', user.id).eq('is_enabled', true).limit(50),
       supabase.from('whatsapp_channels').select('status, assistant_id').eq('user_id', user.id).limit(50),
+      supabase.from('facebook_channels').select('status, assistant_id').eq('user_id', user.id).limit(50),
       supabase.from('notifications').select('id, title, message, type, created_at, metadata').eq('user_id', user.id).order('created_at', { ascending: false }).limit(10),
       supabase.from('assistants').select('id, assistant_name, business_name, channel, status, created_at, tone').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
       supabase.from('conversations').select('id, created_at, status, last_message').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
@@ -137,11 +139,15 @@ export async function GET() {
     const whatsappAllowed = activePlanConfig.channels.whatsapp
     const hasWhatsAppConnected = (whatsappChannelsResult.data ?? []).some((row) => row.status === 'connected')
     const whatsappStatus = !whatsappAllowed ? 'locked' : hasWhatsAppConnected ? 'connected' : 'pending'
+    const facebookAllowed = activePlanConfig.channels.facebook
+    const hasFacebookConnected = (facebookChannelsResult.data ?? []).some((row) => row.status === 'connected')
+    const facebookStatus = !facebookAllowed ? 'locked' : hasFacebookConnected ? 'connected' : 'pending'
 
     const channels = {
       webchat: webchatObj.status,
       telegram: telegramStatus,
       whatsapp: whatsappStatus,
+      facebook: facebookStatus,
     }
 
     const hasAssistant = assistantsUsed > 0

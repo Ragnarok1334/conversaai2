@@ -5,7 +5,7 @@ import { isUuid } from '@/lib/http-security'
 import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
 import { getPlanLimits, normalizePlan } from '@/lib/plans'
 import { calculateAssistantHealth } from '@/lib/assistant/assistant-health'
-import { ArrowLeft, Pencil, Settings, Play, Info, Lock, Palette, MessageCircle } from 'lucide-react'
+import { ArrowLeft, Pencil, Settings, Play, Info, Lock, Palette, MessageCircle, MessagesSquare as Facebook } from 'lucide-react'
 import Link from 'next/link'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { AssistantBuilder } from '@/components/dashboard/create-assistant/AssistantBuilder'
@@ -13,6 +13,7 @@ import { AssistantWebChatTab } from '@/components/dashboard/AssistantWebChatTab'
 import { AssistantKnowledgeTab } from '@/components/dashboard/AssistantKnowledgeTab'
 import { AssistantOverview } from '@/components/dashboard/AssistantOverview'
 import { AssistantWhatsAppTab } from '@/components/dashboard/AssistantWhatsAppTab'
+import { AssistantFacebookTab } from '@/components/dashboard/AssistantFacebookTab'
 
 export default async function AssistantDetailPage({
   params,
@@ -161,6 +162,7 @@ export default async function AssistantDetailPage({
     { id: 'knowledge', label: 'Conocimiento', icon: <Settings className="w-4 h-4" /> },
     { id: 'webchat', label: 'Web Chat', icon: <Palette className="w-4 h-4" /> },
     { id: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle className="w-4 h-4" /> },
+    { id: 'facebook', label: 'Facebook', icon: <Facebook className="w-4 h-4" /> },
     { id: 'test', label: 'Prueba', icon: <Play className="w-4 h-4" /> },
   ]
 
@@ -319,6 +321,7 @@ export default async function AssistantDetailPage({
       )}
 
       {tab === 'whatsapp' && <AssistantWhatsAppTab assistantId={assistant.id} />}
+      {tab === 'facebook' && <AssistantFacebookTab assistantId={assistant.id} />}
 
       {/* TAB CONTENT: SETTINGS (EDIT) */}
       {(tab === 'settings' || tab === 'edit') && (

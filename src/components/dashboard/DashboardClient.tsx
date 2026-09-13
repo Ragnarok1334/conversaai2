@@ -53,7 +53,7 @@ interface DashboardData {
     lastSeenUrl?: string
     assistantId?: string
   }
-  channels: { webchat: string; telegram: string; whatsapp: string }
+  channels: { webchat: string; telegram: string; whatsapp: string; facebook: string }
   health: {
     score: number
     label: string
@@ -88,6 +88,7 @@ const channelLabel: Record<string, string> = {
   webchat: 'Web Chat',
   telegram: 'Telegram',
   whatsapp: 'WhatsApp',
+  facebook: 'Facebook Messenger',
 }
 
 export function DashboardClient({ initialData, userId }: Props) {
