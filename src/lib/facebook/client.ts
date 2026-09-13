@@ -4,6 +4,13 @@ import { decryptFacebookToken } from './crypto'
 type Credentials = { page_id: string; encrypted_page_access_token: string }
 type GraphError = { error?: { code?: number } }
 
+export class FacebookGraphError extends Error {
+  constructor(public readonly code?: number) {
+    super(code ? `Meta rechazó la solicitud (código ${code}).` : 'Meta rechazó la solicitud.')
+    this.name = 'FacebookGraphError'
+  }
+}
+
 function version() {
   const value = (process.env.META_GRAPH_API_VERSION || process.env.WHATSAPP_GRAPH_API_VERSION)?.trim()
   if (!value || !/^v\d+\.\d+$/.test(value)) throw new Error('META_GRAPH_API_VERSION no está configurada correctamente.')
@@ -16,7 +23,7 @@ async function graph<T>(path: string, token: string, init?: RequestInit): Promis
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', ...(init?.headers || {}) },
   })
   const data = await response.json().catch(() => ({})) as T & GraphError
-  if (!response.ok) throw new Error(data.error?.code ? `Meta rechazó la solicitud (código ${data.error.code}).` : 'Meta rechazó la solicitud.')
+  if (!response.ok) throw new FacebookGraphError(data.error?.code)
   return data
 }
 
