@@ -9,7 +9,7 @@ import { getPlanConfig, normalizePlan } from '@/lib/plans'
 import { generateAssistantReply, type AssistantConfig } from '@/lib/openai'
 import { createUserNotification } from '@/lib/notifications'
 import { normalizeWhatsAppConfig, isInsideBusinessHours } from '@/lib/whatsapp/config'
-import { sendFacebookText } from './client'
+import { FacebookGraphError, sendFacebookText } from './client'
 
 type MessagingEvent = {
   sender?: { id?: string }; recipient?: { id?: string }; timestamp?: number
@@ -128,8 +128,11 @@ async function processMessage(channel: Channel, event: MessagingEvent, raw: stri
     await finish(eventId, 'processed')
   } catch (error) {
     console.error('[Facebook message]', error instanceof Error ? error.message : 'unknown')
-    await createSupabaseAdmin().from('facebook_channels').update({ last_error: stage, updated_at: new Date().toISOString() }).eq('id', channel.id)
-    await finish(eventId, 'failed', stage)
+    const errorCode = error instanceof FacebookGraphError && error.code
+      ? `${stage}_meta_${error.code}`
+      : stage
+    await createSupabaseAdmin().from('facebook_channels').update({ last_error: errorCode, updated_at: new Date().toISOString() }).eq('id', channel.id)
+    await finish(eventId, 'failed', errorCode)
   }
 }
 
