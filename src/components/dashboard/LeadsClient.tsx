@@ -519,12 +519,6 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                               <button onClick={() => copyToClipboard(selectedLead.email)} className="text-brand-cyan hover:text-brand-cyan/80 text-xs font-medium shrink-0">Copiar</button>
                             )}
                           </div>
-                          {(selectedLead.email || selectedLead.phone) && (
-                            <div className="grid grid-cols-2 gap-2 pt-3 border-t border-white/[0.05]">
-                              {selectedLead.email && <a href={`mailto:${selectedLead.email}`} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-card-border px-3 py-2 text-xs font-semibold text-text-primary hover:border-brand-cyan/40"><Mail className="w-3.5 h-3.5" /> Correo</a>}
-                              {selectedLead.phone && <a href={whatsappHref(selectedLead.phone)} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-brand-success/15 border border-brand-success/25 px-3 py-2 text-xs font-semibold text-brand-success"><MessageSquare className="w-3.5 h-3.5" /> WhatsApp</a>}
-                            </div>
-                          )}
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
                               <Phone className="w-4 h-4 text-text-soft shrink-0" />
@@ -536,6 +530,14 @@ export default function LeadsClient({ user, assistants, currentPlan, effectiveSt
                               <button onClick={() => copyToClipboard(selectedLead.phone)} className="text-brand-cyan hover:text-brand-cyan/80 text-xs font-medium shrink-0">Copiar</button>
                             )}
                           </div>
+                          {!selectedLead.email && <p className="dashboard-muted text-xs">El correo aparecerá cuando el cliente lo escriba en la conversación.</p>}
+                          {(selectedLead.email || selectedLead.phone) && (
+                            <div className="grid grid-cols-1 gap-2 pt-3 border-t border-card-border sm:grid-cols-2">
+                              {selectedLead.email && <a href={`mailto:${selectedLead.email}`} className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-brand-cyan/25 bg-brand-cyan/10 px-3 py-2.5 text-xs font-semibold text-brand-cyan transition hover:bg-brand-cyan/15"><Mail className="w-3.5 h-3.5" /> Enviar correo</a>}
+                              {selectedLead.phone && <a href={whatsappHref(selectedLead.phone)} target="_blank" rel="noreferrer" className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-brand-success/25 bg-brand-success/15 px-3 py-2.5 text-xs font-semibold text-brand-success transition hover:bg-brand-success/20"><MessageSquare className="w-3.5 h-3.5" /> Abrir WhatsApp</a>}
+                              {selectedLead.phone && <a href={`tel:${selectedLead.phone.replace(/[^+\d]/g, '')}`} className="inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-card-border px-3 py-2.5 text-xs font-semibold text-text-primary transition hover:border-brand-violet/35"><Phone className="w-3.5 h-3.5" /> Llamar</a>}
+                            </div>
+                          )}
                         </div>
                       </div>
 
