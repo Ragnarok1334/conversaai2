@@ -56,6 +56,14 @@ function messageText(message: IncomingMessage): string | null {
   return typeof value === 'string' && value.trim() ? value.trim().slice(0, 4096) : null
 }
 
+function extractEmailFromMessages(messages: Array<{ content?: string | null }>): string | null {
+  for (const item of messages) {
+    const match = item.content?.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)
+    if (match) return match[0].toLowerCase().slice(0, 254)
+  }
+  return null
+}
+
 function assistantConfig(assistant: AssistantRow): AssistantConfig {
   return {
     assistantName: assistant.assistant_name || '', businessName: assistant.business_name || '',
@@ -158,6 +166,17 @@ async function processMessage(channel: WhatsAppChannelRow, message: IncomingMess
     })
     if (inboundError?.code === '23505') { await finishEvent(eventId, 'ignored'); return }
     if (inboundError) throw inboundError
+
+    // WhatsApp does not provide email addresses in its contact payload. Capture
+    // one only when the person has explicitly written it in the conversation.
+    const { data: recentContactMessages } = await admin.from('messages').select('content')
+      .eq('conversation_id', conversation.id).eq('role', 'user')
+      .order('created_at', { ascending: false }).limit(20)
+    const capturedEmail = extractEmailFromMessages(recentContactMessages || [])
+    if (capturedEmail) {
+      await admin.from('leads').update({ email: capturedEmail, updated_at: new Date().toISOString() })
+        .eq('conversation_id', conversation.id).eq('user_id', channel.user_id).is('email', null)
+    }
 
     const requestedHuman = detectHumanHandoffRequest(text)
     const channelConfig = normalizeWhatsAppConfig(channel.config)
