@@ -25,7 +25,9 @@ export async function inspectFacebookPage(pageId: string, token: string) {
 }
 
 export async function subscribeFacebookPage(pageId: string, token: string) {
-  return graph<{ success: boolean }>(`${pageId}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,messaging_reads,message_deliveries`, token, { method: 'POST', body: '{}' })
+  const result = await graph<{ success: boolean }>(`${pageId}/subscribed_apps?subscribed_fields=messages,messaging_postbacks,message_reads,message_deliveries`, token, { method: 'POST', body: '{}' })
+  if (result.success !== true) throw new Error('Meta no confirmó la suscripción de la página.')
+  return result
 }
 
 export async function sendFacebookText(channel: Credentials, recipientId: string, text: string) {
