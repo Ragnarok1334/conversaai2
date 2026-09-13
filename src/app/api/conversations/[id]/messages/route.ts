@@ -42,6 +42,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         console.error('[WhatsApp human reply]', error instanceof Error ? error.message : 'unknown')
         return NextResponse.json({ error: 'Meta no pudo entregar el mensaje. Revisa la conexión de WhatsApp.' }, { status: 502 })
       }
+    } else if (conversation.channel === 'facebook') {
+      if (!conversation.external_chat_id) return NextResponse.json({ error: 'La conversación no tiene un destinatario de Messenger válido.' }, { status: 409 })
+      const { data: facebookChannel } = await admin.from('facebook_channels').select('*').eq('assistant_id', conversation.assistant_id).eq('user_id', user.id).eq('status', 'connected').maybeSingle()
+      if (!facebookChannel) return NextResponse.json({ error: 'Facebook Messenger está desconectado.' }, { status: 409 })
+      try {
+        const { sendFacebookText } = await import('@/lib/facebook/client')
+        const sent = await sendFacebookText(facebookChannel, conversation.external_chat_id, content)
+        providerMessageId = sent.message_id || null
+      } catch (error) {
+        console.error('[Facebook human reply]', error instanceof Error ? error.message : 'unknown')
+        return NextResponse.json({ error: 'Meta no pudo entregar el mensaje. Revisa Facebook Messenger.' }, { status: 502 })
+      }
     }
 
     const now = new Date().toISOString()

@@ -1,6 +1,6 @@
 'use client'
 
-import { Globe, Send, MessageCircle, CheckCircle2, Clock, Lock, ExternalLink } from 'lucide-react'
+import { Globe, Send, MessageCircle, CheckCircle2, Clock, Lock, ExternalLink, MessagesSquare as Facebook } from 'lucide-react'
 import Link from 'next/link'
 import { DashboardCard } from '@/components/dashboard/DashboardCard'
 
@@ -9,6 +9,7 @@ interface Props {
     webchat: string   // 'connected' | 'pending'
     telegram: string  // 'connected' | 'pending' | 'locked'
     whatsapp: string  // 'connected' | 'pending' | 'locked'
+    facebook: string
   }
   planKey: string
   firstAssistantId?: string
@@ -118,6 +119,18 @@ export function DashboardChannels({ channels, firstAssistantId }: Props) {
         : firstAssistantId ? `/dashboard/assistants/${firstAssistantId}?tab=whatsapp` : '/dashboard/assistants',
       disabled: channels.whatsapp === 'locked',
     },
+    {
+      key: 'facebook', name: 'Facebook Messenger', icon: Facebook,
+      iconColor: channels.facebook === 'locked' ? 'text-slate-500' : 'text-[#1877F2]',
+      description: channels.facebook === 'locked' ? 'Disponible desde el plan Negocio.' : 'Conecta una Página de Facebook.',
+      status: channels.facebook,
+      statusLabel: channels.facebook === 'connected' ? 'Conectado' : channels.facebook === 'locked' ? 'No incluido en tu plan' : 'Pendiente de configurar',
+      statusColor: channels.facebook === 'connected' ? 'text-brand-success' : channels.facebook === 'locked' ? 'text-slate-500' : 'text-amber-400',
+      statusIcon: channels.facebook === 'connected' ? CheckCircle2 : channels.facebook === 'locked' ? Lock : Clock,
+      ctaLabel: channels.facebook === 'locked' ? 'Ver planes' : channels.facebook === 'connected' ? 'Ver configuración' : 'Configurar',
+      ctaHref: channels.facebook === 'locked' ? '/dashboard/billing' : firstAssistantId ? `/dashboard/assistants/${firstAssistantId}?tab=facebook` : '/dashboard/assistants',
+      disabled: channels.facebook === 'locked',
+    },
   ]
 
   return (
@@ -155,7 +168,7 @@ export function DashboardChannels({ channels, firstAssistantId }: Props) {
                     {ch.ctaLabel} <ExternalLink className="w-2.5 h-2.5" />
                   </Link>
                 )}
-                {ch.ctaHref && ch.disabled && (ch.key === 'telegram' || ch.key === 'whatsapp') && (
+                {ch.ctaHref && ch.disabled && (ch.key === 'telegram' || ch.key === 'whatsapp' || ch.key === 'facebook') && (
                   <Link
                     href={ch.ctaHref}
                     className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400 hover:text-slate-300 transition-colors ml-1 border border-white/10 rounded-md px-2 py-1"
