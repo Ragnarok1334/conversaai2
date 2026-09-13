@@ -152,6 +152,7 @@ async function storeOutbound(channel: WhatsAppChannelRow, conversationId: string
 async function processMessage(channel: WhatsAppChannelRow, message: IncomingMessage, contactName: string | null, rawBody: string) {
   const eventId = await recordEvent(message.id, channel.id, `message.${message.type || 'unknown'}`, rawBody)
   if (!eventId) return
+  let processingStage = 'receive'
   try {
     const text = messageText(message)
     if (!text) { await finishEvent(eventId, 'ignored'); return }
@@ -224,17 +225,38 @@ async function processMessage(channel: WhatsAppChannelRow, message: IncomingMess
     const history = (historyRows || []).slice().reverse().map(item => ({ role: item.role as 'user' | 'assistant', content: String(item.content).slice(0, 2000) }))
     // The current inbound message is already the last history item.
     if (history.at(-1)?.role === 'user' && history.at(-1)?.content === text) history.pop()
-    let reply = await generateAssistantReply(assistantConfig(assistant as AssistantRow), text, getModelForPlan(plan, 'webchat_message', { messageLength: text.length }), history, {
-      knownLead: { name: knownLead?.name || contactName, hasEmail: Boolean(knownLead?.email), hasPhone: true },
-    })
+    const config = assistantConfig(assistant as AssistantRow)
+    let reply: string
+    processingStage = 'ai_generation'
+    try {
+      reply = await generateAssistantReply(config, text, getModelForPlan(plan, 'webchat_message', { messageLength: text.length }), history, {
+        knownLead: { name: knownLead?.name || contactName, hasEmail: Boolean(knownLead?.email), hasPhone: true },
+      })
+    } catch (error) {
+      // A temporary AI/provider failure must not leave the customer without a reply.
+      console.error('[WhatsApp AI fallback]', error instanceof Error ? error.message : 'unknown')
+      reply = config.fallbackMessage || 'Tu mensaje llegó correctamente. Estoy teniendo una dificultad momentánea para responder; por favor intenta nuevamente en unos segundos.'
+      await createUserNotification({
+        userId: channel.user_id,
+        title: 'Respuesta automática temporal en WhatsApp',
+        message: `${contactName || 'Un contacto'} recibió el mensaje de respaldo porque la IA no pudo responder.`,
+        category: 'conversation', actionUrl: '/dashboard/conversations',
+        metadata: { assistantId: channel.assistant_id, conversationId: conversation.id, channel: 'whatsapp' },
+      })
+    }
     if (channelConfig.welcomeEnabled && history.length === 0) reply = `${channelConfig.welcomeMessage}\n\n${reply}`
+    processingStage = 'whatsapp_delivery'
     const sent = await sendWhatsAppText(channel, message.from, reply, message.id)
     if (sent.messages?.[0]?.id) await storeOutbound(channel, conversation.id, reply, 'ai', sent.messages[0].id)
     await admin.from('conversations').update({ last_message: reply.slice(0, 100), last_message_at: new Date().toISOString() }).eq('id', conversation.id)
     await finishEvent(eventId, 'processed')
   } catch (error) {
     console.error('[WhatsApp message]', error instanceof Error ? error.message : 'unknown')
-    await finishEvent(eventId, 'failed', error instanceof Error ? error.name : 'unknown')
+    await createSupabaseAdmin().from('whatsapp_channels').update({
+      last_error: processingStage,
+      updated_at: new Date().toISOString(),
+    }).eq('id', channel.id)
+    await finishEvent(eventId, 'failed', processingStage)
   }
 }
 
