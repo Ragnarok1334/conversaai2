@@ -2,7 +2,7 @@ import 'server-only'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 
 function key(): Buffer {
-  const raw = (process.env.META_TOKEN_ENCRYPTION_KEY || process.env.WHATSAPP_TOKEN_ENCRYPTION_KEY)?.trim()
+  const raw = process.env.META_TOKEN_ENCRYPTION_KEY?.trim()
   if (!raw) throw new Error('META_TOKEN_ENCRYPTION_KEY no está configurada.')
   const value = Buffer.from(raw, 'base64')
   if (value.length !== 32) throw new Error('META_TOKEN_ENCRYPTION_KEY debe contener 32 bytes en Base64.')
