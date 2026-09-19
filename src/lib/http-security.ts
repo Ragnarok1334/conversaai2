@@ -151,3 +151,19 @@ export function widgetCorsHeaders(request: Request, exposeOrigin: boolean): Reco
     'Cache-Control': 'no-store',
   }
 }
+
+export function isTrustedBrowserMutation(request: Request): boolean {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(request.method.toUpperCase())) return true
+
+  const fetchSite = request.headers.get('sec-fetch-site')?.toLowerCase()
+  if (fetchSite === 'cross-site') return false
+
+  const origin = request.headers.get('origin')
+  if (!origin) return fetchSite === undefined || fetchSite === 'same-origin' || fetchSite === 'same-site' || fetchSite === 'none'
+
+  try {
+    return new URL(origin).origin === new URL(request.url).origin
+  } catch {
+    return false
+  }
+}

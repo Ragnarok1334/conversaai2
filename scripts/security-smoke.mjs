@@ -23,6 +23,15 @@ await check('API privada rechaza anónimos', { path: '/api/assistants', options:
   res.status === 401 || res.status === 403
 )
 
+await check('Mutación privada rechaza origen cruzado', {
+  path: '/api/profile',
+  options: {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', origin: 'https://attacker.invalid', 'sec-fetch-site': 'cross-site' },
+    body: '{}',
+  },
+}, (res) => res.status === 403)
+
 await check('JSON malformado rechazado', {
   path: '/api/widget/message',
   options: { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{' },

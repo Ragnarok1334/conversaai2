@@ -118,28 +118,31 @@ export default function RegisterPage() {
       try {
         const parsed = JSON.parse(draft)
         if (parsed.name) setName(parsed.name)
-        if (parsed.email) setEmail(parsed.email)
         if (parsed.companyName) setCompanyName(parsed.companyName)
         if (parsed.businessType) setBusinessType(parsed.businessType)
         if (parsed.country) setCountry(parsed.country)
-        if (parsed.phone) setPhone(parsed.phone)
         if (parsed.businessWebsite) setBusinessWebsite(parsed.businessWebsite)
         if (parsed.channel) setChannel(parsed.channel)
         if (parsed.goal) setGoal(parsed.goal)
         if (parsed.marketingOptIn !== undefined) setMarketingOptIn(parsed.marketingOptIn)
-      } catch (err) {}
+        if (parsed.email || parsed.phone) {
+          delete parsed.email
+          delete parsed.phone
+          localStorage.setItem('conversaai_register_draft', JSON.stringify(parsed))
+        }
+      } catch {}
     }
   }, [])
 
   useEffect(() => {
     // Only save if we actually have some data
-    if (name || email || companyName || country || channel || goal) {
+    if (name || companyName || country || channel || goal) {
       const draftToSave = {
-        name, email, companyName, businessType, country, phone, businessWebsite, channel, goal, marketingOptIn
+        name, companyName, businessType, country, businessWebsite, channel, goal, marketingOptIn
       }
       localStorage.setItem('conversaai_register_draft', JSON.stringify(draftToSave))
     }
-  }, [name, email, companyName, businessType, country, phone, businessWebsite, channel, goal, marketingOptIn])
+  }, [name, companyName, businessType, country, businessWebsite, channel, goal, marketingOptIn])
 
   function handleCountryChange(newCountry: string, newDialCode: string) {
     setCountry(newCountry)
