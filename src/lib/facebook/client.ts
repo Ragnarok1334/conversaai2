@@ -2,11 +2,33 @@ import 'server-only'
 import { decryptFacebookToken } from './crypto'
 
 type Credentials = { page_id: string; encrypted_page_access_token: string }
-type GraphError = { error?: { code?: number; message?: string } }
+type GraphError = {
+  error?: {
+    code?: number
+    error_subcode?: number
+    type?: string
+    message?: string
+    fbtrace_id?: string
+  }
+}
+
+function safeGraphMessage(message?: string) {
+  if (!message) return undefined
+  return message
+    .replace(/access_token=[^\s&]+/gi, 'access_token=[REDACTED]')
+    .replace(/\bEAA[A-Za-z0-9_-]{12,}\b/g, '[REDACTED]')
+    .slice(0, 240)
+}
 
 export class FacebookGraphError extends Error {
-  constructor(public readonly code?: number, message?: string) {
-    super(message || (code ? `Meta rechazó la solicitud (código ${code}).` : 'Meta rechazó la solicitud.'))
+  constructor(
+    public readonly code?: number,
+    message?: string,
+    public readonly subcode?: number,
+    public readonly graphType?: string,
+    public readonly traceId?: string,
+  ) {
+    super(safeGraphMessage(message) || (code ? `Meta rechazó la solicitud (código ${code}).` : 'Meta rechazó la solicitud.'))
     this.name = 'FacebookGraphError'
   }
 }
@@ -28,7 +50,13 @@ async function graph<T>(path: string, token: string, init?: RequestInit): Promis
   const data = await response.json().catch(() => ({})) as T & GraphError
 
   if (!response.ok) {
-    throw new FacebookGraphError(data.error?.code, data.error?.message)
+    throw new FacebookGraphError(
+      data.error?.code,
+      data.error?.message,
+      data.error?.error_subcode,
+      data.error?.type,
+      data.error?.fbtrace_id,
+    )
   }
 
   return data
