@@ -6,7 +6,7 @@ import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { getPlanConfig, normalizePlan } from '@/lib/plans'
 import { encryptFacebookToken } from '@/lib/facebook/crypto'
-import { inspectFacebookPage, subscribeFacebookPage } from '@/lib/facebook/client'
+import { FacebookGraphError, inspectFacebookPage, subscribeFacebookPage } from '@/lib/facebook/client'
 import { normalizeWhatsAppConfig } from '@/lib/whatsapp/config'
 
 export const runtime = 'nodejs'
@@ -56,6 +56,27 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   } catch (error) {
     if (error instanceof HttpInputError) return NextResponse.json({ error: error.message }, { status: error.status })
     console.error('[POST Facebook connection]', error instanceof Error ? error.message : 'unknown')
+    if (error instanceof FacebookGraphError) {
+      if (error.code === 190) {
+        return NextResponse.json({
+          error: 'El token de la página venció, fue invalidado o pertenece a otra aplicación de Meta. Genera uno nuevo y vuelve a conectarlo.',
+          metaCode: error.code,
+          metaSubcode: error.subcode,
+        }, { status: 401 })
+      }
+      if (error.code === 100) {
+        return NextResponse.json({
+          error: 'Meta rechazó un dato de la página o de la suscripción. Revisa el ID y los permisos del token.',
+          metaCode: error.code,
+          metaSubcode: error.subcode,
+        }, { status: 400 })
+      }
+      return NextResponse.json({
+        error: `Meta rechazó la conexión${error.code ? ` (código ${error.code})` : ''}.`,
+        metaCode: error.code,
+        metaSubcode: error.subcode,
+      }, { status: 502 })
+    }
     return NextResponse.json({ error: 'Meta no pudo validar la página o su token.' }, { status: 502 })
   }
 }
