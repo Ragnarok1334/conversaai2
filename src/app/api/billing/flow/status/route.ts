@@ -19,8 +19,9 @@ export async function GET(req: Request) {
     const supabaseAdmin = createSupabaseAdmin();
     const { data: payment, error: paymentError } = await supabaseAdmin
       .from('billing_payments')
-      .select('id,plan,status,amount,currency,flow_token')
+      .select('id,plan,status,amount,currency,flow_token,user_id')
       .eq('flow_token', token)
+      .is('user_id', 'not null')
       .single();
 
     if (paymentError || !payment) {
