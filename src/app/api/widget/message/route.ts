@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
           updates.handoff_reason = 'El visitante solicitó atención humana.'
           updates.human_requested_at = now
         }
-        await supabaseAdmin.from('conversations').update(updates).eq('id', handoffConversationId)
+        await supabaseAdmin.from('conversations').update(updates).eq('id', handoffConversationId).eq('user_id', ownerId)
       }
 
       await supabaseAdmin.from('messages').insert({
@@ -232,6 +232,7 @@ export async function POST(request: NextRequest) {
         .eq('id', currentConversationId)
         .eq('assistant_id', assistantId)
         .eq('visitor_id', visitorId)
+        .eq('user_id', ownerId)
         .select()
         .single()
 
@@ -364,6 +365,7 @@ export async function POST(request: NextRequest) {
         .from('leads')
         .select('*')
         .eq('conversation_id', currentConversationId)
+        .eq('user_id', ownerId)
         .single()
 
       if (existingLead) {
@@ -373,7 +375,7 @@ export async function POST(request: NextRequest) {
         if (extractedName && !existingLead.name) updates.name = extractedName
 
         if (Object.keys(updates).length > 0) {
-          await supabaseAdmin.from('leads').update(updates).eq('id', existingLead.id)
+          await supabaseAdmin.from('leads').update(updates).eq('id', existingLead.id).eq('user_id', ownerId)
         }
       } else {
         const { data: newLead } = await supabaseAdmin.from('leads').insert({
