@@ -82,16 +82,25 @@ async function recordEvent(providerEventId: string, channelId: string | null, ev
     event_type: eventType,
     payload_hash: createHash('sha256').update(rawBody).digest('hex'),
   }).select('id').maybeSingle()
-  if (error?.code === '23505') return null
+  if (error?.code === '23505') {
+    // Idempotencia: evento duplicado (replay/concurrente) -> recuperar id existente sin lanzar 500
+    const { data: existing } = await admin.from('whatsapp_webhook_events').select('id').eq('provider_event_id', providerEventId).maybeSingle()
+    return (existing?.id as string | undefined) ?? null
+  }
   if (error) throw error
   return data?.id as string | undefined
 }
 
 async function finishEvent(id: string | undefined, status: 'processed' | 'ignored' | 'failed', errorCode?: string) {
   if (!id) return
-  await createSupabaseAdmin().from('whatsapp_webhook_events').update({
-    status, processed_at: new Date().toISOString(), error_code: errorCode?.slice(0, 80) || null,
-  }).eq('id', id)
+  // Transición atómica: solo el primer ejecutor con status='received' puede finalizar el evento.
+  // Si otro proceso ya cambió el estado, el UPDATE afecta 0 filas => no se reprocesa ni se sobrescribe.
+  await createSupabaseAdmin().from('whatsapp_webhook_events')
+    .update({
+      status, processed_at: new Date().toISOString(), error_code: errorCode?.slice(0, 80) || null,
+    })
+    .eq('id', id)
+    .eq('status', 'received')
 }
 
 async function processStatus(channel: WhatsAppChannelRow, status: StatusUpdate, rawBody: string) {

@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     const ip = getClientIp(request)
     
     // Max 60 messages per minute per IP per assistant
-    const ipRateLimitOk = await checkRateLimit(`widget-ip-${assistantId}-${ip}`, 'widget-message-ip-minute', 60, 60)
+    const ipRateLimitOk = await checkRateLimit(`widget_msg:${assistantId}:${ip}`, 'widget_message', 30, 60)
     if (!ipRateLimitOk) {
       await logSecurityEvent({ userId: ownerId, eventType: 'widget_rate_limited', severity: 'warning', message: `Widget IP rate limit para asistente ${assistantId}`, req: request })
       return NextResponse.json({ error: 'Demasiados mensajes desde tu red. Intenta nuevamente en unos minutos.' }, { status: 429, headers: corsHeaders })

@@ -58,7 +58,8 @@ async function recordEvent(providerId: string, channelId: string | null, type: s
 
 async function finish(id: string | undefined, status: 'processed' | 'ignored' | 'failed', code?: string) {
   if (!id) return
-  await createSupabaseAdmin().from('facebook_webhook_events').update({ status, error_code: code?.slice(0, 80) || null, processed_at: new Date().toISOString() }).eq('id', id)
+  // Transición atómica: solo el primer ejecutor con status='received' puede finalizar el evento.
+  await createSupabaseAdmin().from('facebook_webhook_events').update({ status, error_code: code?.slice(0, 80) || null, processed_at: new Date().toISOString() }).eq('id', id).eq('status', 'received')
 }
 
 function graphErrorMetadata(error: unknown) {
