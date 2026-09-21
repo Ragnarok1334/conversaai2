@@ -114,7 +114,7 @@ async function persistAndDeliverReply({
   const conversationUpdate = await admin.from('conversations').update({
     last_message: content.slice(0, 100),
     last_message_at: attemptedAt,
-  }).eq('id', conversation.id)
+  }).eq('id', conversation.id).eq('user_id', channel.user_id)
   if (conversationUpdate.error) {
     console.error('[Facebook delivery] conversation_update_failed')
   }
@@ -124,12 +124,12 @@ async function persistAndDeliverReply({
     const accepted = await admin.from('messages').update({
       provider_message_id: sent.message_id,
       metadata: { ...pendingMetadata, delivery_status: 'accepted', delivery_updated_at: new Date().toISOString() },
-    }).eq('id', pending.data.id)
+    }).eq('id', pending.data.id).eq('user_id', channel.user_id)
     if (accepted.error) throw new FacebookDeliveryPersistenceError('accepted')
     const channelUpdate = await admin.from('facebook_channels').update({
       last_error: null,
       updated_at: new Date().toISOString(),
-    }).eq('id', channel.id)
+    }).eq('id', channel.id).eq('user_id', channel.user_id)
     if (channelUpdate.error) console.error('[Facebook delivery] channel_status_update_failed')
     return sent
   } catch (error) {
@@ -141,7 +141,7 @@ async function persistAndDeliverReply({
           delivery_status: 'failed',
           delivery_updated_at: new Date().toISOString(),
         },
-      }).eq('id', pending.data.id)
+      }).eq('id', pending.data.id).eq('user_id', channel.user_id)
       if (failed.error) console.error('[Facebook delivery] failed_status_persistence_failed')
     }
     throw error
@@ -160,7 +160,7 @@ async function conversationFor(channel: Channel, psid: string, preview: string) 
     if (created.error) throw created.error
     conversation = created.data
   } else {
-    const updated = await admin.from('conversations').update({ last_message: preview.slice(0, 100), last_message_at: now, status: conversation.status === 'closed' ? 'open' : conversation.status }).eq('id', conversation.id).select('*').single()
+    const updated = await admin.from('conversations').update({ last_message: preview.slice(0, 100), last_message_at: now, status: conversation.status === 'closed' ? 'open' : conversation.status }).eq('id', conversation.id).eq('user_id', channel.user_id).select('*').single()
     if (updated.data) conversation = updated.data
   }
   const { data: lead } = await admin.from('leads').select('id,email').eq('conversation_id', conversation.id).maybeSingle()
@@ -193,7 +193,7 @@ async function processMessage(channel: Channel, event: MessagingEvent, raw: stri
     await createUserNotification({ userId: channel.user_id, title: requestedHuman ? 'Messenger solicita atención humana' : 'Nuevo mensaje de Messenger', message: `Contacto de Facebook: ${text.slice(0, 140)}`, category: 'conversation', actionUrl: '/dashboard/conversations', metadata: { assistantId: channel.assistant_id, conversationId: conversation.id, channel: 'facebook' } })
     if (conversation.ai_paused || (config.handoffEnabled && requestedHuman)) {
       if (requestedHuman && conversation.handoff_status === 'ai') {
-        await admin.from('conversations').update({ ai_paused: true, handoff_status: 'waiting', status: 'pending', handoff_reason: 'El contacto solicitó atención humana por Messenger.', human_requested_at: new Date().toISOString() }).eq('id', conversation.id)
+        await admin.from('conversations').update({ ai_paused: true, handoff_status: 'waiting', status: 'pending', handoff_reason: 'El contacto solicitó atención humana por Messenger.', human_requested_at: new Date().toISOString() }).eq('id', conversation.id).eq('user_id', channel.user_id)
         const reply = config.handoffMessage || HUMAN_HANDOFF_ACK
         stage = 'facebook_delivery'
         await persistAndDeliverReply({ admin, channel, conversation, recipientId: sender, content: reply, senderType: 'system' })
@@ -203,7 +203,7 @@ async function processMessage(channel: Channel, event: MessagingEvent, raw: stri
     if (!isInsideBusinessHours(config)) {
       stage = 'facebook_delivery'
       await persistAndDeliverReply({ admin, channel, conversation, recipientId: sender, content: config.awayMessage, senderType: 'system' })
-      await admin.from('conversations').update({ status: 'pending' }).eq('id', conversation.id); await finish(eventId, 'processed'); return
+      await admin.from('conversations').update({ status: 'pending' }).eq('id', conversation.id).eq('user_id', channel.user_id); await finish(eventId, 'processed'); return
     }
     const [{ data: subscription }, { data: profile }] = await Promise.all([
       admin.from('subscriptions').select('*').eq('user_id', channel.user_id).maybeSingle(), admin.from('profiles').select('trial_used,trial_ends_at').eq('id', channel.user_id).maybeSingle(),
@@ -235,13 +235,13 @@ async function processMessage(channel: Channel, event: MessagingEvent, raw: stri
       metadata: aiGenerationFailed ? { generation_status: 'failed', generation_error: 'ai_generation_failed' } : { generation_status: 'succeeded' },
     })
     if (aiGenerationFailed) {
-      await admin.from('facebook_channels').update({ last_error: 'ai_generation_failed', updated_at: new Date().toISOString() }).eq('id', channel.id)
+      await admin.from('facebook_channels').update({ last_error: 'ai_generation_failed', updated_at: new Date().toISOString() }).eq('id', channel.id).eq('user_id', channel.user_id)
     }
     await finish(eventId, 'processed', aiGenerationFailed ? 'ai_generation_failed' : undefined)
   } catch (error) {
     console.error('[Facebook message]', error instanceof Error ? error.message : 'unknown')
     const errorCode = runtimeErrorCode(stage, error)
-    await createSupabaseAdmin().from('facebook_channels').update({ last_error: errorCode, updated_at: new Date().toISOString() }).eq('id', channel.id)
+    await createSupabaseAdmin().from('facebook_channels').update({ last_error: errorCode, updated_at: new Date().toISOString() }).eq('id', channel.id).eq('user_id', channel.user_id)
     await finish(eventId, 'failed', errorCode)
   }
 }
@@ -253,7 +253,7 @@ export async function processFacebookWebhook(payload: FacebookWebhookPayload, ra
     if (!entry.id) continue
     const { data: channel } = await admin.from('facebook_channels').select('*').eq('page_id', entry.id).eq('status', 'connected').maybeSingle()
     if (!channel) continue
-    await admin.from('facebook_channels').update({ last_webhook_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', channel.id)
+    await admin.from('facebook_channels').update({ last_webhook_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('id', channel.id).eq('user_id', channel.user_id)
     for (const event of entry.messaging || []) await processMessage(channel as Channel, event, raw)
   }
 }

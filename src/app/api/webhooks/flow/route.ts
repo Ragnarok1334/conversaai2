@@ -1,6 +1,7 @@
+import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
-import { getFlowPaymentStatus } from '@/lib/flow';
+import { createFlowSignature, getFlowPaymentStatus } from '@/lib/flow';
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit';
 import { HttpInputError, readUrlEncodedBody } from '@/lib/http-security';
 
@@ -12,6 +13,64 @@ export async function POST(req: Request) {
     if (!token || typeof token !== 'string' || token.length > 512) {
       return NextResponse.json({ error: 'Token no proporcionado.' }, { status: 400 });
     }
+
+    // ── Webhook signature verification (Flow HMAC SHA256) ──────────────────
+    // Flow sends field `s` containing an HMAC of all other fields signed with
+    // the merchant secret key. We MUST verify this BEFORE any DB query or
+    // external API call to prevent replay / forged-webhook attacks.
+    const receivedSignature = formData.get('s');
+    if (!receivedSignature || typeof receivedSignature !== 'string') {
+      await logSecurityEvent({
+        eventType: 'flow_webhook_missing_signature',
+        severity: 'critical',
+        message: 'Webhook Flow recibido sin campo de firma (s).',
+        req
+      });
+      return NextResponse.json({ error: 'Firma requerida.' }, { status: 401 });
+    }
+
+    // Build the parameter map EXCLUDING the signature field itself, then
+    // recompute the HMAC exactly as Flow does.
+    const paramsForVerification: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      if (key !== 's') {
+        paramsForVerification[key] = String(value);
+      }
+    }
+    const expectedSignature = createFlowSignature(paramsForVerification);
+
+    // Constant-time comparison to prevent timing side-channel attacks.
+    // Note: timingSafeEqual throws if lengths differ, so we handle that case
+    // by using a fixed-length comparison that doesn't leak length info.
+    const receivedBuf = Buffer.from(receivedSignature, 'utf8');
+    const expectedBuf = Buffer.from(expectedSignature, 'utf8');
+    if (receivedBuf.length !== expectedBuf.length) {
+      // Different length → invalid, but still do a constant-time walk
+      // to avoid leaking the length difference via timing.
+      const maxLen = Math.max(receivedBuf.length, expectedBuf.length);
+      const paddedA = Buffer.alloc(maxLen, 0);
+      const paddedB = Buffer.alloc(maxLen, 0);
+      receivedBuf.copy(paddedA);
+      expectedBuf.copy(paddedB);
+      timingSafeEqual(paddedA, paddedB); // always false, but constant-time
+      await logSecurityEvent({
+        eventType: 'flow_webhook_signature_invalid',
+        severity: 'critical',
+        message: 'Webhook Flow con firma HMAC inválida — posible intento de falsificación.',
+        req
+      });
+      return NextResponse.json({ error: 'Firma inválida.' }, { status: 401 });
+    }
+    if (!timingSafeEqual(receivedBuf, expectedBuf)) {
+      await logSecurityEvent({
+        eventType: 'flow_webhook_signature_invalid',
+        severity: 'critical',
+        message: 'Webhook Flow con firma HMAC inválida — posible intento de falsificación.',
+        req
+      });
+      return NextResponse.json({ error: 'Firma inválida.' }, { status: 401 });
+    }
+    // ── End signature verification ─────────────────────────────────────────
 
     const supabase = createSupabaseAdmin();
     const { data: payment, error: paymentError } = await supabase

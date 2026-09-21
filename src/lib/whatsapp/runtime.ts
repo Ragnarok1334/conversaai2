@@ -108,7 +108,7 @@ async function processStatus(channel: WhatsAppChannelRow, status: StatusUpdate, 
   if (!eventId) return
   const admin = createSupabaseAdmin()
   const { data: stored } = await admin.from('messages').select('id,metadata').eq('channel', 'whatsapp').eq('provider_message_id', status.id).maybeSingle()
-  if (stored) await admin.from('messages').update({ metadata: { ...(stored.metadata || {}), delivery_status: status.status, delivery_updated_at: new Date().toISOString() } }).eq('id', stored.id)
+  if (stored) await admin.from('messages').update({ metadata: { ...(stored.metadata || {}), delivery_status: status.status, delivery_updated_at: new Date().toISOString() } }).eq('id', stored.id).eq('user_id', channel.user_id)
   await finishEvent(eventId, stored ? 'processed' : 'ignored')
 }
 
@@ -132,7 +132,7 @@ async function upsertConversationAndLead(channel: WhatsAppChannelRow, sender: st
     const { data } = await admin.from('conversations').update({
       visitor_name: conversation.visitor_name || contactName, visitor_phone: sender,
       last_message: preview.slice(0, 100), last_message_at: now, status: conversation.status === 'closed' ? 'open' : conversation.status,
-    }).eq('id', conversation.id).select('*').single()
+    }).eq('id', conversation.id).eq('user_id', channel.user_id).select('*').single()
     if (data) conversation = data
   }
 
@@ -146,7 +146,7 @@ async function upsertConversationAndLead(channel: WhatsAppChannelRow, sender: st
       userId: channel.user_id, title: 'Nuevo lead desde WhatsApp', message: `${contactName || 'Un nuevo contacto'} inició una conversación.`,
       category: 'lead', actionUrl: '/dashboard/leads', metadata: { leadId: created.id, assistantId: channel.assistant_id, conversationId: conversation.id },
     })
-  } else if (!lead.name && contactName) await admin.from('leads').update({ name: contactName }).eq('id', lead.id)
+  } else if (!lead.name && contactName) await admin.from('leads').update({ name: contactName }).eq('id', lead.id).eq('user_id', channel.user_id)
   return { conversation, lead }
 }
 
@@ -200,7 +200,7 @@ async function processMessage(channel: WhatsAppChannelRow, message: IncomingMess
     if (conversation.ai_paused || (channelConfig.handoffEnabled && requestedHuman)) {
       if (requestedHuman && conversation.handoff_status === 'ai') {
         const now = new Date().toISOString()
-        await admin.from('conversations').update({ ai_paused: true, handoff_status: 'waiting', status: 'pending', handoff_reason: 'El contacto solicitó atención humana por WhatsApp.', human_requested_at: now }).eq('id', conversation.id)
+        await admin.from('conversations').update({ ai_paused: true, handoff_status: 'waiting', status: 'pending', handoff_reason: 'El contacto solicitó atención humana por WhatsApp.', human_requested_at: now }).eq('id', conversation.id).eq('user_id', channel.user_id)
         const handoffMessage = channelConfig.handoffMessage || HUMAN_HANDOFF_ACK
         const sent = await sendWhatsAppText(channel, message.from, handoffMessage, message.id)
         if (sent.messages?.[0]?.id) await storeOutbound(channel, conversation.id, handoffMessage, 'system', sent.messages[0].id)
@@ -212,7 +212,7 @@ async function processMessage(channel: WhatsAppChannelRow, message: IncomingMess
     if (!isInsideBusinessHours(channelConfig)) {
       const sent = await sendWhatsAppText(channel, message.from, channelConfig.awayMessage, message.id)
       if (sent.messages?.[0]?.id) await storeOutbound(channel, conversation.id, channelConfig.awayMessage, 'system', sent.messages[0].id)
-      await admin.from('conversations').update({ status: 'pending', last_message: channelConfig.awayMessage.slice(0, 100), last_message_at: new Date().toISOString() }).eq('id', conversation.id)
+      await admin.from('conversations').update({ status: 'pending', last_message: channelConfig.awayMessage.slice(0, 100), last_message_at: new Date().toISOString() }).eq('id', conversation.id).eq('user_id', channel.user_id)
       await finishEvent(eventId, 'processed')
       return
     }
@@ -257,7 +257,7 @@ async function processMessage(channel: WhatsAppChannelRow, message: IncomingMess
     processingStage = 'whatsapp_delivery'
     const sent = await sendWhatsAppText(channel, message.from, reply, message.id)
     if (sent.messages?.[0]?.id) await storeOutbound(channel, conversation.id, reply, 'ai', sent.messages[0].id)
-    await admin.from('conversations').update({ last_message: reply.slice(0, 100), last_message_at: new Date().toISOString() }).eq('id', conversation.id)
+    await admin.from('conversations').update({ last_message: reply.slice(0, 100), last_message_at: new Date().toISOString() }).eq('id', conversation.id).eq('user_id', channel.user_id)
     await finishEvent(eventId, 'processed')
   } catch (error) {
     console.error('[WhatsApp message]', error instanceof Error ? error.message : 'unknown')
@@ -279,7 +279,7 @@ export async function processWhatsAppWebhook(payload: WhatsAppWebhookPayload, ra
     if (!phoneNumberId) continue
     const { data: channel } = await admin.from('whatsapp_channels').select('*').eq('phone_number_id', phoneNumberId).eq('status', 'connected').maybeSingle()
     if (!channel) continue
-    await admin.from('whatsapp_channels').update({ last_webhook_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }).eq('id', channel.id)
+    await admin.from('whatsapp_channels').update({ last_webhook_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() }).eq('id', channel.id).eq('user_id', channel.user_id)
     for (const status of value.statuses || []) await processStatus(channel, status, rawBody)
     const contactName = value.contacts?.[0]?.profile?.name?.trim().slice(0, 120) || null
     for (const message of value.messages || []) await processMessage(channel, message, contactName, rawBody)
