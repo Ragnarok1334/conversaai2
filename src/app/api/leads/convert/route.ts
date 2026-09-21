@@ -86,6 +86,7 @@ export async function POST(request: Request) {
         .from('leads')
         .update(updates)
         .eq('id', existingLead.id)
+        .eq('user_id', user.id)
         .select()
         .single()
 

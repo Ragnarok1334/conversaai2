@@ -52,7 +52,8 @@ export async function POST(req: Request) {
         cancelled_at: new Date().toISOString(),
         cancellation_reason: 'user_requested'
       })
-      .eq('id', subscription.id);
+      .eq('id', subscription.id)
+      .eq('user_id', user.id);
 
     if (updateError) {
       console.error('Error actualizando suscripción:', updateError);

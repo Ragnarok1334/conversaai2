@@ -42,6 +42,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       .from('assistant_domains')
       .delete()
       .eq('id', domainId)
+      .eq('assistant_id', assistantId)
+      .eq('user_id', user.id)
 
     if (error) throw error
 
