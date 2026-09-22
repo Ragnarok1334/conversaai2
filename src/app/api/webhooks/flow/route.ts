@@ -1,9 +1,10 @@
 import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
-import { createFlowSignature, getFlowPaymentStatus } from '@/lib/flow';
+import { getFlowPaymentStatus } from '@/lib/flow';
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit';
 import { HttpInputError, readUrlEncodedBody } from '@/lib/http-security';
+import { FlowProvider } from '@/lib/billing/providers/flow';
 
 export async function POST(req: Request) {
   try {
@@ -31,13 +32,9 @@ export async function POST(req: Request) {
 
     // Build the parameter map EXCLUDING the signature field itself, then
     // recompute the HMAC exactly as Flow does.
-    const paramsForVerification: Record<string, string> = {};
-    for (const [key, value] of formData.entries()) {
-      if (key !== 's') {
-        paramsForVerification[key] = String(value);
-      }
-    }
-    const expectedSignature = createFlowSignature(paramsForVerification);
+    const flowProvider = new FlowProvider();
+    const paramsForVerification = flowProvider.prepareWebhookParams(formData);
+    const expectedSignature = flowProvider.computeWebhookSignature(paramsForVerification);
 
     // Constant-time comparison to prevent timing side-channel attacks.
     // Note: timingSafeEqual throws if lengths differ, so we handle that case

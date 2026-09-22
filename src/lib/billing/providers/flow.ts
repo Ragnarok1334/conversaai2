@@ -5,7 +5,7 @@
  * NO cambia comportamiento — solo adapta a la interfaz PaymentProvider.
  */
 
-import { createFlowPayment, getFlowPaymentStatus } from '@/lib/flow';
+import { createFlowPayment, createFlowSignature, getFlowPaymentStatus } from '@/lib/flow';
 import type {
   PaymentProvider,
   PaymentCreationParams,
@@ -56,5 +56,32 @@ export class FlowProvider implements PaymentProvider {
       orderId: flowStatus.commerceOrder,
       rawData: flowStatus as Record<string, unknown>,
     };
+  }
+
+  /**
+   * Prepara parámetros de webhook Flow para validación de firma.
+   * Extrae todos los campos EXCEPTO 's' (firma).
+   * 
+   * @param formData FormData del webhook Flow
+   * @returns Objeto con parámetros para validar firma
+   */
+  prepareWebhookParams(formData: URLSearchParams): Record<string, string> {
+    const params: Record<string, string> = {};
+    for (const [key, value] of formData.entries()) {
+      if (key !== 's') {
+        params[key] = String(value);
+      }
+    }
+    return params;
+  }
+
+  /**
+   * Calcula la firma HMAC esperada para validación de webhook Flow.
+   * 
+   * @param params Parámetros del webhook (sin campo 's')
+   * @returns Firma HMAC SHA256 en hexadecimal
+   */
+  computeWebhookSignature(params: Record<string, string>): string {
+    return createFlowSignature(params);
   }
 }
