@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     }
 
     // ── CHECKOUT COMÚN (autenticación, email, rate limit, plan, precio, idempotency lookup) ──
-    const prepared = await prepareCheckout(req);
+    const prepared = await prepareCheckout(req, { provider: 'flow' });
 
     planKey = prepared.planKey;
     amount = prepared.amount;

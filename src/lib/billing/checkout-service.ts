@@ -47,6 +47,10 @@ export interface PreparedCheckout {
   existingPayment?: { url: string; existing: boolean; payment_id: string };
 }
 
+export interface PrepareCheckoutOptions {
+  provider: string;
+}
+
 export interface RecordPaymentParams {
   supabaseAdmin: SupabaseClient;
   userId: string;
@@ -70,7 +74,11 @@ export interface RecordPaymentResult {
   error?: { message: string; details?: string };
 }
 // ─── PREPARE CHECKOUT ─────────────────────────────────────────────
-export async function prepareCheckout(req: Request): Promise<PreparedCheckout> {
+export async function prepareCheckout(
+  req: Request,
+  options?: PrepareCheckoutOptions,
+): Promise<PreparedCheckout> {
+  const provider = options?.provider ?? 'flow';
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
@@ -82,8 +90,8 @@ export async function prepareCheckout(req: Request): Promise<PreparedCheckout> {
   if (!user.email || !user.email_confirmed_at) throw new HttpInputError('Debes verificar tu correo antes de pagar.', 403);
   const ip = getClientIp(req);
   const [userAllowed, ipAllowed] = await Promise.all([
-    checkRateLimit(`flow-checkout-user-${user.id}`, 'flow-checkout-user', 5, 3600),
-    checkRateLimit(`flow-checkout-ip-${ip}`, 'flow-checkout-ip', 10, 3600),
+    checkRateLimit(`checkout-${provider}-user-${user.id}`, `checkout-${provider}-user`, 5, 3600),
+    checkRateLimit(`checkout-${provider}-ip-${ip}`, `checkout-${provider}-ip`, 10, 3600),
   ]);
   if (!userAllowed || !ipAllowed) throw new HttpInputError('Demasiados intentos de pago. Intenta nuevamente más tarde.', 429);
   const body = await readJsonBody<{ plan?: unknown }>(req, 2_048);
