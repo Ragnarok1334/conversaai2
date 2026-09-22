@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
-import { createFlowPayment } from '@/lib/flow';
+import { FlowProvider } from '@/lib/billing/providers/flow';
 import { getPlanConfig, normalizePlan } from '@/lib/plans';
 import { getClientIp, HttpInputError, readJsonBody } from '@/lib/http-security';
 import { checkRateLimit } from '@/lib/security';
+
+const paymentProvider = new FlowProvider();
 
 export async function POST(req: Request) {
   let commerceOrder = '';
@@ -74,21 +76,25 @@ export async function POST(req: Request) {
     const timestamp = Date.now();
     commerceOrder = `conversaai-${shortId}-${planKey}-${timestamp}`;
 
-    // 1. Call Flow Sandbox FIRST
-    const flowResponse = await createFlowPayment({
-      commerceOrder,
-      subject: `ConversaAI ${config.label} - Suscripción mensual`,
-      currency: 'CLP',
+    // 1. Call payment provider FIRST
+    const paymentResult = await paymentProvider.createPayment({
+      userId: user.id,
+      userEmail: user.email,
+      plan: planKey,
       amount,
-      email: user.email,
+      currency: 'CLP',
+      orderId: commerceOrder,
+      subject: `ConversaAI ${config.label} - Suscripción mensual`,
       urlConfirmation: `${appUrl}/api/webhooks/flow`,
       urlReturn: `${appUrl}/api/billing/flow/return`
     });
 
+    const flowToken = paymentResult.providerData.token as string;
+
     if (process.env.NODE_ENV === 'development') {
       console.log("Flow payment created:", {
-        hasUrl: Boolean(flowResponse.url),
-        hasToken: Boolean(flowResponse.token),
+        hasUrl: Boolean(paymentResult.paymentUrl),
+        hasToken: Boolean(flowToken),
         commerceOrder,
         plan: planKey,
         amount,
@@ -102,13 +108,13 @@ export async function POST(req: Request) {
       .insert({
         user_id: user.id,
         provider: "flow",
-        flow_token: flowResponse.token,
+        flow_token: flowToken,
         flow_order: commerceOrder,
         plan: planKey,
         amount,
         currency: "CLP",
         status: "pending",
-        raw_response: flowResponse,
+        raw_response: paymentResult.providerData,
       });
 
     if (paymentInsertError) {
@@ -128,12 +134,12 @@ export async function POST(req: Request) {
     if (process.env.NODE_ENV === 'development') {
       console.log("billing_payments insert success:", {
         commerceOrder,
-        hasToken: Boolean(flowResponse.token),
+        hasToken: Boolean(flowToken),
       });
     }
 
     return NextResponse.json({
-      url: `${flowResponse.url}?token=${flowResponse.token}`
+      url: paymentResult.paymentUrl
     });
 
   } catch (error: unknown) {
