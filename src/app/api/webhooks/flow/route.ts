@@ -1,7 +1,6 @@
 import { timingSafeEqual } from 'crypto';
 import { NextResponse } from 'next/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';
-import { getFlowPaymentStatus } from '@/lib/flow';
 import { logAuditEvent, logSecurityEvent } from '@/lib/audit';
 import { HttpInputError, readUrlEncodedBody } from '@/lib/http-security';
 import { FlowProvider } from '@/lib/billing/providers/flow';
@@ -88,12 +87,10 @@ export async function POST(req: Request) {
     }
 
     // Consult Flow only for tokens that were issued and stored by this application.
-    const flowStatus = await getFlowPaymentStatus(token);
-
-    let newStatus = 'pending';
-    if (flowStatus.status === 2) newStatus = 'paid';
-    else if (flowStatus.status === 3) newStatus = 'rejected';
-    else if (flowStatus.status === 4) newStatus = 'cancelled';
+    // FlowProvider.verifyPayment() handles the Flow API call and status mapping.
+    const verification = await flowProvider.verifyPayment({ token });
+    const newStatus = verification.status;
+    const flowStatus = verification.rawData;
 
     // Paid fulfillment is handled by a locked, atomic, idempotent SECURITY DEFINER RPC.
     if (newStatus === 'paid') {
