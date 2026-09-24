@@ -1,0 +1,5 @@
+-- Legacy remote migration placeholder.
+-- Original migration exists in Supabase remote history
+-- but was not preserved in Git history.
+-- No schema changes are applied intentionally.
+-- Current schema state is maintained by later canonical migrations.
