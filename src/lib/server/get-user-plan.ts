@@ -1,3 +1,5 @@
+import "server-only"
+
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { normalizePlan, getPlanConfig, PlanKey } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'

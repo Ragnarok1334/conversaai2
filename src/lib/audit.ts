@@ -1,3 +1,5 @@
+import "server-only"
+
 import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { NextRequest } from 'next/server'
 
