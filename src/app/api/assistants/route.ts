@@ -17,7 +17,7 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-    const assistantsClient = process.env.SUPABASE_SERVICE_ROLE_KEY ? createSupabaseAdmin() : supabase
+    const assistantsClient = supabase
     const { data: assistants, error } = await assistantsClient.from('assistants').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
     if (error) throw error
 
