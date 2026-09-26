@@ -50,7 +50,25 @@ export async function POST(request: NextRequest) {
     // 1. Fetch assistant and check status
     const { data: assistant, error: assistantError } = await supabaseAdmin
       .from('assistants')
-      .select('*')
+      .select(`
+        id,
+        user_id,
+        status,
+        assistant_name,
+        business_name,
+        business_type,
+        channel,
+        tone,
+        main_goal,
+        instructions,
+        faqs,
+        services,
+        schedule,
+        fallback_message,
+        language,
+        behavior,
+        knowledge_blocks
+      `)
       .eq('id', assistantId)
       .single()
 
@@ -165,10 +183,18 @@ export async function POST(request: NextRequest) {
           updates.handoff_reason = 'El visitante solicitó atención humana.'
           updates.human_requested_at = now
         }
-        await supabaseAdmin.from('conversations').update(updates).eq('id', handoffConversationId).eq('user_id', ownerId)
+        const { error: updateConvError } = await supabaseAdmin
+          .from('conversations')
+          .update(updates)
+          .eq('id', handoffConversationId)
+          .eq('user_id', ownerId)
+        if (updateConvError) {
+          console.error('[widget/message] Error actualizando conversación en handoff:', updateConvError)
+          throw updateConvError
+        }
       }
 
-      await supabaseAdmin.from('messages').insert({
+      const { error: handoffUserMessageError } = await supabaseAdmin.from('messages').insert({
         conversation_id: handoffConversationId,
         user_id: ownerId,
         assistant_id: assistantId,
@@ -177,6 +203,10 @@ export async function POST(request: NextRequest) {
         sender_type: 'visitor',
         content: message,
       })
+      if (handoffUserMessageError) {
+        console.error('[widget/message] Error guardando mensaje del visitante en handoff:', handoffUserMessageError)
+        throw handoffUserMessageError
+      }
       await createUserNotification({
         userId: ownerId,
         title: requestedHuman ? 'Web Chat solicita atención humana' : 'Nuevo mensaje de Web Chat',
@@ -187,7 +217,7 @@ export async function POST(request: NextRequest) {
       let reply: string | null = null
       if (requestedHuman && currentHandoffStatus === 'ai') {
         reply = HUMAN_HANDOFF_ACK
-        await supabaseAdmin.from('messages').insert({
+        const { error: handoffAckError } = await supabaseAdmin.from('messages').insert({
           conversation_id: handoffConversationId,
           user_id: ownerId,
           assistant_id: assistantId,
@@ -196,6 +226,10 @@ export async function POST(request: NextRequest) {
           sender_type: 'system',
           content: reply,
         })
+        if (handoffAckError) {
+          console.error('[widget/message] Error guardando acuse de handoff:', handoffAckError)
+          throw handoffAckError
+        }
       }
 
       return NextResponse.json({
@@ -296,7 +330,7 @@ export async function POST(request: NextRequest) {
       .trim()
 
     // Guardar mensaje del usuario
-    await supabaseAdmin.from('messages').insert({
+    const { error: userMessageError } = await supabaseAdmin.from('messages').insert({
       conversation_id: currentConversationId,
       user_id: ownerId,
       assistant_id: assistantId,
@@ -305,6 +339,10 @@ export async function POST(request: NextRequest) {
       sender_type: 'visitor',
       content: message
     })
+    if (userMessageError) {
+      console.error('[widget/message] Error guardando mensaje del visitante:', userMessageError)
+      throw userMessageError
+    }
     await createUserNotification({
       userId: ownerId, title: 'Nuevo mensaje de Web Chat', message: message.slice(0, 160),
       category: 'conversation', actionUrl: '/dashboard/conversations',
@@ -339,7 +377,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Guardar respuesta del asistente
-    await supabaseAdmin.from('messages').insert({
+    const { error: aiMessageError } = await supabaseAdmin.from('messages').insert({
       conversation_id: currentConversationId,
       user_id: ownerId,
       assistant_id: assistantId,
@@ -348,6 +386,10 @@ export async function POST(request: NextRequest) {
       sender_type: 'ai',
       content: reply
     })
+    if (aiMessageError) {
+      console.error('[widget/message] Error guardando respuesta de IA:', aiMessageError)
+      throw aiMessageError
+    }
 
     // 9. Detección Automática de Leads
     const emailRegex = /[\w.-]+@[\w.-]+\.\w+/i
@@ -363,7 +405,7 @@ export async function POST(request: NextRequest) {
     if (extractedEmail || extractedPhone || extractedName) {
       const { data: existingLead } = await supabaseAdmin
         .from('leads')
-        .select('*')
+        .select('id, email, phone, name')
         .eq('conversation_id', currentConversationId)
         .eq('user_id', ownerId)
         .single()
@@ -375,10 +417,17 @@ export async function POST(request: NextRequest) {
         if (extractedName && !existingLead.name) updates.name = extractedName
 
         if (Object.keys(updates).length > 0) {
-          await supabaseAdmin.from('leads').update(updates).eq('id', existingLead.id).eq('user_id', ownerId)
+          const { error: updateLeadError } = await supabaseAdmin
+            .from('leads')
+            .update(updates)
+            .eq('id', existingLead.id)
+            .eq('user_id', ownerId)
+          if (updateLeadError) {
+            console.error('[widget/message] Error actualizando lead:', updateLeadError)
+          }
         }
       } else {
-        const { data: newLead } = await supabaseAdmin.from('leads').insert({
+        const { data: newLead, error: newLeadError } = await supabaseAdmin.from('leads').insert({
           user_id: ownerId,
           assistant_id: assistantId,
           conversation_id: currentConversationId,
@@ -388,6 +437,10 @@ export async function POST(request: NextRequest) {
           phone: extractedPhone || null,
           name: extractedName || null
         }).select().single()
+
+        if (newLeadError) {
+          console.error('[widget/message] Error creando lead:', newLeadError)
+        }
 
         if (newLead) {
           try {

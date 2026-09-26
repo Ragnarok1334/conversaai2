@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     const { data: assistant, error } = await supabaseAdmin
       .from('assistants')
-      .select('*')
+      .select('id, user_id, status, assistant_name, business_name, welcome_message, widget_config')
       .eq('id', assistantId)
       .single()
 
@@ -34,7 +34,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'El asistente no está activo' }, { status: 403, headers: privateCorsHeaders })
     }
 
-    const { data: sub } = await supabaseAdmin.from('subscriptions').select('*').eq('user_id', assistant.user_id).single()
+    const { data: sub } = await supabaseAdmin
+      .from('subscriptions')
+      .select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end')
+      .eq('user_id', assistant.user_id)
+      .single()
     const { data: profile } = await supabaseAdmin.from('profiles').select('trial_ends_at').eq('id', assistant.user_id).single()
     
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
