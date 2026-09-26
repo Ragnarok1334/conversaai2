@@ -12,12 +12,9 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
-    const supabaseAdmin = createSupabaseAdmin()
-
     // Older installations used `details`; newer ones use `description`.
     // Selecting the row and normalizing server-side supports both schemas.
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('audit_logs')
       .select('*')
       .eq('user_id', user.id)
