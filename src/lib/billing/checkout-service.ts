@@ -3,6 +3,9 @@
  * Lógica común de checkout para todos los payment providers.
  * NO implementa provider específico — solo validaciones y persistencia compartida.
  */
+
+import "server-only"
+
 import { createHash } from 'crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createSupabaseAdmin } from '@/lib/supabase/admin';

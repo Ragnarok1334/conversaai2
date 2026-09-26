@@ -24,13 +24,10 @@ export async function GET(request: Request) {
     const assistantId = searchParams.get('assistantId')
     const search = normalizeSearchTerm(searchParams.get('search'))
 
-    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
-    const supabaseAdmin = createSupabaseAdmin()
-
     // Validate plan access
     const [subRes, profileRes] = await Promise.all([
-      supabaseAdmin.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
-      supabaseAdmin.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
+      supabase.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
+      supabase.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
     ])
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
     const effectiveStatus = getEffectiveSubscriptionStatus(subRes.data, profileRes.data)
@@ -42,7 +39,7 @@ export async function GET(request: Request) {
     // Use the server-only client after authenticating the request. Keeping the
     // joins separate prevents an optional PostgREST relationship/grant from
     // taking down the complete conversations endpoint.
-    let query = supabaseAdmin
+    let query = supabase
       .from('conversations')
       .select('*', { count: 'exact' })
       .eq('user_id', user.id)
@@ -65,10 +62,10 @@ export async function GET(request: Request) {
 
     const [assistantsResult, leadsResult] = await Promise.all([
       assistantIds.length
-        ? supabaseAdmin.from('assistants').select('id, assistant_name, business_name').eq('user_id', user.id).in('id', assistantIds)
+        ? supabase.from('assistants').select('id, assistant_name, business_name').eq('user_id', user.id).in('id', assistantIds)
         : Promise.resolve({ data: [], error: null }),
       conversationIds.length
-        ? supabaseAdmin.from('leads').select('id, conversation_id').eq('user_id', user.id).in('conversation_id', conversationIds)
+        ? supabase.from('leads').select('id, conversation_id').eq('user_id', user.id).in('conversation_id', conversationIds)
         : Promise.resolve({ data: [], error: null }),
     ])
 
@@ -91,7 +88,7 @@ export async function GET(request: Request) {
     }))
 
     // Fetch stats
-    const { data: allConvs, error: statsError } = await supabaseAdmin
+    const { data: allConvs, error: statsError } = await supabase
       .from('conversations')
       .select('status, channel')
       .eq('user_id', user.id)

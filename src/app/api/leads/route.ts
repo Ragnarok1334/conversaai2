@@ -25,13 +25,10 @@ export async function GET(request: Request) {
     const search = normalizeSearchTerm(searchParams.get('search'))
     const dateFilter = searchParams.get('dateFilter')
 
-    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
-    const supabaseAdmin = createSupabaseAdmin()
-
     // Validate plan access
     const [subRes, profileRes] = await Promise.all([
-      supabaseAdmin.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
-      supabaseAdmin.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
+      supabase.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
+      supabase.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
     ])
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
     const effectiveStatus = getEffectiveSubscriptionStatus(subRes.data, profileRes.data)
@@ -42,7 +39,7 @@ export async function GET(request: Request) {
 
     // Query owned leads first and resolve optional relations separately. A
     // missing PostgREST relationship must not hide valid webchat leads.
-    let query = supabaseAdmin
+    let query = supabase
       .from('leads')
       .select('*', { count: 'exact' })
       .eq('user_id', user.id)
@@ -82,10 +79,10 @@ export async function GET(request: Request) {
 
     const [assistantsResult, conversationsResult] = await Promise.all([
       assistantIds.length
-        ? supabaseAdmin.from('assistants').select('id, assistant_name, business_name').eq('user_id', user.id).in('id', assistantIds)
+        ? supabase.from('assistants').select('id, assistant_name, business_name').eq('user_id', user.id).in('id', assistantIds)
         : Promise.resolve({ data: [], error: null }),
       conversationIds.length
-        ? supabaseAdmin.from('conversations').select('id, last_message').eq('user_id', user.id).in('id', conversationIds)
+        ? supabase.from('conversations').select('id, last_message').eq('user_id', user.id).in('id', conversationIds)
         : Promise.resolve({ data: [], error: null }),
     ])
 
@@ -101,7 +98,7 @@ export async function GET(request: Request) {
     }))
 
     // Fetch stats
-    const { data: allLeads, error: statsError } = await supabaseAdmin
+    const { data: allLeads, error: statsError } = await supabase
       .from('leads')
       .select('status, source')
       .eq('user_id', user.id)

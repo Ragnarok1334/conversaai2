@@ -13,12 +13,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
-    const supabaseAdmin = createSupabaseAdmin()
-    const { data, error } = await supabaseAdmin.from('assistants').select('*, assistant_test_messages(*), assistant_domains ( verification_status )').eq('id', id).eq('user_id', user.id).single()
+    const { data, error } = await supabase.from('assistants').select('*, assistant_test_messages(*), assistant_domains ( verification_status )').eq('id', id).eq('user_id', user.id).single()
     if (error || !data) return NextResponse.json({ error: 'Asistente no encontrado' }, { status: 404 })
-    const { data: convData } = await supabaseAdmin.from('conversations').select('created_at').eq('assistant_id', id).eq('user_id', user.id)
-    const { data: leadsData } = await supabaseAdmin.from('leads').select('created_at').eq('assistant_id', id).eq('user_id', user.id)
+    const { data: convData } = await supabase.from('conversations').select('created_at').eq('assistant_id', id).eq('user_id', user.id)
+    const { data: leadsData } = await supabase.from('leads').select('created_at').eq('assistant_id', id).eq('user_id', user.id)
     const conversationsCount = convData?.length || 0
     const leadsCount = leadsData?.length || 0
     const lastConvAt = conversationsCount > 0 ? Math.max(...(convData || []).map(c => new Date(c.created_at).getTime())) : 0
@@ -42,10 +40,8 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       await logSecurityEvent({ eventType: 'unauthorized_api_access', severity: 'warning', message: 'Intento de actualizar asistente sin auth', req: request })
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
-    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
-    const supabaseAdmin = createSupabaseAdmin()
-    const { data: sub } = await supabaseAdmin.from('subscriptions').select('*').eq('user_id', user.id).single()
-    const { data: profile } = await supabaseAdmin.from('profiles').select('trial_ends_at').eq('id', user.id).single()
+    const { data: sub } = await supabase.from('subscriptions').select('*').eq('user_id', user.id).single()
+    const { data: profile } = await supabase.from('profiles').select('trial_ends_at').eq('id', user.id).single()
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
     const effectiveStatus = getEffectiveSubscriptionStatus(sub, profile)
     const { normalizePlan } = await import('@/lib/plans')

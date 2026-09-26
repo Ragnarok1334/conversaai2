@@ -28,13 +28,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Faltan datos de contacto para crear un lead útil' }, { status: 400 })
     }
 
-    const { createSupabaseAdmin } = await import('@/lib/supabase/admin')
-    const supabaseAdmin = createSupabaseAdmin()
-
     // Plan validation
     const [subRes, profileRes] = await Promise.all([
-      supabaseAdmin.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
-      supabaseAdmin.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
+      supabase.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
+      supabase.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
     ])
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
     const effectiveStatus = getEffectiveSubscriptionStatus(subRes.data, profileRes.data)
@@ -44,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     // Verify conversation ownership
-    const { data: conv } = await supabaseAdmin.from('conversations').select('id, assistant_id').eq('id', conversation_id).eq('user_id', user.id).single()
+    const { data: conv } = await supabase.from('conversations').select('id, assistant_id').eq('id', conversation_id).eq('user_id', user.id).single()
     if (!conv || conv.assistant_id !== assistant_id) {
       return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
     }
@@ -52,7 +49,7 @@ export async function POST(request: Request) {
     let existingLead = null;
 
     if (email || phone) {
-      let query = supabaseAdmin
+      let query = supabase
         .from('leads')
         .select('*')
         .eq('user_id', user.id)
@@ -82,7 +79,7 @@ export async function POST(request: Request) {
       if (email && !existingLead.email) updates.email = email
       if (phone && !existingLead.phone) updates.phone = phone
 
-      const { data: updatedLead, error: updateError } = await supabaseAdmin
+      const { data: updatedLead, error: updateError } = await supabase
         .from('leads')
         .update(updates)
         .eq('id', existingLead.id)
@@ -95,7 +92,7 @@ export async function POST(request: Request) {
     }
 
     // Insert new lead
-    const { data: newLead, error } = await supabaseAdmin
+    const { data: newLead, error } = await supabase
       .from('leads')
       .insert([
         {

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { logAuditEvent } from '@/lib/audit'
 import { HttpInputError, readJsonBody } from '@/lib/http-security'
 
@@ -10,8 +9,7 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const supabaseAdmin = createSupabaseAdmin()
-    const { data: settings } = await supabaseAdmin
+    const { data: settings } = await supabase
       .from('user_settings')
       .select('*')
       .eq('user_id', user.id)
@@ -82,10 +80,8 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
     }
 
-    const supabaseAdmin = createSupabaseAdmin()
-
     // Upsert — creates the row if it doesn't exist
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('user_settings')
       .upsert(
         { user_id: user.id, ...patch, updated_at: new Date().toISOString() },

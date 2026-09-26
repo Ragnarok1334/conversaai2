@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -24,12 +23,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     if (convError || !conv) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const supabaseAdmin = createSupabaseAdmin()
     const [assistantResult, messagesResult] = await Promise.all([
       conv.assistant_id
-        ? supabaseAdmin.from('assistants').select('assistant_name, business_name, channel').eq('id', conv.assistant_id).eq('user_id', user.id).maybeSingle()
+        ? supabase.from('assistants').select('assistant_name, business_name, channel').eq('id', conv.assistant_id).eq('user_id', user.id).maybeSingle()
         : Promise.resolve({ data: null, error: null }),
-      supabaseAdmin.from('messages').select('*').eq('conversation_id', id).eq('user_id', user.id).order('created_at', { ascending: true }),
+      supabase.from('messages').select('*').eq('conversation_id', id).eq('user_id', user.id).order('created_at', { ascending: true }),
     ])
 
     if (messagesResult.error) throw messagesResult.error
@@ -69,12 +67,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const { data: verify } = await supabase.from('conversations').select('id').eq('id', id).single()
     if (!verify) return NextResponse.json({ error: 'Not found or forbidden' }, { status: 404 })
 
-    const supabaseAdmin = createSupabaseAdmin()
-
     // Validate plan access
     const [subRes, profileRes] = await Promise.all([
-      supabaseAdmin.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
-      supabaseAdmin.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
+      supabase.from('subscriptions').select('plan, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
+      supabase.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
     ])
     const { getEffectiveSubscriptionStatus } = await import('@/lib/billing/subscription-status')
     const effectiveStatus = getEffectiveSubscriptionStatus(subRes.data, profileRes.data)
@@ -101,7 +97,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if (Object.keys(updates).length > 0) {
-      const { error: updateError } = await supabaseAdmin
+      const { error: updateError } = await supabase
         .from('conversations')
         .update(updates)
         .eq('id', id)

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { canUseChannel, PlanKey, normalizePlan, getPlanLimits } from '@/lib/plans'
 import { getEffectiveSubscriptionStatus } from '@/lib/billing/subscription-status'
 import { logAuditEvent } from '@/lib/audit'
@@ -17,7 +16,7 @@ export async function GET() {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-    const assistantsClient = process.env.SUPABASE_SERVICE_ROLE_KEY ? createSupabaseAdmin() : supabase
+    const assistantsClient = supabase
     const { data: assistants, error } = await assistantsClient.from('assistants').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
     if (error) throw error
 
@@ -111,10 +110,9 @@ export async function POST(request: NextRequest) {
     }
 
     const channels = body.channels ?? {}
-    const supabaseAdmin = createSupabaseAdmin()
     const [subRes, profileRes] = await Promise.all([
-      supabaseAdmin.from('subscriptions').select('plan, assistants_limit, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
-      supabaseAdmin.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
+      supabase.from('subscriptions').select('plan, assistants_limit, status, current_period_end, grace_ends_at, cancel_at_period_end').eq('user_id', user.id).single(),
+      supabase.from('profiles').select('trial_used, trial_ends_at').eq('id', user.id).single()
     ])
     const sub = subRes.data
     const profile = profileRes.data

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { logAuditEvent } from '@/lib/audit'
 import { HttpInputError, readJsonBody } from '@/lib/http-security'
 
@@ -17,8 +16,7 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabaseAdmin = createSupabaseAdmin()
-    const { data: profile } = await supabaseAdmin
+    const { data: profile } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', user.id)
@@ -94,8 +92,7 @@ export async function PATCH(req: NextRequest) {
       patch.website = `https://${patch.website}`
     }
 
-    const supabaseAdmin = createSupabaseAdmin()
-    const { data: profile, error: upsertError } = await supabaseAdmin
+    const { data: profile, error: upsertError } = await supabase
       .from('profiles')
       .upsert(
         {

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { extractDomain } from '@/lib/security'
 import { logAuditEvent } from '@/lib/audit'
 import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
@@ -31,9 +30,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Asistente no encontrado o sin acceso' }, { status: 404 })
     }
 
-    // Usar admin (service_role) para leer los datos reales sin restricciones de RLS
-    const admin = createSupabaseAdmin()
-    const { data: domains, error } = await admin
+    // Cliente autenticado con RLS ya migrado para assistant_domains
+    const { data: domains, error } = await supabase
       .from('assistant_domains')
       .select('id, domain, is_verified, verification_status, last_seen_at, last_seen_url, install_events_count, is_active, updated_at, created_at')
       .eq('assistant_id', assistantId)
@@ -90,15 +88,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     // --- Verificación de límites y suscripción ---
-    const admin = createSupabaseAdmin()
-    
     const [subRes, profileRes] = await Promise.all([
-      admin
+      supabase
         .from('subscriptions')
         .select('plan, assistants_limit, status, current_period_end, grace_ends_at, cancel_at_period_end')
         .eq('user_id', user.id)
         .single(),
-      admin
+      supabase
         .from('profiles')
         .select('trial_used, trial_ends_at')
         .eq('id', user.id)
@@ -125,7 +121,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const planLimits = getPlanLimits(planKey)
 
     // Contar dominios actuales
-    const { count, error: countError } = await admin
+    const { count, error: countError } = await supabase
       .from('assistant_domains')
       .select('*', { count: 'exact', head: true })
       .eq('assistant_id', assistantId)
@@ -140,8 +136,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       )
     }
 
-    // Verificar duplicado (usando admin para evitar restricciones RLS)
-    const { data: existing } = await admin
+    // Verificar duplicado (protegido por RLS con cliente autenticado)
+    const { data: existing } = await supabase
       .from('assistant_domains')
       .select('id')
       .eq('assistant_id', assistantId)
@@ -152,7 +148,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'El dominio ya está registrado.' }, { status: 400 })
     }
 
-    const { data, error } = await admin
+    const { data, error } = await supabase
       .from('assistant_domains')
       .insert({
         assistant_id: assistantId,

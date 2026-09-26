@@ -18,8 +18,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: 'El mensaje debe tener entre 1 y 2000 caracteres.' }, { status: 400 })
     }
 
-    const admin = createSupabaseAdmin()
-    const { data: conversation } = await admin
+    const { data: conversation } = await supabase
       .from('conversations')
       .select('id, assistant_id, channel, external_chat_id')
       .eq('id', id)
@@ -28,6 +27,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (!conversation) return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 })
 
+    const admin = createSupabaseAdmin()
     let providerMessageId: string | null = null
     if (conversation.channel === 'whatsapp') {
       if (!conversation.external_chat_id) return NextResponse.json({ error: 'La conversación no tiene un destinatario de WhatsApp válido.' }, { status: 409 })
@@ -57,7 +57,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
 
     const now = new Date().toISOString()
-    const { data: message, error: messageError } = await admin.from('messages').insert({
+    const { data: message, error: messageError } = await supabase.from('messages').insert({
       conversation_id: id,
       user_id: user.id,
       assistant_id: conversation.assistant_id,
@@ -71,7 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     if (messageError) throw messageError
 
-    const { error: conversationError } = await admin.from('conversations').update({
+    const { error: conversationError } = await supabase.from('conversations').update({
       ai_paused: true,
       handoff_status: 'human',
       assigned_to: user.id,

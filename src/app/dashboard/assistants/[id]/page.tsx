@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { notFound, redirect } from 'next/navigation'
 import { isUuid } from '@/lib/http-security'
 import { AssistantPlayground } from '@/components/dashboard/AssistantPlayground'
@@ -39,11 +38,10 @@ export default async function AssistantDetailPage({
   if (!user) redirect(`/login?next=${encodeURIComponent(`/dashboard/assistants/${id}?tab=${rawTab}`)}`)
   if (!isUuid(id)) notFound()
 
-  // Use Admin to get plan and profile
-  const supabaseAdmin = createSupabaseAdmin()
+  // Datos propios del usuario protegidos por RLS con el cliente autenticado
   const [{ data: sub }, { data: profile }] = await Promise.all([
-    supabaseAdmin.from('subscriptions').select('*').eq('user_id', user.id).single(),
-    supabaseAdmin.from('profiles').select('*').eq('id', user.id).single()
+    supabase.from('subscriptions').select('*').eq('user_id', user.id).single(),
+    supabase.from('profiles').select('*').eq('id', user.id).single()
   ])
 
   const effStatus = sub && profile ? getEffectiveSubscriptionStatus(sub, profile) : 'free'
@@ -55,7 +53,7 @@ export default async function AssistantDetailPage({
 
   // Resolve the owned assistant independently. Optional related records must
   // never turn an existing assistant into a false 404.
-  const { data: assistant, error: assistantError } = await supabaseAdmin
+  const { data: assistant, error: assistantError } = await supabase
     .from('assistants')
     .select('*')
     .eq('id', id)
@@ -72,13 +70,13 @@ export default async function AssistantDetailPage({
     { data: testMessageRows, error: testMessagesError },
     { data: domainRows, error: domainsError },
   ] = await Promise.all([
-    supabaseAdmin
+    supabase
       .from('assistant_test_messages')
       .select('id, user_message, assistant_reply, created_at')
       .eq('assistant_id', id)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false }),
-    supabaseAdmin
+    supabase
       .from('assistant_domains')
       .select('id, domain, is_verified, verification_status, last_seen_at')
       .eq('assistant_id', id)
@@ -89,9 +87,9 @@ export default async function AssistantDetailPage({
   if (domainsError) console.error('[AssistantDetailPage] domains query failed:', domainsError.code)
 
   const [{ count: convCount }, { count: leadsCount }, { count: assistantCount }] = await Promise.all([
-    supabaseAdmin.from('conversations').select('*', { count: 'exact', head: true }).eq('assistant_id', id).eq('user_id', user.id),
-    supabaseAdmin.from('leads').select('*', { count: 'exact', head: true }).eq('assistant_id', id).eq('user_id', user.id),
-    supabaseAdmin.from('assistants').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
+    supabase.from('conversations').select('*', { count: 'exact', head: true }).eq('assistant_id', id).eq('user_id', user.id),
+    supabase.from('leads').select('*', { count: 'exact', head: true }).eq('assistant_id', id).eq('user_id', user.id),
+    supabase.from('assistants').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
   ])
 
   const conversationsCount = convCount || 0

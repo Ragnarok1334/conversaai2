@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { HttpInputError, isUuid, readJsonBody } from '@/lib/http-security'
 
 export async function PATCH(req: NextRequest) {
@@ -13,14 +12,12 @@ export async function PATCH(req: NextRequest) {
 
     const body = await readJsonBody<{ id?: unknown; all?: unknown }>(req, 2_048)
 
-    const supabaseAdmin = createSupabaseAdmin()
-
     // Marcar una específica
     if (body.id !== undefined && !isUuid(body.id)) return NextResponse.json({ error: 'ID inválido' }, { status: 400 })
     if (body.all !== undefined && typeof body.all !== 'boolean') return NextResponse.json({ error: 'Parámetro all inválido' }, { status: 400 })
 
     if (body.id) {
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('id', body.id)
@@ -35,7 +32,7 @@ export async function PATCH(req: NextRequest) {
 
     // Marcar todas
     if (body.all) {
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('user_id', user.id)
