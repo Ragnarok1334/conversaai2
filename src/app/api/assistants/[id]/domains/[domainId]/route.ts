@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createSupabaseAdmin } from '@/lib/supabase/admin'
 import { logAuditEvent } from '@/lib/audit'
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string; domainId: string }> }) {
@@ -37,8 +36,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       return NextResponse.json({ error: 'Dominio no encontrado' }, { status: 404 })
     }
 
-    const admin = createSupabaseAdmin()
-    const { error } = await admin
+    const { error } = await supabase
       .from('assistant_domains')
       .delete()
       .eq('id', domainId)
